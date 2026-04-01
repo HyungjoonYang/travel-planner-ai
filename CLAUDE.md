@@ -163,6 +163,7 @@ _(에이전트가 학습하면서 추가)_
 | 2026-04-01 | Pydantic v2 schemas with `from_attributes=True` | FastAPI native integration; strict validation (pattern, gt, ge); partial Update model via Optional fields |
 | 2026-04-01 | interests stored as comma-separated string (not JSON array) | Simpler SQLite storage; easy to read/write; can be split by AI prompt layer |
 | 2026-04-01 | Web search via Gemini `google_search` grounding tool (not a separate search API) | No extra API key required; Gemini natively fetches and grounds answers in real-time Google Search results; keeps dependency count low |
+| 2026-04-01 | Frontend: vanilla JS SPA served via FastAPI `StaticFiles` + `FileResponse` | No build step, no Node.js toolchain; single `index.html` with embedded CSS and JS; served at `GET /` and `/static/*`; consistent with lightweight backend-first architecture |
 
 ---
 

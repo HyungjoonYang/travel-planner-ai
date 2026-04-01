@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Travel Planner AI</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f9fa; --card: #fff; --border: #dee2e6; --primary: #0d6efd;
+    --primary-h: #0b5ed7; --danger: #dc3545; --success: #198754;
+    --text: #212529; --muted: #6c757d; --radius: 8px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh; }
+  nav { background: var(--primary); color: #fff; padding: 0 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  nav h1 { font-size: 1.25rem; font-weight: 700; cursor: pointer; }
+  nav .nav-links { display: flex; gap: 1rem; }
+  nav a { color: rgba(255,255,255,.85); text-decoration: none; font-size: .9rem;
+    padding: .4rem .75rem; border-radius: 4px; cursor: pointer; }
+  nav a:hover, nav a.active { background: rgba(255,255,255,.2); color: #fff; }
+  main { max-width: 1000px; margin: 0 auto; padding: 1.5rem; }
+  h2 { font-size: 1.4rem; margin-bottom: 1rem; }
+  h3 { font-size: 1.1rem; margin-bottom: .5rem; }
+  .card { background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .badge { display: inline-block; padding: .25em .6em; border-radius: 20px;
+    font-size: .75rem; font-weight: 600; }
+  .badge-draft { background: #fff3cd; color: #856404; }
+  .badge-confirmed { background: #d1e7dd; color: #0a3622; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .meta { font-size: .85rem; color: var(--muted); margin: .35rem 0; }
+  .actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+  button, .btn { cursor: pointer; border: none; border-radius: 4px;
+    padding: .45rem .9rem; font-size: .875rem; font-weight: 500;
+    transition: background .15s; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-h); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #b02a37; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-sm { padding: .25rem .6rem; font-size: .8rem; }
+  form label { display: block; font-size: .875rem; font-weight: 500; margin-bottom: .25rem; margin-top: .75rem; }
+  form input, form select, form textarea {
+    width: 100%; padding: .45rem .7rem; border: 1px solid var(--border);
+    border-radius: 4px; font-size: .9rem; background: var(--card); color: var(--text); }
+  form input:focus, form select:focus, form textarea:focus {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,110,253,.15); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .alert { padding: .75rem 1rem; border-radius: 4px; margin-bottom: 1rem; font-size: .875rem; }
+  .alert-error { background: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+  .alert-success { background: #d1e7dd; color: #0a3622; border: 1px solid #badbcc; }
+  .loading { text-align: center; padding: 2rem; color: var(--muted); }
+  .empty { text-align: center; padding: 2rem; color: var(--muted); }
+  .progress-bar-bg { background: var(--border); border-radius: 20px; height: 10px; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 20px; transition: width .3s; }
+  .section-title { font-size: .75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted); margin: 1rem 0 .5rem; }
+  .place-item { padding: .5rem 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+  .place-item:last-child { border-bottom: none; }
+  table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+  th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; color: var(--muted); font-size: .8rem; text-transform: uppercase; }
+  .hidden { display: none !important; }
+  #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center; z-index: 999; }
+  #modal-box { background: var(--card); border-radius: var(--radius); padding: 1.5rem;
+    width: min(520px, 94vw); max-height: 90vh; overflow-y: auto; position: relative; }
+  #modal-close { position: absolute; top: .75rem; right: .75rem; background: none;
+    border: none; font-size: 1.25rem; cursor: pointer; color: var(--muted); }
+  .tab-bar { display: flex; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .tab { padding: .4rem .9rem; border-radius: 4px; cursor: pointer; font-size: .875rem;
+    border: 1px solid var(--border); background: var(--card); color: var(--text); }
+  .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .search-result-card { border: 1px solid var(--border); border-radius: 4px; padding: .75rem; margin-bottom: .75rem; }
+  .price-tag { font-weight: 700; color: var(--success); }
+</style>
+</head>
+<body>
+<nav>
+  <h1 onclick="navigate('plans')">✈ Travel Planner AI</h1>
+  <div class="nav-links">
+    <a onclick="navigate('plans')" data-page="plans">Plans</a>
+    <a onclick="navigate('search')" data-page="search">Search</a>
+    <a onclick="navigate('new-plan')" data-page="new-plan">+ New Plan</a>
+  </div>
+</nav>
+<main id="app"></main>
+<div id="modal-overlay" class="hidden">
+  <div id="modal-box">
+    <button id="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ── API helpers ──────────────────────────────────────────────────────────────
+const api = async (method, path, body) => {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body != null) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (res.status === 204) return null;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  return data;
+};
+const get = (p) => api('GET', p);
+const post = (p, b) => api('POST', p, b);
+const patch = (p, b) => api('PATCH', p, b);
+const del = (p) => api('DELETE', p);
+
+// ── Router ───────────────────────────────────────────────────────────────────
+let currentPage = '';
+let currentPlanId = null;
+
+function navigate(page, planId) {
+  currentPage = page;
+  currentPlanId = planId || null;
+  document.querySelectorAll('nav a[data-page]').forEach(a =>
+    a.classList.toggle('active', a.dataset.page === page));
+  render();
+}
+
+// ── Modal ────────────────────────────────────────────────────────────────────
+function openModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+// ── Alert helpers ────────────────────────────────────────────────────────────
+function alertHtml(msg, type = 'error') {
+  return `<div class="alert alert-${type}">${escHtml(msg)}</div>`;
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Main render ──────────────────────────────────────────────────────────────
+async function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = '<div class="loading">Loading…</div>';
+  try {
+    if (currentPage === 'plans' || currentPage === '') await renderPlans(app);
+    else if (currentPage === 'new-plan') renderNewPlan(app);
+    else if (currentPage === 'plan-detail') await renderPlanDetail(app, currentPlanId);
+    else if (currentPage === 'search') renderSearch(app);
+  } catch(e) {
+    app.innerHTML = alertHtml(e.message);
+  }
+}
+
+// ── Plans list ───────────────────────────────────────────────────────────────
+async function renderPlans(app) {
+  const plans = await get('/travel-plans');
+  if (!plans.length) {
+    app.innerHTML = `
+      <h2>My Travel Plans</h2>
+      <div class="empty">No plans yet. <a href="#" onclick="navigate('new-plan')">Create your first trip!</a></div>`;
+    return;
+  }
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <h2>My Travel Plans (${plans.length})</h2>
+    <button class="btn btn-primary" onclick="navigate('new-plan')">+ New Plan</button>
+  </div>`;
+  for (const p of plans) {
+    const nights = Math.round((new Date(p.end_date)-new Date(p.start_date))/(86400000));
+    html += `<div class="card" style="cursor:pointer" onclick="navigate('plan-detail',${p.id})">
+      <div class="card-header">
+        <div>
+          <strong style="font-size:1.05rem">${escHtml(p.destination)}</strong>
+          <span class="badge badge-${p.status}" style="margin-left:.5rem">${p.status}</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePlan(${p.id})">Delete</button>
+      </div>
+      <div class="meta">${p.start_date} → ${p.end_date} &nbsp;·&nbsp; ${nights} night${nights!==1?'s':''}</div>
+      <div class="meta">Budget: $${p.budget.toLocaleString()}</div>
+      ${p.interests ? `<div class="meta">Interests: ${escHtml(p.interests)}</div>` : ''}
+    </div>`;
+  }
+  app.innerHTML = html;
+}
+
+async function deletePlan(id) {
+  if (!confirm('Delete this travel plan?')) return;
+  try {
+    await del(`/travel-plans/${id}`);
+    navigate('plans');
+  } catch(e) { alert(e.message); }
+}
+
+// ── New plan form ─────────────────────────────────────────────────────────────
+function renderNewPlan(app) {
+  app.innerHTML = `
+  <h2>Create New Travel Plan</h2>
+  <div class="card">
+    <div id="form-alert"></div>
+    <form onsubmit="submitNewPlan(event)">
+      <label>Destination *</label>
+      <input name="destination" placeholder="e.g. Tokyo, Japan" required />
+      <div class="form-row">
+        <div><label>Start Date *</label><input name="start_date" type="date" required /></div>
+        <div><label>End Date *</label><input name="end_date" type="date" required /></div>
+      </div>
+      <label>Budget (USD) *</label>
+      <input name="budget" type="number" min="1" step="any" placeholder="e.g. 3000" required />
+      <label>Interests</label>
+      <input name="interests" placeholder="e.g. food, culture, nature, museums" />
+      <label>Status</label>
+      <select name="status"><option value="draft">Draft</option><option value="confirmed">Confirmed</option></select>
+      <div style="display:flex;gap:.75rem;margin-top:1rem">
+        <button type="submit" class="btn btn-primary">Save Plan</button>
+        <button type="button" class="btn btn-primary" style="background:#6f42c1"
+          onclick="submitAIPlan(event)">✨ Generate with AI</button>
+        <button type="button" class="btn btn-outline" onclick="navigate('plans')">Cancel</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+function collectPlanForm() {
+  const f = document.querySelector('form');
+  return {
+    destination: f.destination.value.trim(),
+    start_date: f.start_date.value,
+    end_date: f.end_date.value,
+    budget: parseFloat(f.budget.value),
+    interests: f.interests.value.trim(),
+    status: f.status.value,
+  };
+}
+
+async function submitNewPlan(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('form-alert');
+  alertEl.innerHTML = '';
+  try {
+    const plan = await post('/travel-plans', collectPlanForm());
+    navigate('plan-detail', plan.id);
+  } catch(err) {
+    alertEl.innerHTML = alertHtml(err.message);
+  }
+}
+
+async function submitAIPlan(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('form-alert');
+  alertEl.innerHTML = '';
+  const btn = e.target;
+  btn.disabled = true; btn.textContent = '⏳ Generating…';
+  try {
+    const plan = await post('/ai/generate', collectPlanForm());
+    navigate('plan-detail', plan.id);
+  } catch(err) {
+    alertEl.innerHTML = alertHtml(err.message);
+    btn.disabled = false; btn.textContent = '✨ Generate with AI';
+  }
+}
+
+// ── Plan detail ───────────────────────────────────────────────────────────────
+async function renderPlanDetail(app, id) {
+  const plan = await get(`/travel-plans/${id}`);
+  const summary = await get(`/plans/${id}/expenses/summary`).catch(() => null);
+
+  const nights = Math.round((new Date(plan.end_date)-new Date(plan.start_date))/(86400000));
+  let budgetBar = '';
+  if (summary) {
+    const pct = Math.min(100, (summary.total_spent / summary.budget) * 100).toFixed(1);
+    const barColor = pct >= 90 ? '#dc3545' : pct >= 70 ? '#ffc107' : '#198754';
+    budgetBar = `
+      <div class="section-title">Budget</div>
+      <div style="margin-bottom:.5rem;display:flex;justify-content:space-between;font-size:.875rem">
+        <span>Spent: <strong>$${summary.total_spent.toLocaleString()}</strong></span>
+        <span>Remaining: <strong style="color:${summary.remaining>=0?'var(--success)':'var(--danger)'}">$${summary.remaining.toLocaleString()}</strong></span>
+        <span>Budget: $${summary.budget.toLocaleString()}</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar" style="width:${pct}%;background:${barColor}"></div></div>
+      <div style="font-size:.8rem;color:var(--muted);margin-top:.25rem">${pct}% used</div>`;
+  }
+
+  let itinHtml = '';
+  if (plan.itineraries && plan.itineraries.length) {
+    plan.itineraries.sort((a,b) => a.date.localeCompare(b.date));
+    for (const day of plan.itineraries) {
+      const dayLabel = new Date(day.date+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+      let placesHtml = day.places.length
+        ? day.places.sort((a,b)=>a.order-b.order).map(p=>`
+            <div class="place-item">
+              <div>
+                <strong>${escHtml(p.name)}</strong>
+                ${p.category?`<span class="badge badge-draft" style="margin-left:.4rem">${escHtml(p.category)}</span>`:''}
+                ${p.address?`<div class="meta">${escHtml(p.address)}</div>`:''}
+                ${p.ai_reason?`<div class="meta" style="font-style:italic">${escHtml(p.ai_reason)}</div>`:''}
+              </div>
+              ${p.estimated_cost?`<span class="price-tag">$${p.estimated_cost}</span>`:''}
+            </div>`).join('')
+        : '<div class="meta">No places added.</div>';
+      itinHtml += `<div class="card">
+        <div style="display:flex;justify-content:space-between">
+          <strong>${dayLabel}</strong>
+          ${day.transport?`<span class="meta">🚌 ${escHtml(day.transport)}</span>`:''}
+        </div>
+        ${day.notes?`<div class="meta" style="margin-top:.4rem">${escHtml(day.notes)}</div>`:''}
+        <div style="margin-top:.75rem">${placesHtml}</div>
+      </div>`;
+    }
+  } else {
+    itinHtml = '<div class="empty">No itinerary yet. Use AI to generate one.</div>';
+  }
+
+  app.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <div>
+      <a href="#" onclick="navigate('plans')" style="color:var(--muted);font-size:.875rem">← Plans</a>
+      <h2 style="margin-top:.25rem">${escHtml(plan.destination)}
+        <span class="badge badge-${plan.status}" style="margin-left:.5rem">${plan.status}</span>
+      </h2>
+    </div>
+    <div class="actions">
+      <button class="btn btn-outline btn-sm" onclick="openEditPlan(${plan.id})">Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deletePlan(${plan.id})">Delete</button>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="meta">📅 ${plan.start_date} → ${plan.end_date} (${nights} nights)</div>
+      <div class="meta">💰 Budget: $${plan.budget.toLocaleString()}</div>
+      ${plan.interests?`<div class="meta">🎯 ${escHtml(plan.interests)}</div>`:''}
+      ${budgetBar}
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Expenses</strong>
+        <button class="btn btn-primary btn-sm" onclick="openAddExpense(${plan.id})">+ Add</button>
+      </div>
+      <div id="expense-list" style="margin-top:.75rem">${renderExpenseRows(plan.expenses)}</div>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+    <h3>Itinerary</h3>
+  </div>
+  ${itinHtml}`;
+}
+
+function renderExpenseRows(expenses) {
+  if (!expenses || !expenses.length) return '<div class="meta">No expenses yet.</div>';
+  return expenses.map(e=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span>${escHtml(e.name)}</span>
+        ${e.category?`<span class="meta" style="margin-left:.4rem">(${escHtml(e.category)})</span>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <strong>$${e.amount.toLocaleString()}</strong>
+        <button class="btn btn-danger btn-sm" onclick="deleteExpense(${e.travel_plan_id},${e.id})">×</button>
+      </div>
+    </div>`).join('');
+}
+
+async function deleteExpense(planId, expenseId) {
+  try {
+    await del(`/plans/${planId}/expenses/${expenseId}`);
+    navigate('plan-detail', planId);
+  } catch(e) { alert(e.message); }
+}
+
+function openAddExpense(planId) {
+  openModal(`
+    <h3>Add Expense</h3>
+    <div id="exp-alert"></div>
+    <form onsubmit="submitExpense(event,${planId})">
+      <label>Name *</label><input name="name" required placeholder="e.g. Hotel night" />
+      <label>Amount (USD) *</label><input name="amount" type="number" min="0.01" step="any" required />
+      <label>Category</label><input name="category" placeholder="e.g. accommodation, food, transport" />
+      <label>Date</label><input name="date" type="date" />
+      <label>Notes</label><input name="notes" />
+      <div style="margin-top:1rem;display:flex;gap:.75rem">
+        <button type="submit" class="btn btn-primary">Add</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      </div>
+    </form>`);
+}
+
+async function submitExpense(e, planId) {
+  e.preventDefault();
+  const f = e.target;
+  const alertEl = document.getElementById('exp-alert');
+  try {
+    const body = {
+      name: f.name.value.trim(),
+      amount: parseFloat(f.amount.value),
+      category: f.category.value.trim(),
+      notes: f.notes.value.trim(),
+    };
+    if (f.date.value) body.date = f.date.value;
+    await post(`/plans/${planId}/expenses`, body);
+    closeModal();
+    navigate('plan-detail', planId);
+  } catch(err) {
+    alertEl.innerHTML = alertHtml(err.message);
+  }
+}
+
+function openEditPlan(id) {
+  get(`/travel-plans/${id}`).then(plan => {
+    openModal(`
+      <h3>Edit Plan</h3>
+      <div id="edit-alert"></div>
+      <form onsubmit="submitEditPlan(event,${id})">
+        <label>Destination</label>
+        <input name="destination" value="${escHtml(plan.destination)}" />
+        <div class="form-row">
+          <div><label>Start Date</label><input name="start_date" type="date" value="${plan.start_date}" /></div>
+          <div><label>End Date</label><input name="end_date" type="date" value="${plan.end_date}" /></div>
+        </div>
+        <label>Budget</label>
+        <input name="budget" type="number" min="1" step="any" value="${plan.budget}" />
+        <label>Interests</label>
+        <input name="interests" value="${escHtml(plan.interests||'')}" />
+        <label>Status</label>
+        <select name="status">
+          <option value="draft"${plan.status==='draft'?' selected':''}>Draft</option>
+          <option value="confirmed"${plan.status==='confirmed'?' selected':''}>Confirmed</option>
+        </select>
+        <div style="margin-top:1rem;display:flex;gap:.75rem">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        </div>
+      </form>`);
+  });
+}
+
+async function submitEditPlan(e, id) {
+  e.preventDefault();
+  const f = e.target;
+  const alertEl = document.getElementById('edit-alert');
+  const body = {};
+  if (f.destination.value) body.destination = f.destination.value.trim();
+  if (f.start_date.value) body.start_date = f.start_date.value;
+  if (f.end_date.value) body.end_date = f.end_date.value;
+  if (f.budget.value) body.budget = parseFloat(f.budget.value);
+  if (f.interests.value !== undefined) body.interests = f.interests.value.trim();
+  body.status = f.status.value;
+  try {
+    await patch(`/travel-plans/${id}`, body);
+    closeModal();
+    navigate('plan-detail', id);
+  } catch(err) {
+    alertEl.innerHTML = alertHtml(err.message);
+  }
+}
+
+// ── Search page ───────────────────────────────────────────────────────────────
+function renderSearch(app) {
+  app.innerHTML = `
+  <h2>Search</h2>
+  <div class="tab-bar">
+    <div class="tab active" onclick="switchSearchTab(this,'destinations')">Destinations</div>
+    <div class="tab" onclick="switchSearchTab(this,'hotels')">Hotels</div>
+    <div class="tab" onclick="switchSearchTab(this,'flights')">Flights</div>
+  </div>
+  <div id="search-destinations">${destinationSearchForm()}</div>
+  <div id="search-hotels" class="hidden">${hotelSearchForm()}</div>
+  <div id="search-flights" class="hidden">${flightSearchForm()}</div>`;
+}
+
+function switchSearchTab(el, tab) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['destinations','hotels','flights'].forEach(t => {
+    document.getElementById(`search-${t}`).classList.toggle('hidden', t !== tab);
+  });
+}
+
+function destinationSearchForm() {
+  return `<div class="card">
+    <form onsubmit="searchDestinations(event)">
+      <label>Destination *</label>
+      <input name="destination" placeholder="e.g. Kyoto, Japan" required />
+      <label>Interests</label>
+      <input name="interests" placeholder="e.g. temples, food, hiking" />
+      <label>Category</label>
+      <input name="category" placeholder="e.g. restaurant, museum, park" />
+      <button type="submit" class="btn btn-primary" style="margin-top:1rem">Search Places</button>
+    </form>
+  </div>
+  <div id="dest-results"></div>`;
+}
+
+function hotelSearchForm() {
+  return `<div class="card">
+    <form onsubmit="searchHotels(event)">
+      <label>Destination *</label>
+      <input name="destination" placeholder="e.g. Paris, France" required />
+      <div class="form-row">
+        <div><label>Check-in</label><input name="check_in" type="date" /></div>
+        <div><label>Check-out</label><input name="check_out" type="date" /></div>
+      </div>
+      <label>Max Price / Night (USD)</label>
+      <input name="max_price" type="number" min="1" step="any" placeholder="e.g. 200" />
+      <button type="submit" class="btn btn-primary" style="margin-top:1rem">Search Hotels</button>
+    </form>
+  </div>
+  <div id="hotel-results"></div>`;
+}
+
+function flightSearchForm() {
+  return `<div class="card">
+    <form onsubmit="searchFlights(event)">
+      <div class="form-row">
+        <div><label>Origin *</label><input name="origin" placeholder="e.g. New York" required /></div>
+        <div><label>Destination *</label><input name="destination" placeholder="e.g. Tokyo" required /></div>
+      </div>
+      <div class="form-row">
+        <div><label>Departure Date *</label><input name="departure_date" type="date" required /></div>
+        <div><label>Return Date</label><input name="return_date" type="date" /></div>
+      </div>
+      <div class="form-row">
+        <div><label>Passengers</label><input name="passengers" type="number" min="1" value="1" /></div>
+        <div><label>Max Budget (USD)</label><input name="max_budget" type="number" min="1" step="any" /></div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:1rem">Search Flights</button>
+    </form>
+  </div>
+  <div id="flight-results"></div>`;
+}
+
+async function searchDestinations(e) {
+  e.preventDefault();
+  const f = e.target;
+  const resultsEl = document.getElementById('dest-results');
+  resultsEl.innerHTML = '<div class="loading">Searching…</div>';
+  try {
+    const params = new URLSearchParams({ destination: f.destination.value });
+    if (f.interests.value) params.set('interests', f.interests.value);
+    if (f.category.value) params.set('category', f.category.value);
+    const data = await get(`/search/places?${params}`);
+    resultsEl.innerHTML = renderPlaceResults(data);
+  } catch(err) {
+    resultsEl.innerHTML = alertHtml(err.message);
+  }
+}
+
+function renderPlaceResults(data) {
+  let html = `<div class="section-title">${data.destination} — ${data.places.length} places found</div>`;
+  if (data.summary) html += `<div class="meta" style="margin-bottom:.75rem">${escHtml(data.summary)}</div>`;
+  if (!data.places.length) return html + '<div class="empty">No results.</div>';
+  for (const p of data.places) {
+    html += `<div class="search-result-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <strong>${escHtml(p.name)}</strong>
+        ${p.estimated_cost?`<span class="price-tag">~$${p.estimated_cost}</span>`:''}
+      </div>
+      ${p.category?`<div class="meta">${escHtml(p.category)}</div>`:''}
+      ${p.address?`<div class="meta">📍 ${escHtml(p.address)}</div>`:''}
+      ${p.ai_reason?`<div class="meta" style="font-style:italic;margin-top:.3rem">${escHtml(p.ai_reason)}</div>`:''}
+    </div>`;
+  }
+  return html;
+}
+
+async function searchHotels(e) {
+  e.preventDefault();
+  const f = e.target;
+  const resultsEl = document.getElementById('hotel-results');
+  resultsEl.innerHTML = '<div class="loading">Searching…</div>';
+  try {
+    const params = new URLSearchParams({ destination: f.destination.value });
+    if (f.check_in.value) params.set('check_in', f.check_in.value);
+    if (f.check_out.value) params.set('check_out', f.check_out.value);
+    if (f.max_price.value) params.set('max_price_per_night', f.max_price.value);
+    const data = await get(`/search/hotels?${params}`);
+    resultsEl.innerHTML = renderHotelResults(data);
+  } catch(err) {
+    resultsEl.innerHTML = alertHtml(err.message);
+  }
+}
+
+function renderHotelResults(data) {
+  let html = `<div class="section-title">${data.destination} — ${data.hotels.length} hotels</div>`;
+  if (data.summary) html += `<div class="meta" style="margin-bottom:.75rem">${escHtml(data.summary)}</div>`;
+  if (!data.hotels.length) return html + '<div class="empty">No results.</div>';
+  for (const h of data.hotels) {
+    html += `<div class="search-result-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <strong>${escHtml(h.name)}</strong>
+        ${h.price_per_night?`<span class="price-tag">$${h.price_per_night}/night</span>`:''}
+      </div>
+      ${h.address?`<div class="meta">📍 ${escHtml(h.address)}</div>`:''}
+      ${h.rating?`<div class="meta">⭐ ${h.rating}</div>`:''}
+      ${h.amenities&&h.amenities.length?`<div class="meta">✓ ${h.amenities.slice(0,4).map(escHtml).join(' · ')}</div>`:''}
+      ${h.ai_reason?`<div class="meta" style="font-style:italic;margin-top:.3rem">${escHtml(h.ai_reason)}</div>`:''}
+    </div>`;
+  }
+  return html;
+}
+
+async function searchFlights(e) {
+  e.preventDefault();
+  const f = e.target;
+  const resultsEl = document.getElementById('flight-results');
+  resultsEl.innerHTML = '<div class="loading">Searching…</div>';
+  try {
+    const params = new URLSearchParams({
+      origin: f.origin.value,
+      destination: f.destination.value,
+      departure_date: f.departure_date.value,
+    });
+    if (f.return_date.value) params.set('return_date', f.return_date.value);
+    if (f.passengers.value) params.set('passengers', f.passengers.value);
+    if (f.max_budget.value) params.set('max_budget', f.max_budget.value);
+    const data = await get(`/search/flights?${params}`);
+    resultsEl.innerHTML = renderFlightResults(data);
+  } catch(err) {
+    resultsEl.innerHTML = alertHtml(err.message);
+  }
+}
+
+function renderFlightResults(data) {
+  let html = `<div class="section-title">${data.origin} → ${data.destination} — ${data.flights.length} options</div>`;
+  if (data.summary) html += `<div class="meta" style="margin-bottom:.75rem">${escHtml(data.summary)}</div>`;
+  if (!data.flights.length) return html + '<div class="empty">No results.</div>';
+  for (const fl of data.flights) {
+    html += `<div class="search-result-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <strong>${escHtml(fl.airline)}</strong>
+        ${fl.price?`<span class="price-tag">$${fl.price}</span>`:''}
+      </div>
+      ${fl.flight_number?`<div class="meta">Flight ${escHtml(fl.flight_number)}</div>`:''}
+      ${fl.departure_time?`<div class="meta">🛫 ${escHtml(fl.departure_time)}${fl.arrival_time?' → 🛬 '+escHtml(fl.arrival_time):''}</div>`:''}
+      ${fl.duration?`<div class="meta">⏱ ${escHtml(fl.duration)}</div>`:''}
+      ${fl.stops!==undefined?`<div class="meta">${fl.stops===0?'✈ Direct':fl.stops+' stop(s)'}</div>`:''}
+      ${fl.ai_reason?`<div class="meta" style="font-style:italic;margin-top:.3rem">${escHtml(fl.ai_reason)}</div>`:''}
+    </div>`;
+  }
+  return html;
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+navigate('plans');
+</script>
+</body>
+</html>

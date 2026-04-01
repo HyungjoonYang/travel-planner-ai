@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 21,
-    "successful_runs": 18,
+    "total_runs": 22,
+    "successful_runs": 19,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -40,6 +40,7 @@
     {"run_id": "monitor-2026-04-01-1834", "task": "monitor", "result": "success", "tests_passed": 357, "tests_total": 357},
     {"run_id": "2026-04-01-1900", "task": "#13 - Implement flight search via web search", "result": "success", "tests_passed": 407, "tests_total": 407},
     {"run_id": "2026-04-01-1930", "task": "#14 - Add expense tracking", "result": "success", "tests_passed": 464, "tests_total": 464},
-    {"run_id": "monitor-2026-04-01-1938", "task": "monitor", "result": "success", "tests_passed": 464, "tests_total": 464}
+    {"run_id": "monitor-2026-04-01-1938", "task": "monitor", "result": "success", "tests_passed": 464, "tests_total": 464},
+    {"run_id": "2026-04-01-2000", "task": "#15 - Build frontend UI", "result": "success", "tests_passed": 474, "tests_total": 474}
   ]
 }
