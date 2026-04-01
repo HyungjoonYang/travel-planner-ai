@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 11,
-    "successful_runs": 9,
+    "total_runs": 12,
+    "successful_runs": 10,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -93,6 +93,13 @@
     {
       "run_id": "2026-04-01-1900",
       "task": "#8 - Add web search tool for destination research",
+      "result": "success",
+      "tests_passed": 206,
+      "tests_total": 206
+    },
+    {
+      "run_id": "monitor-2026-04-01-2000",
+      "task": "monitor",
       "result": "success",
       "tests_passed": 206,
       "tests_total": 206

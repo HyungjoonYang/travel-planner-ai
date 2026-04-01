@@ -1,0 +1,32 @@
+{
+  "run_id": "monitor-2026-04-01-2000",
+  "type": "monitor",
+  "timestamp": "2026-04-01T20:00:00Z",
+  "duration_ms": 1410,
+  "ltes": {
+    "latency": {
+      "test_run_ms": 1410,
+      "note": "206 tests in 1.41s"
+    },
+    "traffic": {
+      "commits_last_24h": 15,
+      "recent_change_summary": "feat: add web search tool for destination research (+534 lines)"
+    },
+    "errors": {
+      "tests_passed": 206,
+      "tests_failed": 0,
+      "test_pass_rate": 1.0,
+      "error_rate_pct": 0.0,
+      "fix_attempts": 0
+    },
+    "saturation": {
+      "backlog_ready": 9,
+      "backlog_in_progress": 0,
+      "backlog_total_remaining": 12,
+      "log_files": 12
+    }
+  },
+  "health": "GREEN",
+  "error_budget_status": "HEALTHY",
+  "summary": "All 206 tests pass. No incidents. System healthy."
+}
