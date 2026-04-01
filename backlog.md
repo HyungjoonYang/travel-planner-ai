@@ -11,7 +11,6 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 3: Advanced Features
-- [ ] #13 - Implement flight search via web search [feature]
 - [ ] #14 - Add expense tracking (budget management) [feature]
 - [ ] #15 - Build frontend UI [feature]
 - [ ] #16 - Write integration tests for advanced features [test]
@@ -36,6 +35,7 @@ _(없음)_
 - [x] #10 - Write tests for AI-generated travel plans (42 tests: Pydantic models, multi-day persistence, invalid date handling, place order, budget validation, interests edge cases) [test] — 2026-04-01
 - [x] #11 - Add Google Calendar integration (CalendarService + POST /plans/{id}/calendar/export + 40 tests) [feature] — 2026-04-01
 - [x] #12 - Implement hotel search via web search (HotelSearchService + GET /search/hotels + 44 tests) [feature] — 2026-04-01
+- [x] #13 - Implement flight search via web search (FlightSearchService + GET /search/flights + 50 tests) [feature] — 2026-04-01
 
 ## Blocked
 

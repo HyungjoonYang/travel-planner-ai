@@ -1,22 +1,34 @@
 # Status
 
-Last run: 2026-04-01T18:34:50Z (Monitor Run #10)
-Run count: 18
+Last run: 2026-04-01T19:00:00Z (Evolve Run #18)
+Run count: 19
 Phase: Phase 3: Advanced Features
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 12/20
-Current focus: #13 - Implement flight search via web search
-Next planned: #13 - Implement flight search via web search
+Tasks completed: 13/20
+Current focus: #14 - Add expense tracking (budget management)
+Next planned: #14 - Add expense tracking (budget management)
 
 ## LTES Snapshot
 
-- Latency: ~2610ms (pytest 357 tests in 2.61s)
-- Traffic: 21 commits last 24h
-- Errors: 0 test failures (357/357 pass), error_rate=0.0%
-- Saturation: 8 tasks remaining in backlog, 18 log entries
+- Latency: ~2450ms (pytest 407 tests in 2.45s)
+- Traffic: 22 commits last 24h
+- Errors: 0 test failures (407/407 pass), error_rate=0.0%
+- Saturation: 7 tasks remaining in backlog, 19 log entries
 
 ## Recent Changes
+
+### Run #18 — 2026-04-01T19:00Z
+- **Task**: #13 - Implement flight search via web search
+- **Phase**: Phase 3: Advanced Features
+- **Result**: GREEN ✓
+- **Files created**:
+  - `src/app/flight_search.py` — `FlightSearchService` with `_build_search_prompt()`, `_extract_json()`, `search_flights()`; uses Gemini `google_search` grounding to find flights; `FlightResult` / `FlightSearchResult` Pydantic response models; supports departure/return dates, passengers, max_price params
+  - `tests/test_flight_search.py` — 50 tests: 13 prompt builder tests, 6 JSON extraction tests, 16 service unit tests (mocked Gemini), 15 endpoint integration tests
+- **Files modified**:
+  - `src/app/routers/search.py` — added `GET /search/flights` endpoint with departure_city, arrival_city, departure_date, return_date, passengers (ge=1), max_price (ge=0) query params
+- **Tests**: 407/407 passed (was 357, added 50 flight search tests)
+- **Tech decision**: Reused same Gemini `google_search` grounding pattern as hotel and web search services; `FlightResult` includes airline, flight_number, departure_time, arrival_time, duration, stops, price, cabin_class, tips fields
 
 ### Monitor #10 — 2026-04-01T18:34Z
 - **Type**: Health Check (monitor run)
