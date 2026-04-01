@@ -10,9 +10,6 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-### Phase 3: Advanced Features
-- [ ] #16 - Write integration tests for advanced features [test]
-
 ### Phase 4: Polish
 - [ ] #17 - Add comprehensive error handling and validation [improvement]
 - [ ] #18 - Performance optimization and caching [improvement]
@@ -36,6 +33,7 @@ _(없음)_
 - [x] #13 - Implement flight search via web search (FlightSearchService + GET /search/flights + 50 tests) [feature] — 2026-04-01
 - [x] #14 - Add expense tracking (ExpensesRouter + CRUD + GET /plans/{id}/expenses/summary + 57 tests) [feature] — 2026-04-01
 - [x] #15 - Build frontend UI (vanilla JS SPA served via FastAPI StaticFiles; plans CRUD, AI generation, expense tracking, hotel/flight/destination search; 10 tests) [feature] — 2026-04-01
+- [x] #16 - Write integration tests for advanced features (39 tests: plan lifecycle, expense isolation, budget summary, AI generation+persistence, calendar export, search error propagation, multi-plan independence) [test] — 2026-04-01
 
 ## Blocked
 
@@ -48,3 +46,4 @@ _(없음)_
 - Velocity: 1 task/run
 - Avg time per task: ~100s
 - Total tasks: 20
+- Completed: 16/20

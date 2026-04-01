@@ -1,22 +1,31 @@
 # Status
 
-Last run: 2026-04-01T20:00:00Z (Run #20)
-Run count: 22
+Last run: 2026-04-01T21:00:00Z (Run #21)
+Run count: 23
 Phase: Phase 3: Advanced Features
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 15/20
-Current focus: #16 - Write integration tests for advanced features
-Next planned: #16 - Write integration tests for advanced features
+Tasks completed: 16/20
+Current focus: #17 - Add comprehensive error handling and validation
+Next planned: #17 - Add comprehensive error handling and validation
 
 ## LTES Snapshot
 
-- Latency: ~3300ms (pytest 474 tests in 3.30s)
-- Traffic: 25 commits last 24h
-- Errors: 0 test failures (474/474 pass), error_rate=0.0%
-- Saturation: 5 tasks remaining in backlog, 22 log entries
+- Latency: ~4170ms (pytest 513 tests in 4.17s)
+- Traffic: 26 commits last 24h
+- Errors: 0 test failures (513/513 pass), error_rate=0.0%
+- Saturation: 4 tasks remaining in backlog, 23 log entries
 
 ## Recent Changes
+
+### Run #21 — 2026-04-01T21:00Z
+- **Task**: #16 - Write integration tests for advanced features
+- **Phase**: Phase 3: Advanced Features
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_integration.py` — 39 integration tests covering multi-step cross-feature workflows: full travel plan lifecycle (create/update/confirm/delete), expense CRUD lifecycle, expense cross-plan isolation, budget summary with additions/deletions/updates, over-budget detection, AI plan generation with persistence and expense tracking, calendar export pipeline (success/401/502/no-itinerary), search endpoint error propagation (503/502/422 for places/hotels/flights), multi-plan concurrent independence
+- **Tests**: 513/513 passed (was 474, added 39 integration tests)
+- **Coverage added**: 7 lifecycle tests, 6 expense tests, 6 budget summary tests, 4 AI generation tests, 5 calendar export tests, 8 search tests, 3 multi-plan tests
 
 ### Run #20 — 2026-04-01T20:00Z
 - **Task**: #15 - Build frontend UI
