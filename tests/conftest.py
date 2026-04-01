@@ -10,8 +10,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.cache import search_cache
 from app.database import Base, get_db
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def clear_search_cache():
+    """Ensure each test starts with an empty search cache for isolation."""
+    search_cache.clear()
+    yield
+    search_cache.clear()
 
 
 @pytest.fixture

@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
+from app.cache import search_cache
 from app.database import init_db
 import app.models  # noqa: F401 — registers ORM models with Base.metadata
 from app.routers import ai_plans, calendar, expenses, search, travel_plans
@@ -102,6 +103,19 @@ app.include_router(calendar.router)
 @app.get("/health")
 def health_check():
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.get("/cache/stats", tags=["cache"])
+def cache_stats():
+    """Return search-result cache statistics."""
+    return search_cache.stats()
+
+
+@app.delete("/cache", tags=["cache"])
+def cache_clear():
+    """Evict all cached search results. Useful after data updates."""
+    cleared = search_cache.clear()
+    return {"cleared": cleared}
 
 
 @app.get("/", include_in_schema=False)
