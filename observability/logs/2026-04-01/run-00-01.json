@@ -1,0 +1,64 @@
+{
+  "trace": {
+    "run_id": "2026-04-01-0001",
+    "timestamp": "2026-04-01T00:01:00Z",
+    "phase": "Phase 1: POC",
+    "health": "GREEN",
+    "task": "#2 - Create travel plan data models (SQLAlchemy + Pydantic schemas)"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-01T00:01:00Z",
+      "end": "2026-04-01T00:01:05Z",
+      "duration_ms": 5000,
+      "result": "pass",
+      "details": {"tests_run": 2, "tests_passed": 2, "tests_failed": 0}
+    },
+    {
+      "name": "status_check",
+      "start": "2026-04-01T00:01:05Z",
+      "end": "2026-04-01T00:01:06Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"error_budget": "HEALTHY", "phase": "Phase 1"}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-01T00:01:06Z",
+      "end": "2026-04-01T00:01:07Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"task": "#2", "from": "Ready", "to": "In Progress"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-01T00:01:07Z",
+      "end": "2026-04-01T00:02:30Z",
+      "duration_ms": 83000,
+      "result": "pass",
+      "details": {
+        "files_created": [
+          "src/app/models.py",
+          "src/app/schemas.py",
+          "tests/test_models.py"
+        ],
+        "files_modified": ["src/app/main.py"]
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-01T00:02:30Z",
+      "end": "2026-04-01T00:02:35Z",
+      "duration_ms": 5000,
+      "result": "pass",
+      "details": {"tests_run": 16, "tests_passed": 16, "tests_failed": 0}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 95000, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 230, "lines_removed": 0, "files_changed": 4},
+    "errors": {"test_failures": 0, "fix_attempts": 0, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 18}
+  }
+}
