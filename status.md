@@ -1,22 +1,34 @@
 # Status
 
-Last run: 2026-04-01T20:00:00Z (Monitor Run #12)
-Run count: 12
+Last run: 2026-04-01T21:00:00Z (Evolve Run #13)
+Run count: 13
 Phase: Phase 2 — AI Integration
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 8/20
-Current focus: #9 - Implement structured output (day-by-day itinerary JSON)
-Next planned: #9 - Implement structured output (day-by-day itinerary JSON)
+Tasks completed: 9/20
+Current focus: #10 - Write tests for AI-generated travel plans
+Next planned: #10 - Write tests for AI-generated travel plans
 
 ## LTES Snapshot
 
-- Latency: ~1410ms (pytest 206 tests in 1.41s)
-- Traffic: 15 commits total
-- Errors: 0 test failures (206/206 pass), 0 fix attempts, error_rate=0.0%
-- Saturation: 12 tasks remaining in backlog, 12 log entries
+- Latency: ~1300ms (pytest 231 tests in 1.30s)
+- Traffic: 16 commits total
+- Errors: 0 test failures (231/231 pass), 0 fix attempts, error_rate=0.0%
+- Saturation: 11 tasks remaining in backlog, 13 log entries
 
 ## Recent Changes
+
+### Run #13 — 2026-04-01T21:00Z
+- **Task**: #9 - Implement structured output (day-by-day itinerary JSON)
+- **Phase**: Phase 2: AI Integration
+- **Result**: GREEN ✓
+- **Files modified**:
+  - `src/app/ai.py` — upgraded `GenerateContentConfig` to use `response_schema=AIItineraryResult` (Gemini native schema enforcement); simplified prompt (removed embedded JSON template, schema handles structure); switched to `model_validate_json()` for Pydantic v2 native JSON parsing
+  - `src/app/routers/ai_plans.py` — added `POST /ai/preview` endpoint: generates structured itinerary without persisting to DB; returns `AIItineraryResult` directly
+- **Files created**:
+  - `tests/test_structured_output.py` — 25 tests: 7 response_schema unit tests, 6 prompt-simplification tests, 12 preview endpoint integration tests
+- **Tests**: 231/231 passed (was 206, added 25 structured output tests)
+- **Tech decision**: `response_schema=AIItineraryResult` passed to `GenerateContentConfig` — Gemini enforces exact output schema, eliminating need for JSON template in prompt; more robust than `response_mime_type` alone
 
 ### Monitor #8 — 2026-04-01T20:00Z
 - **Type**: Health Check (monitor run)
@@ -49,52 +61,6 @@ Next planned: #9 - Implement structured output (day-by-day itinerary JSON)
 - **Files modified**:
   - `src/app/main.py` — included `ai_plans` router
 - **Tests**: 171/171 passed (was 140, added 31 AI tests)
-
-### Monitor #7 — 2026-04-01T17:00Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 140/140 passed (0.87s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **Action**: No incidents, no fixes needed
-
-### Run #6 — 2026-04-01T16:00Z
-- **Task**: #6 - Setup Render deployment (Dockerfile, render.yaml verification)
-- **Result**: GREEN ✓
-- **Files created**:
-  - `Dockerfile` — python:3.12-slim, copies src/, CMD uvicorn with `${PORT:-8000}`
-  - `.dockerignore` — excludes .env, *.pyc, __pycache__, tests/, *.db, etc.
-  - `tests/test_deployment.py` — 27 deployment config tests (Dockerfile, render.yaml, .env.example, app config)
-- **Files modified**:
-  - `requirements.txt` — added `pyyaml>=6.0.0` (needed for YAML parsing in tests)
-- **render.yaml**: verified correct — native Python runtime, `healthCheckPath: /health`, auto-deploy on main
-- **Tests**: 140/140 passed (was 113, added 27 deployment tests)
-
-### Run #5 — 2026-04-01T15:00Z
-- **Task**: #5 - Add seed data and database initialization
-- **Result**: GREEN ✓
-- **Files created**:
-  - `src/app/seed.py` — `seed_database(db, skip_if_exists=True)` with 2 sample travel plans (Tokyo confirmed, Paris draft), 4 day itineraries, 9 places, 3 expenses
-  - `scripts/seed_db.py` — CLI script: `python scripts/seed_db.py [--force]`
-  - `tests/test_seed.py` — 20 seed unit tests
-- **Bug fixed**: `seed_database()` mutated module-level `SEED_PLANS` via `dict.pop()` — fixed with `copy.deepcopy()` before iteration
-- **Tests**: 113/113 passed (was 93, added 20 seed tests)
-
-### Monitor #5 — 2026-04-01T14:46Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 93/93 passed (0.51s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **Action**: No incidents, no fixes needed
-
-### Run #4 — 2026-04-01T14:13Z
-- **Task**: #4 - Write unit tests for CRUD endpoints
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_schemas.py` — 57 pure Pydantic unit tests (no DB, no HTTP) covering TravelPlanCreate, TravelPlanUpdate, PlaceCreate, ExpenseCreate, DayItineraryCreate validation
-- **Files modified**:
-  - `src/app/schemas.py` — fixed `ExpenseBase.date` field: `Optional[date]` shadowed `datetime.date` type in Pydantic v2; added `_Date` alias to resolve
-- **Tests**: 93/93 passed (was 36, added 57 schema unit tests)
-- **Bug fixed**: `ExpenseCreate(date=...)` was silently rejecting non-None date values due to Pydantic v2 type-name shadowing
 
 ## Daily Summary
 

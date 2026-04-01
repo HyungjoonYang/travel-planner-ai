@@ -1,4 +1,3 @@
-import json
 from datetime import date
 
 from google import genai
@@ -58,30 +57,10 @@ Instructions:
 - Create exactly {num_days} days (one entry per day from {start_date} to {end_date})
 - For each day, recommend 3-5 specific real places (attractions, restaurants, cafes, etc.)
 - Include estimated costs per place in USD
-- Keep total estimated cost within the ${budget} budget
-- Provide a brief reason why each place is recommended
+- Keep total_estimated_cost within the ${budget} budget
+- Provide a brief ai_reason why each place is recommended
 - Use realistic transport options (walking, subway, taxi, bus)
-
-Return a JSON object with this exact structure:
-{{
-  "days": [
-    {{
-      "date": "YYYY-MM-DD",
-      "notes": "Summary of the day",
-      "transport": "Primary transport mode",
-      "places": [
-        {{
-          "name": "Place name",
-          "category": "sightseeing|food|cafe|hotel|activity|shopping",
-          "address": "Full address",
-          "estimated_cost": 0.0,
-          "ai_reason": "Why this place is recommended"
-        }}
-      ]
-    }}
-  ],
-  "total_estimated_cost": 0.0
-}}"""
+- Each day's date field must be in YYYY-MM-DD format"""
 
     def generate_itinerary(
         self,
@@ -102,8 +81,8 @@ Return a JSON object with this exact structure:
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
+                response_schema=AIItineraryResult,
             ),
         )
 
-        data = json.loads(response.text)
-        return AIItineraryResult.model_validate(data)
+        return AIItineraryResult.model_validate_json(response.text)

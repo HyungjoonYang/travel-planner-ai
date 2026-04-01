@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.ai import GeminiService
+from app.ai import AIItineraryResult, GeminiService
 from app.database import get_db
 from app.models import DayItinerary, Place, TravelPlan
 from app.schemas import TravelPlanCreate, TravelPlanOut
@@ -69,3 +69,22 @@ def generate_travel_plan(payload: TravelPlanCreate, db: Session = Depends(get_db
     db.commit()
     db.refresh(plan)
     return plan
+
+
+@router.post("/preview", response_model=AIItineraryResult, status_code=200)
+def preview_travel_plan(payload: TravelPlanCreate):
+    """Generate a structured itinerary preview without saving to the database."""
+    service = GeminiService()
+
+    try:
+        return service.generate_itinerary(
+            destination=payload.destination,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            budget=payload.budget,
+            interests=payload.interests,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI generation failed: {exc}")
