@@ -1,0 +1,19 @@
+{
+  "last_updated": null,
+  "summary": {
+    "total_runs": 0,
+    "total_commits": 0,
+    "total_tests": 0,
+    "tasks_completed": 0,
+    "tasks_remaining": 20,
+    "current_phase": "Phase 1: POC",
+    "health": "GREEN"
+  },
+  "daily_trend": [],
+  "ltes_7d_avg": {
+    "latency_per_run_ms": 0,
+    "traffic_commits_per_day": 0,
+    "error_rate": 0,
+    "saturation_tokens_per_day": 0
+  }
+}

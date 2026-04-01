@@ -1,0 +1,76 @@
+name: Evolve
+
+on:
+  schedule:
+    # KST 22:00~06:00 = UTC 13:00~21:00, 매 30분
+    - cron: '0,30 13-20 * * *'
+    - cron: '0 21 * * *'
+  workflow_dispatch: # 수동 트리거
+
+permissions:
+  contents: write
+
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          pip install -r requirements.txt 2>/dev/null || true
+
+      - name: Configure git
+        run: |
+          git config user.name "travel-planner-ai[bot]"
+          git config user.email "travel-planner-ai[bot]@users.noreply.github.com"
+
+      - name: Run Evolve Loop
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          claude -p \
+            --allowedTools "Bash,Edit,Read,Write,Glob,Grep" \
+            "Read CLAUDE.md and .claude/commands/evolve.md carefully.
+             Execute the Evolve Loop as described.
+             After completing all steps, commit and push all changes to main.
+             Use conventional commits (feat:, fix:, test:, etc.).
+             Do NOT ask for confirmation — execute autonomously."
+
+      - name: Slack Notification (success)
+        if: success()
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            HEALTH=$(grep -oP 'Health: \K\w+' status.md 2>/dev/null || echo "UNKNOWN")
+            TASK=$(grep -oP 'Current focus: \K.*' status.md 2>/dev/null || echo "unknown")
+            curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+              -H 'Content-type: application/json' \
+              -d "{\"text\": \"✅ Evolve run completed | Health: ${HEALTH} | Task: ${TASK}\"}"
+          fi
+
+      - name: Slack Notification (failure)
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+              -H 'Content-type: application/json' \
+              -d '{"text": "🔴 Evolve run FAILED — check GitHub Actions logs"}'
+          fi

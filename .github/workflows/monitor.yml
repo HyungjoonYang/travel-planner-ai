@@ -1,0 +1,63 @@
+name: Monitor
+
+on:
+  schedule:
+    # KST 22:00~06:00, 매 정시 (evolve 사이에 헬스체크)
+    - cron: '15 13-20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          pip install -r requirements.txt 2>/dev/null || true
+
+      - name: Configure git
+        run: |
+          git config user.name "travel-planner-ai[bot]"
+          git config user.email "travel-planner-ai[bot]@users.noreply.github.com"
+
+      - name: Run Monitor
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p \
+            --allowedTools "Bash,Edit,Read,Write,Glob,Grep" \
+            "Read CLAUDE.md and .claude/commands/monitor.md carefully.
+             Execute the Monitor (health check) as described.
+             Update status.md and observability files.
+             Commit and push changes to main.
+             Do NOT ask for confirmation — execute autonomously."
+
+      - name: Slack Alert (RED)
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+              -H 'Content-type: application/json' \
+              -d '{"text": "🔴 Monitor: Health check FAILED — immediate attention needed"}'
+          fi

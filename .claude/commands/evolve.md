@@ -1,0 +1,112 @@
+# Evolve Command
+
+너는 Self-Evolving Travel Planner의 **Coordinator Agent**다.
+CLAUDE.md의 "Workflow (Evolve Loop)"를 실행한다.
+
+---
+
+## 실행 순서
+
+### 1. Health Check (Monitor Agent 역할)
+```bash
+# 테스트가 있는 경우에만 실행
+pytest tests/ -v --tb=short 2>&1 || true
+```
+- 테스트 파일이 없으면 → 정상으로 간주, Step 2로
+- 테스트 실패 있으면 → `/fix` 커맨드 로직 실행 (Incident Response)
+- fix 성공 → Step 2로 계속
+- fix 3회 실패 → 해당 태스크 Blocked, 이번 실행 종료
+
+### 2. 상태 파악
+- `status.md` 읽기 → 현재 phase, health, 마지막 작업 확인
+- `observability/error-budget.json` 읽기 → budget 상태 확인
+  - EXHAUSTED → 안정화 태스크만 선택 가능
+  - HEALTHY → 자유롭게 선택
+
+### 3. 태스크 선택
+- `backlog.md` 읽기
+- "In Progress" 항목이 있으면 → 이어서 진행
+- 없으면 → "Ready" 최상위 항목 선택
+- 선택한 태스크를 "In Progress"로 이동
+- `backlog.md` 저장
+
+### 4. 구현 (Builder Agent 역할)
+- 선택한 태스크 수행
+- 코드는 `src/` 아래에 작성
+- **반드시** 관련 테스트를 `tests/`에 작성
+- 새 dependency 추가 시 `requirements.txt` 즉시 업데이트
+- 전체 테스트 실행:
+  ```bash
+  pytest tests/ -v --tb=short
+  ```
+- 실패 시 → 수정 시도 (최대 3회)
+
+### 5. 기록 (Reporter Agent 역할)
+
+#### 5-1. LTES 실행 로그 작성
+`observability/logs/YYYY-MM-DD/run-HH-MM.json` 형식으로 기록:
+```json
+{
+  "trace": {
+    "run_id": "<YYYY-MM-DD-HHMM>",
+    "timestamp": "<ISO 8601>",
+    "phase": "<현재 phase>",
+    "health": "<GREEN|YELLOW|RED>",
+    "task": "<태스크 번호 및 제목>"
+  },
+  "spans": [
+    {
+      "name": "<단계명>",
+      "start": "<ISO 8601>",
+      "end": "<ISO 8601>",
+      "duration_ms": 0,
+      "result": "<pass|fail|skip>",
+      "details": {}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 0, "task_runs_to_complete": 0},
+    "traffic": {"commits": 0, "lines_added": 0, "lines_removed": 0, "files_changed": 0},
+    "errors": {"test_failures": 0, "fix_attempts": 0, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 0}
+  }
+}
+```
+
+#### 5-2. 상태 파일 업데이트
+- `status.md`: 현재 상태, LTES 스냅샷, 최근 변경사항
+- `backlog.md`: 완료 태스크 → Done으로 이동, 필요시 새 태스크 추가
+- `observability/error-budget.json`: 실행 결과 반영
+- `observability/dashboard.json`: 일별 트렌드 업데이트
+
+#### 5-3. Commit & Push
+```bash
+git add -A
+git commit -m "<type>: <description>
+
+Evolve Run #<number> | Phase: <phase> | Health: <health>
+Task: <task description>"
+git push origin main
+```
+
+Commit type:
+- `feat`: 새 기능
+- `fix`: 버그 수정
+- `test`: 테스트 추가/수정
+- `refactor`: 리팩토링
+- `docs`: 문서 업데이트
+- `chore`: 설정, 의존성 등
+
+### 6. 일일 요약 (마지막 실행 판단)
+- 현재 시간이 UTC 20:30 이후이면 일일 요약 생성
+- `status.md`에 일일 요약 섹션 추가/업데이트
+
+---
+
+## 태스크 수행 가이드라인
+
+- **한 번에 1개 태스크만** — 욕심내지 않는다
+- 태스크가 너무 크면 → 작은 서브태스크로 분리하고 backlog에 추가
+- 새 기능 추가 시 → 반드시 테스트 먼저 (TDD 지향)
+- 기존 코드 수정 시 → 기존 테스트 먼저 확인
+- 불확실한 기술 결정 → CLAUDE.md "Tech Stack Decisions Log"에 기록
