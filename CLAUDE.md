@@ -13,7 +13,7 @@
 
 - **Backend**: FastAPI + SQLite (경량, 빠른 개발)
 - **Frontend**: 에이전트가 결정 (React, vanilla JS, or HTMX — 결정 시 아래 Tech Stack Decisions Log에 기록)
-- **AI/LLM**: Gemini API (여행 계획 생성, 장소 추천, 일정 최적화)
+- **AI/LLM**: Google Gemini API (여행 계획 생성, 장소 추천, 일정 최적화) — `google-genai` SDK 사용
 - **Deployment**: Render (render.yaml 기반 자동 배포, push 시 auto-deploy)
 - **Observability**: LTES (Latency, Traffic, Errors, Saturation) 기반 구조화 로그
 
