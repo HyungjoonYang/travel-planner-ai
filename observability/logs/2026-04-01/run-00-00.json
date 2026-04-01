@@ -1,0 +1,67 @@
+{
+  "trace": {
+    "run_id": "2026-04-01-0000",
+    "timestamp": "2026-04-01T00:00:00Z",
+    "phase": "Phase 1 — POC",
+    "health": "GREEN",
+    "task": "#1 - Initialize FastAPI project structure"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-01T00:00:00Z",
+      "end": "2026-04-01T00:00:01Z",
+      "duration_ms": 100,
+      "result": "pass",
+      "details": {"note": "No existing tests — skipped, treated as GREEN"}
+    },
+    {
+      "name": "status_check",
+      "start": "2026-04-01T00:00:01Z",
+      "end": "2026-04-01T00:00:02Z",
+      "duration_ms": 100,
+      "result": "pass",
+      "details": {"error_budget": "HEALTHY", "phase": "Phase 1"}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-01T00:00:02Z",
+      "end": "2026-04-01T00:00:03Z",
+      "duration_ms": 100,
+      "result": "pass",
+      "details": {"selected": "#1 - Initialize FastAPI project structure"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-01T00:00:03Z",
+      "end": "2026-04-01T00:01:00Z",
+      "duration_ms": 57000,
+      "result": "pass",
+      "details": {
+        "files_created": [
+          "src/app/__init__.py",
+          "src/app/main.py",
+          "src/app/database.py",
+          "src/app/config.py",
+          "tests/__init__.py",
+          "tests/conftest.py",
+          "tests/test_health.py"
+        ]
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-01T00:01:00Z",
+      "end": "2026-04-01T00:01:05Z",
+      "duration_ms": 5000,
+      "result": "pass",
+      "details": {"passed": 2, "failed": 0, "total": 2}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 65000, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 65, "lines_removed": 0, "files_changed": 7},
+    "errors": {"test_failures": 0, "fix_attempts": 0, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 19}
+  }
+}

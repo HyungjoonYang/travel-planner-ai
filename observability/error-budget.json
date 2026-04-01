@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 0,
-    "successful_runs": 0,
+    "total_runs": 1,
+    "successful_runs": 1,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -19,5 +19,13 @@
     "WARNING": "0.01 <= budget_remaining < 0.05 — low-risk tasks only",
     "EXHAUSTED": "budget_remaining < 0.01 — feature freeze, stabilization only"
   },
-  "history": []
+  "history": [
+    {
+      "run_id": "2026-04-01-0000",
+      "task": "#1 - Initialize FastAPI project structure",
+      "result": "success",
+      "tests_passed": 2,
+      "tests_total": 2
+    }
+  ]
 }

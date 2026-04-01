@@ -11,7 +11,6 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 1: POC
-- [ ] #1 - Initialize FastAPI project structure (main.py, pyproject.toml, requirements.txt) [infra]
 - [ ] #2 - Create travel plan data models (SQLAlchemy + Pydantic schemas) [feature]
 - [ ] #3 - Implement CRUD endpoints for travel plans [feature]
 - [ ] #4 - Write unit tests for CRUD endpoints [test]
@@ -40,7 +39,7 @@ _(없음)_
 
 ## Done
 
-_(없음 — 에이전트가 여기에 완료된 태스크를 이동)_
+- [x] #1 - Initialize FastAPI project structure (main.py, database.py, config.py, /health endpoint) [infra] — 2026-04-01
 
 ## Blocked
 
@@ -50,6 +49,6 @@ _(없음)_
 
 ## Metrics
 
-- Velocity: _(에이전트가 업데이트)_
-- Avg time per task: _(에이전트가 업데이트)_
+- Velocity: 1 task/run
+- Avg time per task: ~65s
 - Total tasks: 20
