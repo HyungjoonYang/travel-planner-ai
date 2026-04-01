@@ -1,22 +1,35 @@
 # Status
 
-Last run: 2026-04-01T18:00:00Z (Evolve Run #10)
-Run count: 10
+Last run: 2026-04-01T19:00:00Z (Evolve Run #11)
+Run count: 11
 Phase: Phase 2 — AI Integration
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 7/20
-Current focus: #8 - Add web search tool for destination research
-Next planned: #8 - Add web search tool for destination research
+Tasks completed: 8/20
+Current focus: #9 - Implement structured output (day-by-day itinerary JSON)
+Next planned: #9 - Implement structured output (day-by-day itinerary JSON)
 
 ## LTES Snapshot
 
-- Latency: ~1030ms (pytest 171 tests in 1.03s)
-- Traffic: 13 commits total
-- Errors: 0 test failures (171/171 pass), 0 fix attempts, error_rate=0.0%
-- Saturation: 13 tasks remaining in backlog, 10 log entries
+- Latency: ~1080ms (pytest 206 tests in 1.08s)
+- Traffic: 14 commits total
+- Errors: 0 test failures (206/206 pass), 0 fix attempts, error_rate=0.0%
+- Saturation: 12 tasks remaining in backlog, 11 log entries
 
 ## Recent Changes
+
+### Run #11 — 2026-04-01T19:00Z
+- **Task**: #8 - Add web search tool for destination research
+- **Phase**: Phase 2: AI Integration
+- **Result**: GREEN ✓
+- **Files created**:
+  - `src/app/web_search.py` — `WebSearchService` with `search_places()`; uses Gemini 2.0 Flash with `google_search` grounding tool; `_extract_json()` handles plain JSON, markdown fences, bare JSON; returns `DestinationSearchResult` with `PlaceSearchResult` list
+  - `src/app/routers/search.py` — `GET /search/places`; accepts `destination`, `interests`, `category` query params; 503 on missing API key, 502 on failure
+  - `tests/test_web_search.py` — 35 tests: 7 prompt-builder, 6 JSON-extractor, 11 service unit (mocked Gemini), 11 endpoint integration
+- **Files modified**:
+  - `src/app/main.py` — included `search` router
+- **Tests**: 206/206 passed (was 171, added 35 web search tests)
+- **Tech decision**: Gemini's built-in `google_search` grounding tool instead of a separate search API — no extra key needed; real-time Google Search results automatically
 
 ### Run #10 — 2026-04-01T18:00Z
 - **Task**: #7 - Integrate Gemini API for travel plan generation
