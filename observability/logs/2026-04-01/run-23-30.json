@@ -1,0 +1,58 @@
+{
+  "trace": {
+    "run_id": "2026-04-01-2330",
+    "timestamp": "2026-04-01T23:30:00Z",
+    "phase": "Phase 3: Advanced Features",
+    "health": "GREEN",
+    "task": "#11 - Add Google Calendar integration"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-01T23:30:00Z",
+      "end": "2026-04-01T23:30:02Z",
+      "duration_ms": 1970,
+      "result": "pass",
+      "details": {"tests_passed": 273, "tests_failed": 0}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-01T23:30:02Z",
+      "end": "2026-04-01T23:30:03Z",
+      "duration_ms": 500,
+      "result": "pass",
+      "details": {"selected": "#11 - Add Google Calendar integration", "from": "Ready"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-01T23:30:03Z",
+      "end": "2026-04-01T23:30:55Z",
+      "duration_ms": 52000,
+      "result": "pass",
+      "details": {
+        "files_created": [
+          "src/app/calendar_service.py",
+          "src/app/routers/calendar.py",
+          "tests/test_calendar.py"
+        ],
+        "files_modified": ["src/app/main.py"],
+        "fix_attempts": 1,
+        "fix_reason": "Two endpoint tests used /plans/ instead of /travel-plans"
+      }
+    },
+    {
+      "name": "test_run_final",
+      "start": "2026-04-01T23:30:55Z",
+      "end": "2026-04-01T23:30:57Z",
+      "duration_ms": 1920,
+      "result": "pass",
+      "details": {"tests_passed": 313, "tests_failed": 0, "tests_added": 40}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 56390, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 320, "lines_removed": 0, "files_changed": 4},
+    "errors": {"test_failures": 0, "fix_attempts": 1, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 9}
+  }
+}

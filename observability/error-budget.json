@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 15,
-    "successful_runs": 13,
+    "total_runs": 16,
+    "successful_runs": 14,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -124,6 +124,13 @@
       "result": "success",
       "tests_passed": 273,
       "tests_total": 273
+    },
+    {
+      "run_id": "2026-04-01-2330",
+      "task": "#11 - Add Google Calendar integration",
+      "result": "success",
+      "tests_passed": 313,
+      "tests_total": 313
     }
   ]
 }

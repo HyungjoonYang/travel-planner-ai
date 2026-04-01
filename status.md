@@ -1,22 +1,36 @@
 # Status
 
-Last run: 2026-04-01T23:00:00Z (Monitor Run #15)
-Run count: 15
-Phase: Phase 2 — AI Integration (complete) → Phase 3: Advanced Features
+Last run: 2026-04-01T23:30:00Z (Evolve Run #16)
+Run count: 16
+Phase: Phase 3: Advanced Features
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 10/20
-Current focus: #11 - Add Google Calendar integration
-Next planned: #11 - Add Google Calendar integration
+Tasks completed: 11/20
+Current focus: #12 - Implement hotel search via web search
+Next planned: #12 - Implement hotel search via web search
 
 ## LTES Snapshot
 
-- Latency: ~1600ms (pytest 273 tests in 1.60s)
-- Traffic: 10 commits last 24h
-- Errors: 0 test failures (273/273 pass), 0 fix attempts, error_rate=0.0%
-- Saturation: 10 tasks remaining in backlog, 15 log entries
+- Latency: ~1920ms (pytest 313 tests in 1.92s)
+- Traffic: 11 commits last 24h
+- Errors: 0 test failures (313/313 pass), 0 fix attempts, error_rate=0.0%
+- Saturation: 9 tasks remaining in backlog, 16 log entries
 
 ## Recent Changes
+
+### Run #16 — 2026-04-01T23:30Z
+- **Task**: #11 - Add Google Calendar integration
+- **Phase**: Phase 3: Advanced Features
+- **Result**: GREEN ✓
+- **Files created**:
+  - `src/app/calendar_service.py` — `CalendarService` with `_build_event_body()`, `create_event()`, `export_plan()`; uses httpx to POST all-day events to Google Calendar REST API; `CalendarExportResult` / `CalendarEventResult` Pydantic response models
+  - `src/app/routers/calendar.py` — `POST /plans/{plan_id}/calendar/export`; accepts `access_token` in body; 404 if plan not found, 422 if no itineraries, 401/502 on Google API errors
+  - `tests/test_calendar.py` — 40 tests: 14 event body builder tests, 5 create_event unit tests, 11 export_plan tests, 10 endpoint integration tests
+- **Files modified**:
+  - `src/app/main.py` — included `calendar` router
+- **Tests**: 313/313 passed (was 273, added 40 calendar tests)
+- **Fix during dev**: 1 — two endpoint tests used wrong URL `/plans/` instead of `/travel-plans`
+- **Tech decision**: Used httpx directly for Google Calendar REST API (no `google-api-python-client` SDK) — avoids heavy OAuth2 dependency; access tokens passed per-request; stateless export (event IDs returned but not stored in DB for v1)
 
 ### Monitor #9 — 2026-04-01T23:00Z
 - **Type**: Health Check (monitor run)
@@ -42,38 +56,11 @@ Next planned: #11 - Add Google Calendar integration
     - Budget validation (negative/zero rejected) — 2 tests
     - Interests edge cases (multi-value, empty, single) — 4 tests
 - **Tests**: 273/273 passed (was 231, added 42 AI plan tests)
-- **Fix during dev**: 1 — whitespace-only interests test corrected (whitespace string is truthy in Python, does not fall back to default)
 
 ### Run #13 — 2026-04-01T21:00Z
 - **Task**: #9 - Implement structured output (day-by-day itinerary JSON)
 - **Phase**: Phase 2: AI Integration
 - **Result**: GREEN ✓
-- **Files modified**:
-  - `src/app/ai.py` — upgraded `GenerateContentConfig` to use `response_schema=AIItineraryResult` (Gemini native schema enforcement); simplified prompt (removed embedded JSON template, schema handles structure); switched to `model_validate_json()` for Pydantic v2 native JSON parsing
-  - `src/app/routers/ai_plans.py` — added `POST /ai/preview` endpoint: generates structured itinerary without persisting to DB; returns `AIItineraryResult` directly
-- **Files created**:
-  - `tests/test_structured_output.py` — 25 tests: 7 response_schema unit tests, 6 prompt-simplification tests, 12 preview endpoint integration tests
-- **Tests**: 231/231 passed (was 206, added 25 structured output tests)
-- **Tech decision**: `response_schema=AIItineraryResult` passed to `GenerateContentConfig` — Gemini enforces exact output schema, eliminating need for JSON template in prompt; more robust than `response_mime_type` alone
-
-### Monitor #8 — 2026-04-01T20:00Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 206/206 passed (1.41s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **Action**: No incidents, no fixes needed
-
-### Run #11 — 2026-04-01T19:00Z
-- **Task**: #8 - Add web search tool for destination research
-- **Phase**: Phase 2: AI Integration
-- **Result**: GREEN ✓
-- **Files created**:
-  - `src/app/web_search.py` — `WebSearchService` with `search_places()`; uses Gemini 2.0 Flash with `google_search` grounding tool; `_extract_json()` handles plain JSON, markdown fences, bare JSON; returns `DestinationSearchResult` with `PlaceSearchResult` list
-  - `src/app/routers/search.py` — `GET /search/places`; accepts `destination`, `interests`, `category` query params; 503 on missing API key, 502 on failure
-  - `tests/test_web_search.py` — 35 tests: 7 prompt-builder, 6 JSON-extractor, 11 service unit (mocked Gemini), 11 endpoint integration
-- **Files modified**:
-  - `src/app/main.py` — included `search` router
-- **Tests**: 206/206 passed (was 171, added 35 web search tests)
 
 ## Daily Summary
 
