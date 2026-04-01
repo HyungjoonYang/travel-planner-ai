@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 16,
-    "successful_runs": 14,
+    "total_runs": 17,
+    "successful_runs": 15,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -20,117 +20,22 @@
     "EXHAUSTED": "budget_remaining < 0.01 — feature freeze, stabilization only"
   },
   "history": [
-    {
-      "run_id": "2026-04-01-0000",
-      "task": "#1 - Initialize FastAPI project structure",
-      "result": "success",
-      "tests_passed": 2,
-      "tests_total": 2
-    },
-    {
-      "run_id": "2026-04-01-0001",
-      "task": "#2 - Create travel plan data models (SQLAlchemy + Pydantic schemas)",
-      "result": "success",
-      "tests_passed": 16,
-      "tests_total": 16
-    },
-    {
-      "run_id": "2026-04-01-0300",
-      "task": "#3 - Implement CRUD endpoints for travel plans",
-      "result": "success",
-      "tests_passed": 36,
-      "tests_total": 36
-    },
-    {
-      "run_id": "monitor-2026-04-01-1353",
-      "task": "monitor",
-      "result": "success",
-      "tests_passed": 36,
-      "tests_total": 36
-    },
-    {
-      "run_id": "2026-04-01-1413",
-      "task": "#4 - Write unit tests for CRUD endpoints",
-      "result": "success",
-      "tests_passed": 93,
-      "tests_total": 93
-    },
-    {
-      "run_id": "monitor-2026-04-01-1446",
-      "task": "monitor",
-      "result": "success",
-      "tests_passed": 93,
-      "tests_total": 93
-    },
-    {
-      "run_id": "2026-04-01-1500",
-      "task": "#5 - Add seed data and database initialization",
-      "result": "success",
-      "tests_passed": 113,
-      "tests_total": 113
-    },
-    {
-      "run_id": "2026-04-01-1600",
-      "task": "#6 - Setup Render deployment (Dockerfile, render.yaml verification)",
-      "result": "success",
-      "tests_passed": 140,
-      "tests_total": 140
-    },
-    {
-      "run_id": "monitor-2026-04-01-1700",
-      "task": "monitor",
-      "result": "success",
-      "tests_passed": 140,
-      "tests_total": 140
-    },
-    {
-      "run_id": "2026-04-01-1800",
-      "task": "#7 - Integrate Gemini API for travel plan generation",
-      "result": "success",
-      "tests_passed": 171,
-      "tests_total": 171
-    },
-    {
-      "run_id": "2026-04-01-1900",
-      "task": "#8 - Add web search tool for destination research",
-      "result": "success",
-      "tests_passed": 206,
-      "tests_total": 206
-    },
-    {
-      "run_id": "monitor-2026-04-01-2000",
-      "task": "monitor",
-      "result": "success",
-      "tests_passed": 206,
-      "tests_total": 206
-    },
-    {
-      "run_id": "2026-04-01-2100",
-      "task": "#9 - Implement structured output (day-by-day itinerary JSON)",
-      "result": "success",
-      "tests_passed": 231,
-      "tests_total": 231
-    },
-    {
-      "run_id": "2026-04-01-2200",
-      "task": "#10 - Write tests for AI-generated travel plans",
-      "result": "success",
-      "tests_passed": 273,
-      "tests_total": 273
-    },
-    {
-      "run_id": "monitor-2026-04-01-2300",
-      "task": "monitor",
-      "result": "success",
-      "tests_passed": 273,
-      "tests_total": 273
-    },
-    {
-      "run_id": "2026-04-01-2330",
-      "task": "#11 - Add Google Calendar integration",
-      "result": "success",
-      "tests_passed": 313,
-      "tests_total": 313
-    }
+    {"run_id": "2026-04-01-0000", "task": "#1 - Initialize FastAPI project structure", "result": "success", "tests_passed": 2, "tests_total": 2},
+    {"run_id": "2026-04-01-0001", "task": "#2 - Create travel plan data models", "result": "success", "tests_passed": 16, "tests_total": 16},
+    {"run_id": "2026-04-01-0300", "task": "#3 - Implement CRUD endpoints", "result": "success", "tests_passed": 36, "tests_total": 36},
+    {"run_id": "monitor-2026-04-01-1353", "task": "monitor", "result": "success", "tests_passed": 36, "tests_total": 36},
+    {"run_id": "2026-04-01-1413", "task": "#4 - Write unit tests for CRUD endpoints", "result": "success", "tests_passed": 93, "tests_total": 93},
+    {"run_id": "monitor-2026-04-01-1446", "task": "monitor", "result": "success", "tests_passed": 93, "tests_total": 93},
+    {"run_id": "2026-04-01-1500", "task": "#5 - Add seed data and database initialization", "result": "success", "tests_passed": 113, "tests_total": 113},
+    {"run_id": "2026-04-01-1600", "task": "#6 - Setup Render deployment", "result": "success", "tests_passed": 140, "tests_total": 140},
+    {"run_id": "monitor-2026-04-01-1700", "task": "monitor", "result": "success", "tests_passed": 140, "tests_total": 140},
+    {"run_id": "2026-04-01-1800", "task": "#7 - Integrate Gemini API", "result": "success", "tests_passed": 171, "tests_total": 171},
+    {"run_id": "2026-04-01-1900", "task": "#8 - Add web search tool", "result": "success", "tests_passed": 206, "tests_total": 206},
+    {"run_id": "monitor-2026-04-01-2000", "task": "monitor", "result": "success", "tests_passed": 206, "tests_total": 206},
+    {"run_id": "2026-04-01-2100", "task": "#9 - Implement structured output", "result": "success", "tests_passed": 231, "tests_total": 231},
+    {"run_id": "2026-04-01-2200", "task": "#10 - Write tests for AI-generated travel plans", "result": "success", "tests_passed": 273, "tests_total": 273},
+    {"run_id": "monitor-2026-04-01-2300", "task": "monitor", "result": "success", "tests_passed": 273, "tests_total": 273},
+    {"run_id": "2026-04-01-2330", "task": "#11 - Add Google Calendar integration", "result": "success", "tests_passed": 313, "tests_total": 313},
+    {"run_id": "2026-04-01-2345", "task": "#12 - Implement hotel search via web search", "result": "success", "tests_passed": 357, "tests_total": 357}
   ]
 }

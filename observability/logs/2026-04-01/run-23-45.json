@@ -1,0 +1,54 @@
+{
+  "trace": {
+    "run_id": "2026-04-01-2345",
+    "timestamp": "2026-04-01T23:45:00Z",
+    "phase": "Phase 3: Advanced Features",
+    "health": "GREEN",
+    "task": "#12 - Implement hotel search via web search"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-01T23:45:00Z",
+      "end": "2026-04-01T23:45:05Z",
+      "duration_ms": 5000,
+      "result": "pass",
+      "details": {"tests_passed": 313, "tests_failed": 0}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-01T23:45:05Z",
+      "end": "2026-04-01T23:45:06Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"selected": "#12 - Implement hotel search via web search", "source": "Ready queue"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-01T23:45:06Z",
+      "end": "2026-04-01T23:45:50Z",
+      "duration_ms": 44000,
+      "result": "pass",
+      "details": {
+        "files_created": ["src/app/hotel_search.py", "tests/test_hotel_search.py"],
+        "files_modified": ["src/app/routers/search.py"],
+        "fix_attempts": 1,
+        "fix_reason": "address assertion in test_hotel_fields_parsed used wrong neighborhood substring"
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-01T23:45:50Z",
+      "end": "2026-04-01T23:45:55Z",
+      "duration_ms": 5000,
+      "result": "pass",
+      "details": {"tests_passed": 357, "tests_failed": 0, "new_tests": 44}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 55000, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 180, "lines_removed": 3, "files_changed": 3},
+    "errors": {"test_failures": 0, "fix_attempts": 1, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 8}
+  }
+}
