@@ -11,7 +11,6 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 1: POC
-- [ ] #6 - Setup Render deployment (Dockerfile, render.yaml verification) [infra]
 
 ### Phase 2: AI Integration
 - [ ] #7 - Integrate Gemini API for travel plan generation [feature]
@@ -40,6 +39,7 @@ _(없음)_
 - [x] #3 - Implement CRUD endpoints for travel plans (POST, GET, PATCH, DELETE + 20 tests) [feature] — 2026-04-01
 - [x] #4 - Write unit tests for CRUD endpoints (57 schema unit tests; fixed ExpenseBase.date type shadow bug) [test] — 2026-04-01
 - [x] #5 - Add seed data and database initialization (seed.py + scripts/seed_db.py + 20 seed tests) [infra] — 2026-04-01
+- [x] #6 - Setup Render deployment (Dockerfile, render.yaml verification, 27 deployment tests) [infra] — 2026-04-01
 
 ## Blocked
 

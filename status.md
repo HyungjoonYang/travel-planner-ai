@@ -1,22 +1,34 @@
 # Status
 
-Last run: 2026-04-01T15:00:00Z (Evolve Run #5)
-Run count: 7
+Last run: 2026-04-01T16:00:00Z (Evolve Run #6)
+Run count: 8
 Phase: Phase 1 — POC
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 5/20
-Current focus: #6 - Setup Render deployment (Dockerfile, render.yaml verification)
-Next planned: #6 - Setup Render deployment (Dockerfile, render.yaml verification)
+Tasks completed: 6/20
+Current focus: #7 - Integrate Gemini API for travel plan generation
+Next planned: #7 - Integrate Gemini API for travel plan generation
 
 ## LTES Snapshot
 
-- Latency: ~690ms (pytest 113 tests in 0.69s)
-- Traffic: 1 commit this run (+220 lines — seed.py, seed_db.py, test_seed.py)
-- Errors: 0 test failures (113/113 pass), 1 fix attempt (SEED_PLANS mutation bug), error_rate=0.0%
-- Saturation: 15 tasks remaining in backlog, logs dir growing
+- Latency: ~750ms (pytest 140 tests in 0.75s)
+- Traffic: 1 commit this run (+95 lines — Dockerfile, .dockerignore, test_deployment.py, requirements.txt)
+- Errors: 0 test failures (140/140 pass), 0 fix attempts, error_rate=0.0%
+- Saturation: 14 tasks remaining in backlog, logs dir growing
 
 ## Recent Changes
+
+### Run #6 — 2026-04-01T16:00Z
+- **Task**: #6 - Setup Render deployment (Dockerfile, render.yaml verification)
+- **Result**: GREEN ✓
+- **Files created**:
+  - `Dockerfile` — python:3.12-slim, copies src/, CMD uvicorn with `${PORT:-8000}`
+  - `.dockerignore` — excludes .env, *.pyc, __pycache__, tests/, *.db, etc.
+  - `tests/test_deployment.py` — 27 deployment config tests (Dockerfile, render.yaml, .env.example, app config)
+- **Files modified**:
+  - `requirements.txt` — added `pyyaml>=6.0.0` (needed for YAML parsing in tests)
+- **render.yaml**: verified correct — native Python runtime, `healthCheckPath: /health`, auto-deploy on main
+- **Tests**: 140/140 passed (was 113, added 27 deployment tests)
 
 ### Run #5 — 2026-04-01T15:00Z
 - **Task**: #5 - Add seed data and database initialization
