@@ -1,22 +1,41 @@
 # Status
 
-Last run: 2026-04-01T21:00:00Z (Evolve Run #13)
-Run count: 13
-Phase: Phase 2 — AI Integration
+Last run: 2026-04-01T22:00:00Z (Evolve Run #14)
+Run count: 14
+Phase: Phase 2 — AI Integration (complete) → Phase 3: Advanced Features
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 9/20
-Current focus: #10 - Write tests for AI-generated travel plans
-Next planned: #10 - Write tests for AI-generated travel plans
+Tasks completed: 10/20
+Current focus: #11 - Add Google Calendar integration
+Next planned: #11 - Add Google Calendar integration
 
 ## LTES Snapshot
 
-- Latency: ~1300ms (pytest 231 tests in 1.30s)
-- Traffic: 16 commits total
-- Errors: 0 test failures (231/231 pass), 0 fix attempts, error_rate=0.0%
-- Saturation: 11 tasks remaining in backlog, 13 log entries
+- Latency: ~2200ms (pytest 273 tests in 2.22s)
+- Traffic: 17 commits total
+- Errors: 0 test failures (273/273 pass), 0 fix attempts, error_rate=0.0%
+- Saturation: 10 tasks remaining in backlog, 14 log entries
 
 ## Recent Changes
+
+### Run #14 — 2026-04-01T22:00Z
+- **Task**: #10 - Write tests for AI-generated travel plans
+- **Phase**: Phase 2: AI Integration (final task)
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_ai_plans.py` — 42 tests covering gaps in AI test coverage:
+    - Pydantic model validation (AIPlace, AIDayItinerary, AIItineraryResult) — 12 tests
+    - GeminiService model constant and initialization — 3 tests
+    - Multi-day trip persistence (3-day trip, all days/places/transport/notes) — 7 tests
+    - Invalid AI date handling (router skip-on-bad-date branch) — 2 tests
+    - Empty places list per day — 2 tests
+    - Place order field persistence — 2 tests
+    - Multiple plans coexisting in DB — 3 tests
+    - All TravelPlanOut fields in generate response — 5 tests
+    - Budget validation (negative/zero rejected) — 2 tests
+    - Interests edge cases (multi-value, empty, single) — 4 tests
+- **Tests**: 273/273 passed (was 231, added 42 AI plan tests)
+- **Fix during dev**: 1 — whitespace-only interests test corrected (whitespace string is truthy in Python, does not fall back to default)
 
 ### Run #13 — 2026-04-01T21:00Z
 - **Task**: #9 - Implement structured output (day-by-day itinerary JSON)
@@ -48,19 +67,6 @@ Next planned: #10 - Write tests for AI-generated travel plans
 - **Files modified**:
   - `src/app/main.py` — included `search` router
 - **Tests**: 206/206 passed (was 171, added 35 web search tests)
-- **Tech decision**: Gemini's built-in `google_search` grounding tool instead of a separate search API — no extra key needed; real-time Google Search results automatically
-
-### Run #10 — 2026-04-01T18:00Z
-- **Task**: #7 - Integrate Gemini API for travel plan generation
-- **Phase**: Phase 2: AI Integration (first AI task)
-- **Result**: GREEN ✓
-- **Files created**:
-  - `src/app/ai.py` — `GeminiService` class with `generate_itinerary()` method; uses `google-genai` SDK v1.70; structured JSON output via `response_mime_type="application/json"`; prompt includes destination, dates, budget, interests with CoT instructions
-  - `src/app/routers/ai_plans.py` — `POST /ai/generate` endpoint; accepts `TravelPlanCreate` payload; calls `GeminiService`; persists plan + day itineraries + places to DB; returns `TravelPlanOut`
-  - `tests/test_ai.py` — 31 tests: 8 prompt-builder unit tests, 9 `generate_itinerary` unit tests (mocked Gemini), 14 endpoint integration tests
-- **Files modified**:
-  - `src/app/main.py` — included `ai_plans` router
-- **Tests**: 171/171 passed (was 140, added 31 AI tests)
 
 ## Daily Summary
 

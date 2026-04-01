@@ -10,9 +10,6 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-### Phase 2: AI Integration
-- [ ] #10 - Write tests for AI-generated travel plans [test]
-
 ### Phase 3: Advanced Features
 - [ ] #11 - Add Google Calendar integration (read/write events) [feature]
 - [ ] #12 - Implement hotel search via web search [feature]
@@ -38,6 +35,7 @@ _(없음)_
 - [x] #7 - Integrate Gemini API for travel plan generation (GeminiService + POST /ai/generate + 31 tests) [feature] — 2026-04-01
 - [x] #8 - Add web search tool for destination research (WebSearchService + GET /search/places + 35 tests) [feature] — 2026-04-01
 - [x] #9 - Implement structured output (response_schema=AIItineraryResult + POST /ai/preview + 25 tests) [feature] — 2026-04-01
+- [x] #10 - Write tests for AI-generated travel plans (42 tests: Pydantic models, multi-day persistence, invalid date handling, place order, budget validation, interests edge cases) [test] — 2026-04-01
 
 ## Blocked
 
