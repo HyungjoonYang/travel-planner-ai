@@ -1,7 +1,7 @@
 {
-  "last_updated": "2026-04-01T03:02:05Z",
+  "last_updated": "2026-04-01T13:53:15Z",
   "summary": {
-    "total_runs": 3,
+    "total_runs": 4,
     "total_commits": 3,
     "total_tests": 36,
     "tasks_completed": 3,
@@ -12,7 +12,7 @@
   "daily_trend": [
     {
       "date": "2026-04-01",
-      "runs": 3,
+      "runs": 4,
       "tasks_completed": 3,
       "tests_passed": 36,
       "tests_failed": 0,
@@ -21,9 +21,15 @@
     }
   ],
   "ltes_7d_avg": {
-    "latency_per_run_ms": 95000,
+    "latency_per_run_ms": 12000,
     "traffic_commits_per_day": 3,
     "error_rate": 0.0,
     "saturation_tokens_per_day": 0
+  },
+  "last_monitor": {
+    "timestamp": "2026-04-01T13:53:15Z",
+    "tests_passed": 36,
+    "tests_failed": 0,
+    "health": "GREEN"
   }
 }

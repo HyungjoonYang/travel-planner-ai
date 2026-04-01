@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 3,
-    "successful_runs": 3,
+    "total_runs": 4,
+    "successful_runs": 4,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -37,6 +37,13 @@
     {
       "run_id": "2026-04-01-0300",
       "task": "#3 - Implement CRUD endpoints for travel plans",
+      "result": "success",
+      "tests_passed": 36,
+      "tests_total": 36
+    },
+    {
+      "run_id": "monitor-2026-04-01-1353",
+      "task": "monitor",
       "result": "success",
       "tests_passed": 36,
       "tests_total": 36

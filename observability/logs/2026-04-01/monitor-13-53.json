@@ -1,0 +1,36 @@
+{
+  "run_id": "monitor-2026-04-01-1353",
+  "type": "monitor",
+  "timestamp": "2026-04-01T13:53:15Z",
+  "health": "GREEN",
+  "ltes": {
+    "latency": {
+      "run_duration_s": 12,
+      "note": "pytest 36 tests completed in 0.42s; total monitor run ~12s"
+    },
+    "traffic": {
+      "commits_last_24h": 7,
+      "last_commit_lines_added": 329,
+      "last_commit_lines_removed": 25,
+      "last_commit_files_changed": 10
+    },
+    "errors": {
+      "tests_total": 36,
+      "tests_passed": 36,
+      "tests_failed": 0,
+      "test_pass_rate": 1.0,
+      "build_errors": 0,
+      "error_rate_pct": 0.0
+    },
+    "saturation": {
+      "backlog_ready": 17,
+      "backlog_in_progress": 0,
+      "logs_dir_size_kb": 20
+    }
+  },
+  "error_budget": {
+    "status": "HEALTHY",
+    "budget_remaining": 1.0
+  },
+  "test_summary": "36/36 passed — test_health (2), test_models (14), test_travel_plans (20)"
+}
