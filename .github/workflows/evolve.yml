@@ -47,13 +47,13 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          claude -p \
-            --allowedTools "Bash,Edit,Read,Write,Glob,Grep" \
-            "Read CLAUDE.md and .claude/commands/evolve.md carefully.
-             Execute the Evolve Loop as described.
-             After completing all steps, commit and push all changes to main.
-             Use conventional commits (feat:, fix:, test:, etc.).
-             Do NOT ask for confirmation — execute autonomously."
+          cat <<'PROMPT' | claude -p --allowedTools "Bash,Edit,Read,Write,Glob,Grep"
+          Read CLAUDE.md and .claude/commands/evolve.md carefully.
+          Execute the Evolve Loop as described.
+          After completing all steps, commit and push all changes to main.
+          Use conventional commits (feat:, fix:, test:, etc.).
+          Do NOT ask for confirmation — execute autonomously.
+          PROMPT
 
       - name: Slack Notification (success)
         if: success()

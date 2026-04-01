@@ -45,13 +45,13 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          claude -p \
-            --allowedTools "Bash,Edit,Read,Write,Glob,Grep" \
-            "Read CLAUDE.md and .claude/commands/monitor.md carefully.
-             Execute the Monitor (health check) as described.
-             Update status.md and observability files.
-             Commit and push changes to main.
-             Do NOT ask for confirmation — execute autonomously."
+          cat <<'PROMPT' | claude -p --allowedTools "Bash,Edit,Read,Write,Glob,Grep"
+          Read CLAUDE.md and .claude/commands/monitor.md carefully.
+          Execute the Monitor (health check) as described.
+          Update status.md and observability files.
+          Commit and push changes to main.
+          Do NOT ask for confirmation — execute autonomously.
+          PROMPT
 
       - name: Slack Alert (RED)
         if: failure()
