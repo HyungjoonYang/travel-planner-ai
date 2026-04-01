@@ -1,22 +1,35 @@
 # Status
 
-Last run: 2026-04-01T19:00:00Z (Evolve Run #18)
-Run count: 19
+Last run: 2026-04-01T19:30:00Z (Evolve Run #19)
+Run count: 20
 Phase: Phase 3: Advanced Features
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 13/20
-Current focus: #14 - Add expense tracking (budget management)
-Next planned: #14 - Add expense tracking (budget management)
+Tasks completed: 14/20
+Current focus: #15 - Build frontend UI
+Next planned: #15 - Build frontend UI
 
 ## LTES Snapshot
 
-- Latency: ~2450ms (pytest 407 tests in 2.45s)
-- Traffic: 22 commits last 24h
-- Errors: 0 test failures (407/407 pass), error_rate=0.0%
-- Saturation: 7 tasks remaining in backlog, 19 log entries
+- Latency: ~3180ms (pytest 464 tests in 3.18s)
+- Traffic: 23 commits last 24h
+- Errors: 0 test failures (464/464 pass), error_rate=0.0%
+- Saturation: 6 tasks remaining in backlog, 20 log entries
 
 ## Recent Changes
+
+### Run #19 — 2026-04-01T19:30Z
+- **Task**: #14 - Add expense tracking (budget management)
+- **Phase**: Phase 3: Advanced Features
+- **Result**: GREEN ✓
+- **Files created**:
+  - `src/app/routers/expenses.py` — full CRUD for expenses nested under `/plans/{plan_id}/expenses`; `GET /summary` returns `BudgetSummary` (total_spent, remaining, by_category breakdown, expense_count); `_get_plan_or_404` / `_get_expense_or_404` helpers with plan-scoping check; `POST`, `GET`, `GET /{id}`, `PATCH`, `DELETE` endpoints
+  - `tests/test_expenses.py` — 57 tests: 10 schema unit tests, 9 create tests, 5 list tests, 10 budget summary tests, 5 get tests, 8 update tests, 7 delete tests, 3 travel-plan integration tests
+- **Files modified**:
+  - `src/app/schemas.py` — added `ExpenseUpdate` (all-optional patch schema with `gt=0` guard on amount) and `BudgetSummary` (plan_id, budget, total_spent, remaining, by_category, expense_count)
+  - `src/app/main.py` — registered `expenses.router`
+- **Tests**: 464/464 passed (was 407, added 57 expense tests)
+- **Endpoints added**: POST/GET/GET:id/PATCH/DELETE `/plans/{id}/expenses`, GET `/plans/{id}/expenses/summary`
 
 ### Run #18 — 2026-04-01T19:00Z
 - **Task**: #13 - Implement flight search via web search
@@ -28,7 +41,6 @@ Next planned: #14 - Add expense tracking (budget management)
 - **Files modified**:
   - `src/app/routers/search.py` — added `GET /search/flights` endpoint with departure_city, arrival_city, departure_date, return_date, passengers (ge=1), max_price (ge=0) query params
 - **Tests**: 407/407 passed (was 357, added 50 flight search tests)
-- **Tech decision**: Reused same Gemini `google_search` grounding pattern as hotel and web search services; `FlightResult` includes airline, flight_number, departure_time, arrival_time, duration, stops, price, cabin_class, tips fields
 
 ### Monitor #10 — 2026-04-01T18:34Z
 - **Type**: Health Check (monitor run)
@@ -42,33 +54,13 @@ Next planned: #14 - Add expense tracking (budget management)
 - **Task**: #12 - Implement hotel search via web search
 - **Phase**: Phase 3: Advanced Features
 - **Result**: GREEN ✓
-- **Files created**:
-  - `src/app/hotel_search.py` — `HotelSearchService` with `_build_search_prompt()`, `_extract_json()`, `search_hotels()`; uses Gemini `google_search` grounding to find hotels; `HotelResult` / `HotelSearchResult` Pydantic response models; supports check-in/check-out dates, budget_per_night, guests params
-  - `tests/test_hotel_search.py` — 44 tests: 10 prompt builder tests, 6 JSON extraction tests, 15 service unit tests (mocked Gemini), 13 endpoint integration tests
-- **Files modified**:
-  - `src/app/routers/search.py` — added `GET /search/hotels` endpoint with destination, check_in, check_out, budget_per_night (ge=0), guests (ge=1) query params
 - **Tests**: 357/357 passed (was 313, added 44 hotel search tests)
-- **Fix during dev**: 1 — test assertion used "Marais" but address field is "5 Rue de Bretagne, 75003 Paris"; fixed to "Bretagne"
-- **Tech decision**: Reused same Gemini `google_search` grounding pattern as `WebSearchService`; `HotelResult.amenities` typed as `list[str]` (defaults to `[]`)
 
 ### Run #16 — 2026-04-01T23:30Z
 - **Task**: #11 - Add Google Calendar integration
 - **Phase**: Phase 3: Advanced Features
 - **Result**: GREEN ✓
 - **Tests**: 313/313 passed (was 273, added 40 calendar tests)
-
-### Monitor #9 — 2026-04-01T23:00Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 273/273 passed (1.60s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **Action**: No incidents, no fixes needed
-
-### Run #14 — 2026-04-01T22:00Z
-- **Task**: #10 - Write tests for AI-generated travel plans
-- **Phase**: Phase 2: AI Integration (final task)
-- **Result**: GREEN ✓
-- **Tests**: 273/273 passed (was 231, added 42 AI plan tests)
 
 ## Daily Summary
 

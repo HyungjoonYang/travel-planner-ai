@@ -1,0 +1,53 @@
+{
+  "trace": {
+    "run_id": "2026-04-01-1930",
+    "timestamp": "2026-04-01T19:30:00Z",
+    "phase": "Phase 3: Advanced Features",
+    "health": "GREEN",
+    "task": "#14 - Add expense tracking (budget management)"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-01T19:30:00Z",
+      "end": "2026-04-01T19:30:03Z",
+      "duration_ms": 2650,
+      "result": "pass",
+      "details": {"tests_passed": 407, "tests_failed": 0}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-01T19:30:03Z",
+      "end": "2026-04-01T19:30:04Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"selected": "#14 - Add expense tracking"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-01T19:30:04Z",
+      "end": "2026-04-01T19:30:40Z",
+      "duration_ms": 36000,
+      "result": "pass",
+      "details": {
+        "files_created": ["src/app/routers/expenses.py", "tests/test_expenses.py"],
+        "files_modified": ["src/app/schemas.py", "src/app/main.py"],
+        "endpoints_added": ["POST /plans/{id}/expenses", "GET /plans/{id}/expenses", "GET /plans/{id}/expenses/summary", "GET /plans/{id}/expenses/{eid}", "PATCH /plans/{id}/expenses/{eid}", "DELETE /plans/{id}/expenses/{eid}"]
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-01T19:30:40Z",
+      "end": "2026-04-01T19:30:43Z",
+      "duration_ms": 3180,
+      "result": "pass",
+      "details": {"tests_passed": 464, "tests_failed": 0, "new_tests": 57}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 42830, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 220, "lines_removed": 0, "files_changed": 4},
+    "errors": {"test_failures": 0, "fix_attempts": 0, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 6}
+  }
+}

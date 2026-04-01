@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 19,
-    "successful_runs": 16,
+    "total_runs": 20,
+    "successful_runs": 17,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -38,6 +38,7 @@
     {"run_id": "2026-04-01-2330", "task": "#11 - Add Google Calendar integration", "result": "success", "tests_passed": 313, "tests_total": 313},
     {"run_id": "2026-04-01-2345", "task": "#12 - Implement hotel search via web search", "result": "success", "tests_passed": 357, "tests_total": 357},
     {"run_id": "monitor-2026-04-01-1834", "task": "monitor", "result": "success", "tests_passed": 357, "tests_total": 357},
-    {"run_id": "2026-04-01-1900", "task": "#13 - Implement flight search via web search", "result": "success", "tests_passed": 407, "tests_total": 407}
+    {"run_id": "2026-04-01-1900", "task": "#13 - Implement flight search via web search", "result": "success", "tests_passed": 407, "tests_total": 407},
+    {"run_id": "2026-04-01-1930", "task": "#14 - Add expense tracking", "result": "success", "tests_passed": 464, "tests_total": 464}
   ]
 }

@@ -63,11 +63,28 @@ class ExpenseCreate(ExpenseBase):
     pass
 
 
+class ExpenseUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    amount: Optional[float] = Field(default=None, gt=0)
+    category: Optional[str] = None
+    date: Optional[_Date] = None
+    notes: Optional[str] = None
+
+
 class ExpenseOut(ExpenseBase):
     id: int
     travel_plan_id: int
 
     model_config = {"from_attributes": True}
+
+
+class BudgetSummary(BaseModel):
+    plan_id: int
+    budget: float
+    total_spent: float
+    remaining: float
+    by_category: dict[str, float]
+    expense_count: int
 
 
 # --- TravelPlan ---
