@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 14,
-    "successful_runs": 12,
+    "total_runs": 15,
+    "successful_runs": 13,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -114,6 +114,13 @@
     {
       "run_id": "2026-04-01-2200",
       "task": "#10 - Write tests for AI-generated travel plans",
+      "result": "success",
+      "tests_passed": 273,
+      "tests_total": 273
+    },
+    {
+      "run_id": "monitor-2026-04-01-2300",
+      "task": "monitor",
       "result": "success",
       "tests_passed": 273,
       "tests_total": 273

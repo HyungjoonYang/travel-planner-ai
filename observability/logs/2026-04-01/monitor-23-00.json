@@ -1,0 +1,29 @@
+{
+  "run_id": "monitor-2026-04-01-2300",
+  "type": "monitor",
+  "timestamp": "2026-04-01T23:00:00Z",
+  "ltes": {
+    "latency": {
+      "pytest_duration_ms": 1600,
+      "note": "273 tests in 1.60s"
+    },
+    "traffic": {
+      "commits_last_24h": 10,
+      "last_commit": "29ec611 test: comprehensive tests for AI-generated travel plans (#10)"
+    },
+    "errors": {
+      "tests_passed": 273,
+      "tests_failed": 0,
+      "test_pass_rate": 1.0,
+      "error_rate": 0.0,
+      "fix_attempts": 0
+    },
+    "saturation": {
+      "backlog_remaining": 10,
+      "log_files": 15
+    }
+  },
+  "health": "GREEN",
+  "error_budget_status": "HEALTHY",
+  "action": "No incidents — all clear"
+}
