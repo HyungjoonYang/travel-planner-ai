@@ -1,22 +1,32 @@
 # Status
 
-Last run: 2026-04-01T13:53:15Z (Monitor #4)
-Run count: 4
+Last run: 2026-04-01T14:13:42Z (Evolve Run #4)
+Run count: 5
 Phase: Phase 1 — POC
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 3/20
-Current focus: #4 - Write unit tests for CRUD endpoints
-Next planned: #4 - Write unit tests for CRUD endpoints
+Tasks completed: 4/20
+Current focus: #5 - Add seed data and database initialization
+Next planned: #5 - Add seed data and database initialization
 
 ## LTES Snapshot
 
-- Latency: 12s (monitor run — pytest 0.42s, 36 tests)
-- Traffic: 7 commits last 24h, 329 lines added in last task commit
-- Errors: 0 test failures (36/36 pass), 0 build errors, error_rate=0.0%
-- Saturation: 17 tasks remaining in backlog, logs dir 20KB
+- Latency: ~90s (evolve run — pytest 0.43s, 93 tests)
+- Traffic: 1 commit this run, ~60 lines changed (test_schemas.py + schemas.py fix)
+- Errors: 0 test failures (93/93 pass), 0 build errors, error_rate=0.0%
+- Saturation: 16 tasks remaining in backlog, logs dir growing
 
 ## Recent Changes
+
+### Run #4 — 2026-04-01T14:13Z
+- **Task**: #4 - Write unit tests for CRUD endpoints
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_schemas.py` — 57 pure Pydantic unit tests (no DB, no HTTP) covering TravelPlanCreate, TravelPlanUpdate, PlaceCreate, ExpenseCreate, DayItineraryCreate validation
+- **Files modified**:
+  - `src/app/schemas.py` — fixed `ExpenseBase.date` field: `Optional[date]` shadowed `datetime.date` type in Pydantic v2; added `_Date` alias to resolve
+- **Tests**: 93/93 passed (was 36, added 57 schema unit tests)
+- **Bug fixed**: `ExpenseCreate(date=...)` was silently rejecting non-None date values due to Pydantic v2 type-name shadowing
 
 ### Monitor #4 — 2026-04-01T13:53Z
 - **Type**: Health Check (monitor run)

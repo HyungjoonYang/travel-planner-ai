@@ -1,23 +1,23 @@
 {
   "slo": {
     "test_pass_rate": 0.95,
-    "successful_runs": 0.90,
+    "successful_runs": 0.9,
     "description": "95% test pass rate per run, 90% overall run success rate"
   },
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 4,
-    "successful_runs": 4,
+    "total_runs": 5,
+    "successful_runs": 5,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
     "status": "HEALTHY"
   },
   "policy": {
-    "HEALTHY": "budget_remaining >= 0.05 — new feature development allowed",
-    "WARNING": "0.01 <= budget_remaining < 0.05 — low-risk tasks only",
-    "EXHAUSTED": "budget_remaining < 0.01 — feature freeze, stabilization only"
+    "HEALTHY": "budget_remaining >= 0.05 \u2014 new feature development allowed",
+    "WARNING": "0.01 <= budget_remaining < 0.05 \u2014 low-risk tasks only",
+    "EXHAUSTED": "budget_remaining < 0.01 \u2014 feature freeze, stabilization only"
   },
   "history": [
     {
@@ -47,6 +47,13 @@
       "result": "success",
       "tests_passed": 36,
       "tests_total": 36
+    },
+    {
+      "run_id": "2026-04-01-1413",
+      "task": "#4 - Write unit tests for CRUD endpoints",
+      "result": "success",
+      "tests_passed": 93,
+      "tests_total": 93
     }
   ]
 }

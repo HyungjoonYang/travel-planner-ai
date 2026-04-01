@@ -1,6 +1,9 @@
 from datetime import date, datetime
 from typing import Optional
 
+# Alias to avoid shadowing `date` type when used as a field name in models
+_Date = date
+
 from pydantic import BaseModel, Field
 
 
@@ -52,7 +55,7 @@ class ExpenseBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     amount: float = Field(..., gt=0)
     category: str = ""
-    date: Optional[date] = None
+    date: Optional[_Date] = None
     notes: str = ""
 
 
