@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.database import init_db
 import app.models  # noqa: F401 — registers ORM models with Base.metadata
+from app.routers import travel_plans
 
 
 @asynccontextmanager
@@ -18,6 +19,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.include_router(travel_plans.router)
 
 
 @app.get("/health")

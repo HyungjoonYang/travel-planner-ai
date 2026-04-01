@@ -11,7 +11,6 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 1: POC
-- [ ] #3 - Implement CRUD endpoints for travel plans [feature]
 - [ ] #4 - Write unit tests for CRUD endpoints [test]
 - [ ] #5 - Add seed data and database initialization [infra]
 - [ ] #6 - Setup Render deployment (Dockerfile, render.yaml verification) [infra]
@@ -40,6 +39,7 @@ _(없음)_
 
 - [x] #1 - Initialize FastAPI project structure (main.py, database.py, config.py, /health endpoint) [infra] — 2026-04-01
 - [x] #2 - Create travel plan data models (SQLAlchemy ORM + Pydantic schemas) [feature] — 2026-04-01
+- [x] #3 - Implement CRUD endpoints for travel plans (POST, GET, PATCH, DELETE + 20 tests) [feature] — 2026-04-01
 
 ## Blocked
 
@@ -50,5 +50,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Avg time per task: ~80s
+- Avg time per task: ~100s
 - Total tasks: 20

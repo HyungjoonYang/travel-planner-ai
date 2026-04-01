@@ -1,0 +1,59 @@
+{
+  "trace": {
+    "run_id": "2026-04-01-0300",
+    "timestamp": "2026-04-01T03:00:00Z",
+    "phase": "Phase 1: POC",
+    "health": "GREEN",
+    "task": "#3 - Implement CRUD endpoints for travel plans"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-01T03:00:00Z",
+      "end": "2026-04-01T03:00:05Z",
+      "duration_ms": 5000,
+      "result": "pass",
+      "details": {"tests_passed": 16, "tests_failed": 0}
+    },
+    {
+      "name": "status_check",
+      "start": "2026-04-01T03:00:05Z",
+      "end": "2026-04-01T03:00:06Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"error_budget": "HEALTHY", "selected_task": "#3"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-01T03:00:06Z",
+      "end": "2026-04-01T03:02:00Z",
+      "duration_ms": 114000,
+      "result": "pass",
+      "details": {
+        "files_created": [
+          "src/app/routers/__init__.py",
+          "src/app/routers/travel_plans.py",
+          "tests/test_travel_plans.py"
+        ],
+        "files_modified": [
+          "src/app/main.py",
+          "tests/conftest.py"
+        ]
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-01T03:02:00Z",
+      "end": "2026-04-01T03:02:05Z",
+      "duration_ms": 5000,
+      "result": "pass",
+      "details": {"tests_passed": 36, "tests_failed": 0, "fix_attempts": 1}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 125000, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 130, "lines_removed": 15, "files_changed": 5},
+    "errors": {"test_failures": 0, "fix_attempts": 1, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 17}
+  }
+}
