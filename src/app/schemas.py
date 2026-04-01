@@ -4,7 +4,7 @@ from typing import Optional
 # Alias to avoid shadowing `date` type when used as a field name in models
 _Date = date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # --- Place ---
@@ -97,6 +97,12 @@ class TravelPlanBase(BaseModel):
     interests: str = ""
     status: str = Field(default="draft", pattern="^(draft|confirmed)$")
 
+    @model_validator(mode="after")
+    def end_date_not_before_start_date(self) -> "TravelPlanBase":
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must not be before start_date")
+        return self
+
 
 class TravelPlanCreate(TravelPlanBase):
     pass
@@ -109,6 +115,13 @@ class TravelPlanUpdate(BaseModel):
     budget: Optional[float] = Field(default=None, gt=0)
     interests: Optional[str] = None
     status: Optional[str] = Field(default=None, pattern="^(draft|confirmed)$")
+
+    @model_validator(mode="after")
+    def end_date_not_before_start_date(self) -> "TravelPlanUpdate":
+        if self.start_date is not None and self.end_date is not None:
+            if self.end_date < self.start_date:
+                raise ValueError("end_date must not be before start_date")
+        return self
 
 
 class TravelPlanOut(TravelPlanBase):
