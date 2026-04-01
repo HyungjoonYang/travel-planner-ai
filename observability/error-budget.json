@@ -7,7 +7,7 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 5,
+    "total_runs": 6,
     "successful_runs": 5,
     "failed_runs": 0,
     "success_rate": 1.0,
@@ -51,6 +51,13 @@
     {
       "run_id": "2026-04-01-1413",
       "task": "#4 - Write unit tests for CRUD endpoints",
+      "result": "success",
+      "tests_passed": 93,
+      "tests_total": 93
+    },
+    {
+      "run_id": "monitor-2026-04-01-1446",
+      "task": "monitor",
       "result": "success",
       "tests_passed": 93,
       "tests_total": 93

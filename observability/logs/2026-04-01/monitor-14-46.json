@@ -1,0 +1,30 @@
+{
+  "run_id": "monitor-2026-04-01-1446",
+  "type": "monitor",
+  "timestamp": "2026-04-01T14:46:22Z",
+  "health": "GREEN",
+  "ltes": {
+    "latency": {
+      "test_run_ms": 510,
+      "note": "pytest 93 tests in 0.51s"
+    },
+    "traffic": {
+      "commits_last_24h": 5,
+      "last_commit": "2a3115d test: add 57 schema unit tests; fix ExpenseBase.date type shadow bug",
+      "lines_changed_last_commit": 452
+    },
+    "errors": {
+      "tests_passed": 93,
+      "tests_failed": 0,
+      "tests_total": 93,
+      "error_rate": 0.0,
+      "build_errors": 0
+    },
+    "saturation": {
+      "backlog_ready": 16,
+      "backlog_in_progress": 0,
+      "logs_dir_files": 5
+    }
+  },
+  "result": "GREEN — all 93 tests pass, error budget HEALTHY"
+}
