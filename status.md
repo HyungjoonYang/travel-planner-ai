@@ -1,22 +1,34 @@
 # Status
 
-Last run: 2026-04-01T17:00:00Z (Monitor Run #7)
-Run count: 9
-Phase: Phase 1 — POC
+Last run: 2026-04-01T18:00:00Z (Evolve Run #10)
+Run count: 10
+Phase: Phase 2 — AI Integration
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 6/20
-Current focus: #7 - Integrate Gemini API for travel plan generation
-Next planned: #7 - Integrate Gemini API for travel plan generation
+Tasks completed: 7/20
+Current focus: #8 - Add web search tool for destination research
+Next planned: #8 - Add web search tool for destination research
 
 ## LTES Snapshot
 
-- Latency: ~870ms (pytest 140 tests in 0.87s)
-- Traffic: 12 commits in last 24h
-- Errors: 0 test failures (140/140 pass), 0 fix attempts, error_rate=0.0%
-- Saturation: 14 tasks remaining in backlog, 9 log entries
+- Latency: ~1030ms (pytest 171 tests in 1.03s)
+- Traffic: 13 commits total
+- Errors: 0 test failures (171/171 pass), 0 fix attempts, error_rate=0.0%
+- Saturation: 13 tasks remaining in backlog, 10 log entries
 
 ## Recent Changes
+
+### Run #10 — 2026-04-01T18:00Z
+- **Task**: #7 - Integrate Gemini API for travel plan generation
+- **Phase**: Phase 2: AI Integration (first AI task)
+- **Result**: GREEN ✓
+- **Files created**:
+  - `src/app/ai.py` — `GeminiService` class with `generate_itinerary()` method; uses `google-genai` SDK v1.70; structured JSON output via `response_mime_type="application/json"`; prompt includes destination, dates, budget, interests with CoT instructions
+  - `src/app/routers/ai_plans.py` — `POST /ai/generate` endpoint; accepts `TravelPlanCreate` payload; calls `GeminiService`; persists plan + day itineraries + places to DB; returns `TravelPlanOut`
+  - `tests/test_ai.py` — 31 tests: 8 prompt-builder unit tests, 9 `generate_itinerary` unit tests (mocked Gemini), 14 endpoint integration tests
+- **Files modified**:
+  - `src/app/main.py` — included `ai_plans` router
+- **Tests**: 171/171 passed (was 140, added 31 AI tests)
 
 ### Monitor #7 — 2026-04-01T17:00Z
 - **Type**: Health Check (monitor run)
@@ -63,47 +75,6 @@ Next planned: #7 - Integrate Gemini API for travel plan generation
   - `src/app/schemas.py` — fixed `ExpenseBase.date` field: `Optional[date]` shadowed `datetime.date` type in Pydantic v2; added `_Date` alias to resolve
 - **Tests**: 93/93 passed (was 36, added 57 schema unit tests)
 - **Bug fixed**: `ExpenseCreate(date=...)` was silently rejecting non-None date values due to Pydantic v2 type-name shadowing
-
-### Monitor #4 — 2026-04-01T13:53Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 36/36 passed (0.42s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **Action**: No incidents, no fixes needed
-
-### Run #3 — 2026-04-01
-- **Task**: #3 - Implement CRUD endpoints for travel plans
-- **Result**: GREEN ✓
-- **Files created**:
-  - `src/app/routers/__init__.py` — routers package
-  - `src/app/routers/travel_plans.py` — 5 CRUD endpoints (POST, GET list, GET detail, PATCH, DELETE)
-  - `tests/test_travel_plans.py` — 20 endpoint tests (create, list, get, update, delete)
-- **Files modified**:
-  - `src/app/main.py` — include travel_plans router
-  - `tests/conftest.py` — StaticPool in-memory SQLite per-test isolation
-- **Tests**: 36/36 passed
-
-### Run #2 — 2026-04-01
-- **Task**: #2 - Create travel plan data models (SQLAlchemy + Pydantic schemas)
-- **Result**: GREEN ✓
-- **Files created**:
-  - `src/app/models.py` — SQLAlchemy ORM models (TravelPlan, DayItinerary, Place, Expense)
-  - `src/app/schemas.py` — Pydantic v2 schemas (Create, Update, Out, Summary variants)
-  - `tests/test_models.py` — 14 model + schema tests
-- **Files modified**:
-  - `src/app/main.py` — import models to register with Base.metadata
-- **Tests**: 16/16 passed
-
-### Run #1 — 2026-04-01
-- **Task**: #1 - Initialize FastAPI project structure
-- **Result**: GREEN ✓
-- **Files created**:
-  - `src/app/__init__.py`
-  - `src/app/main.py` — FastAPI app with `/health` endpoint
-  - `src/app/database.py` — SQLAlchemy + SQLite setup
-  - `src/app/config.py` — env-based configuration
-  - `tests/__init__.py`, `tests/conftest.py`, `tests/test_health.py`
-- **Tests**: 2/2 passed
 
 ## Daily Summary
 

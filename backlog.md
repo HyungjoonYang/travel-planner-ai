@@ -10,10 +10,7 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-### Phase 1: POC
-
 ### Phase 2: AI Integration
-- [ ] #7 - Integrate Gemini API for travel plan generation [feature]
 - [ ] #8 - Add web search tool for destination research [feature]
 - [ ] #9 - Implement structured output (day-by-day itinerary JSON) [feature]
 - [ ] #10 - Write tests for AI-generated travel plans [test]
@@ -40,6 +37,7 @@ _(없음)_
 - [x] #4 - Write unit tests for CRUD endpoints (57 schema unit tests; fixed ExpenseBase.date type shadow bug) [test] — 2026-04-01
 - [x] #5 - Add seed data and database initialization (seed.py + scripts/seed_db.py + 20 seed tests) [infra] — 2026-04-01
 - [x] #6 - Setup Render deployment (Dockerfile, render.yaml verification, 27 deployment tests) [infra] — 2026-04-01
+- [x] #7 - Integrate Gemini API for travel plan generation (GeminiService + POST /ai/generate + 31 tests) [feature] — 2026-04-01
 
 ## Blocked
 
