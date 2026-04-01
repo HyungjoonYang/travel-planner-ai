@@ -7,17 +7,17 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 6,
-    "successful_runs": 5,
+    "total_runs": 7,
+    "successful_runs": 6,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
     "status": "HEALTHY"
   },
   "policy": {
-    "HEALTHY": "budget_remaining >= 0.05 \u2014 new feature development allowed",
-    "WARNING": "0.01 <= budget_remaining < 0.05 \u2014 low-risk tasks only",
-    "EXHAUSTED": "budget_remaining < 0.01 \u2014 feature freeze, stabilization only"
+    "HEALTHY": "budget_remaining >= 0.05 — new feature development allowed",
+    "WARNING": "0.01 <= budget_remaining < 0.05 — low-risk tasks only",
+    "EXHAUSTED": "budget_remaining < 0.01 — feature freeze, stabilization only"
   },
   "history": [
     {
@@ -61,6 +61,13 @@
       "result": "success",
       "tests_passed": 93,
       "tests_total": 93
+    },
+    {
+      "run_id": "2026-04-01-1500",
+      "task": "#5 - Add seed data and database initialization",
+      "result": "success",
+      "tests_passed": 113,
+      "tests_total": 113
     }
   ]
 }
