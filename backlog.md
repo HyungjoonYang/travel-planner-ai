@@ -10,7 +10,7 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-- [ ] #33 - Collaborative comments on shared plans (`POST /travel-plans/shared/{token}/comments`; anonymous name + text; `GET /travel-plans/shared/{token}/comments`; `DELETE /travel-plans/{id}/comments/{comment_id}` (owner only); ~25 tests) [feature]
+_(없음)_
 
 ## Done
 
@@ -46,6 +46,7 @@ _(없음)_
 - [x] #32 - Plan version history (`PlanSnapshot` model; `POST /travel-plans/{id}/snapshot`, `GET /travel-plans/{id}/snapshots`, `GET /travel-plans/{id}/snapshots/{snap_id}`; snapshot_data frozen JSON; cascade delete; 30 tests) [feature] — 2026-04-02
 - [x] #31 - Budget overage alerts (`over_budget: bool`, `overage_pct: float` in BudgetSummary; `GET /travel-plans?over_budget=` filter; 20 tests) [feature] — 2026-04-02
 - [x] #30 - AI plan refinement endpoint (`POST /travel-plans/{id}/refine`; RefineRequest.instruction (min=1, max=2000); AI reads current plan + instruction → regenerates itinerary; replaces old DayItinerary/Place; preserves expenses; 503/502 error handling; 30 tests) [feature] — 2026-04-02
+- [x] #33 - Collaborative comments on shared plans (`PlanComment` model; `POST /travel-plans/shared/{token}/comments`; `GET /travel-plans/shared/{token}/comments` (oldest first); `DELETE /travel-plans/{id}/comments/{comment_id}` (owner only); cascade delete; 25 tests) [feature] — 2026-04-02
 
 ## Blocked
 
@@ -57,6 +58,6 @@ _(없음)_
 
 - Velocity: 1 task/run
 - Avg time per task: ~100s
-- Total tasks: 33 planned (32 done, 1 ready)
-- Completed: 32/33
-- Phase 8 backlog: 1 task remaining
+- Total tasks: 33 planned (33 done, 0 ready)
+- Completed: 33/33
+- Phase 8 backlog: 0 tasks remaining — ALL DONE

@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.ai import GeminiService
 from app.database import get_db
-from app.models import DayItinerary, Expense, Place, PlanSnapshot, TravelPlan
+from app.models import DayItinerary, Expense, Place, PlanComment, PlanSnapshot, TravelPlan
 from app.schemas import (
+    CommentCreate, CommentOut,
     PaginatedPlans, PlanSnapshotOut, PlanSnapshotSummary,
     RefineRequest, ShareOut, SnapshotCreateRequest,
     TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate,
@@ -295,6 +296,61 @@ def get_shared_travel_plan(token: str, db: Session = Depends(get_db)):
     if plan is None:
         raise HTTPException(status_code=404, detail="Shared plan not found")
     return plan
+
+
+# --- Comment endpoints ---
+
+def _get_shared_plan_or_404(token: str, db: Session) -> TravelPlan:
+    plan = db.query(TravelPlan).filter(
+        TravelPlan.share_token == token,
+        TravelPlan.is_shared == True,  # noqa: E712
+    ).first()
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Shared plan not found")
+    return plan
+
+
+@router.post("/shared/{token}/comments", response_model=CommentOut, status_code=status.HTTP_201_CREATED)
+def create_comment(token: str, payload: CommentCreate, db: Session = Depends(get_db)):
+    """Add an anonymous comment to a shared travel plan."""
+    plan = _get_shared_plan_or_404(token, db)
+    comment = PlanComment(
+        travel_plan_id=plan.id,
+        author_name=payload.author_name,
+        text=payload.text,
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+@router.get("/shared/{token}/comments", response_model=list[CommentOut])
+def list_comments(token: str, db: Session = Depends(get_db)):
+    """List all comments for a shared travel plan, oldest first."""
+    plan = _get_shared_plan_or_404(token, db)
+    return (
+        db.query(PlanComment)
+        .filter(PlanComment.travel_plan_id == plan.id)
+        .order_by(PlanComment.created_at.asc())
+        .all()
+    )
+
+
+@router.delete("/{plan_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_comment(plan_id: int, comment_id: int, db: Session = Depends(get_db)):
+    """Owner deletes a comment by its ID (plan must exist)."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+    comment = db.query(PlanComment).filter(
+        PlanComment.id == comment_id,
+        PlanComment.travel_plan_id == plan_id,
+    ).first()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    db.delete(comment)
+    db.commit()
 
 
 # --- Snapshot endpoints ---

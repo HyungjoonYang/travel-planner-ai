@@ -211,3 +211,20 @@ class PlanSnapshotOut(BaseModel):
     snapshot_data: dict
 
     model_config = {"from_attributes": True}
+
+
+# --- PlanComment ---
+
+class CommentCreate(BaseModel):
+    author_name: str = Field(..., min_length=1, max_length=100)
+    text: str = Field(..., min_length=1, max_length=2000)
+
+
+class CommentOut(BaseModel):
+    id: int
+    travel_plan_id: int
+    author_name: str
+    text: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
