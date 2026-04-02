@@ -49,19 +49,19 @@ class TestListNoFilter:
     def test_empty_db_returns_empty_list(self, client):
         r = client.get("/travel-plans")
         assert r.status_code == 200
-        assert r.json() == []
+        assert r.json()["items"] == []
 
     def test_returns_all_plans(self, client):
         make_plan(client, "Tokyo")
         make_plan(client, "Paris")
         r = client.get("/travel-plans")
         assert r.status_code == 200
-        assert len(r.json()) == 2
+        assert len(r.json()["items"]) == 2
 
     def test_sorted_by_created_at_desc(self, client):
         p1 = make_plan(client, "Tokyo")
         p2 = make_plan(client, "Paris")
-        plans = client.get("/travel-plans").json()
+        plans = client.get("/travel-plans").json()["items"]
         # most-recently created appears first
         assert plans[0]["id"] == p2["id"]
         assert plans[1]["id"] == p1["id"]
@@ -75,7 +75,7 @@ class TestDestinationFilter:
     def test_exact_match(self, client):
         make_plan(client, "Tokyo")
         make_plan(client, "Paris")
-        plans = client.get("/travel-plans?destination=Tokyo").json()
+        plans = client.get("/travel-plans?destination=Tokyo").json()["items"]
         assert len(plans) == 1
         assert plans[0]["destination"] == "Tokyo"
 
@@ -83,35 +83,35 @@ class TestDestinationFilter:
         make_plan(client, "New York City")
         make_plan(client, "New Delhi")
         make_plan(client, "London")
-        plans = client.get("/travel-plans?destination=New").json()
+        plans = client.get("/travel-plans?destination=New").json()["items"]
         destinations = {p["destination"] for p in plans}
         assert destinations == {"New York City", "New Delhi"}
 
     def test_case_insensitive_lower(self, client):
         make_plan(client, "Tokyo")
-        plans = client.get("/travel-plans?destination=tokyo").json()
+        plans = client.get("/travel-plans?destination=tokyo").json()["items"]
         assert len(plans) == 1
 
     def test_case_insensitive_upper(self, client):
         make_plan(client, "Tokyo")
-        plans = client.get("/travel-plans?destination=TOKYO").json()
+        plans = client.get("/travel-plans?destination=TOKYO").json()["items"]
         assert len(plans) == 1
 
     def test_case_insensitive_mixed(self, client):
         make_plan(client, "Tokyo")
-        plans = client.get("/travel-plans?destination=tOkYo").json()
+        plans = client.get("/travel-plans?destination=tOkYo").json()["items"]
         assert len(plans) == 1
 
     def test_no_match_returns_empty(self, client):
         make_plan(client, "Tokyo")
-        plans = client.get("/travel-plans?destination=Berlin").json()
+        plans = client.get("/travel-plans?destination=Berlin").json()["items"]
         assert plans == []
 
     def test_empty_destination_matches_all(self, client):
         make_plan(client, "Tokyo")
         make_plan(client, "Paris")
         # empty string → ilike "%%" matches everything
-        plans = client.get("/travel-plans?destination=").json()
+        plans = client.get("/travel-plans?destination=").json()["items"]
         assert len(plans) == 2
 
 
@@ -123,20 +123,20 @@ class TestStatusFilter:
     def test_filter_draft(self, client):
         make_plan(client, "Tokyo", status="draft")
         make_plan(client, "Paris", status="confirmed")
-        plans = client.get("/travel-plans?status=draft").json()
+        plans = client.get("/travel-plans?status=draft").json()["items"]
         assert all(p["status"] == "draft" for p in plans)
         assert len(plans) == 1
 
     def test_filter_confirmed(self, client):
         make_plan(client, "Tokyo", status="draft")
         make_plan(client, "Paris", status="confirmed")
-        plans = client.get("/travel-plans?status=confirmed").json()
+        plans = client.get("/travel-plans?status=confirmed").json()["items"]
         assert all(p["status"] == "confirmed" for p in plans)
         assert len(plans) == 1
 
     def test_no_match_returns_empty(self, client):
         make_plan(client, "Tokyo", status="draft")
-        plans = client.get("/travel-plans?status=confirmed").json()
+        plans = client.get("/travel-plans?status=confirmed").json()["items"]
         assert plans == []
 
     def test_invalid_status_returns_422(self, client):
@@ -146,7 +146,7 @@ class TestStatusFilter:
     def test_both_statuses_returned_without_filter(self, client):
         make_plan(client, "Tokyo", status="draft")
         make_plan(client, "Paris", status="confirmed")
-        plans = client.get("/travel-plans").json()
+        plans = client.get("/travel-plans").json()["items"]
         statuses = {p["status"] for p in plans}
         assert statuses == {"draft", "confirmed"}
 
@@ -158,36 +158,36 @@ class TestStatusFilter:
 class TestDateRangeFilter:
     def test_from_filter_includes_equal_date(self, client):
         make_plan(client, "Tokyo", start_date="2026-06-01", end_date="2026-06-05")
-        plans = client.get("/travel-plans?from=2026-06-01").json()
+        plans = client.get("/travel-plans?from=2026-06-01").json()["items"]
         assert len(plans) == 1
 
     def test_from_filter_excludes_earlier(self, client):
         make_plan(client, "Tokyo", start_date="2026-05-01", end_date="2026-05-05")
-        plans = client.get("/travel-plans?from=2026-06-01").json()
+        plans = client.get("/travel-plans?from=2026-06-01").json()["items"]
         assert plans == []
 
     def test_to_filter_includes_equal_date(self, client):
         make_plan(client, "Tokyo", start_date="2026-06-01", end_date="2026-06-05")
-        plans = client.get("/travel-plans?to=2026-06-01").json()
+        plans = client.get("/travel-plans?to=2026-06-01").json()["items"]
         assert len(plans) == 1
 
     def test_to_filter_excludes_later(self, client):
         make_plan(client, "Tokyo", start_date="2026-07-01", end_date="2026-07-05")
-        plans = client.get("/travel-plans?to=2026-06-30").json()
+        plans = client.get("/travel-plans?to=2026-06-30").json()["items"]
         assert plans == []
 
     def test_from_to_range_selects_correct_plans(self, client):
         make_plan(client, "Tokyo",   start_date="2026-05-01", end_date="2026-05-05")
         make_plan(client, "Paris",   start_date="2026-06-15", end_date="2026-06-20")
         make_plan(client, "London",  start_date="2026-07-01", end_date="2026-07-05")
-        plans = client.get("/travel-plans?from=2026-06-01&to=2026-06-30").json()
+        plans = client.get("/travel-plans?from=2026-06-01&to=2026-06-30").json()["items"]
         assert len(plans) == 1
         assert plans[0]["destination"] == "Paris"
 
     def test_from_to_range_includes_boundaries(self, client):
         make_plan(client, "Tokyo",  start_date="2026-06-01", end_date="2026-06-05")
         make_plan(client, "Paris",  start_date="2026-06-30", end_date="2026-07-04")
-        plans = client.get("/travel-plans?from=2026-06-01&to=2026-06-30").json()
+        plans = client.get("/travel-plans?from=2026-06-01&to=2026-06-30").json()["items"]
         assert len(plans) == 2
 
     def test_invalid_date_format_returns_422(self, client):
@@ -208,7 +208,7 @@ class TestCombinedFilters:
         make_plan(client, "Tokyo", status="draft")
         make_plan(client, "Tokyo", status="confirmed")
         make_plan(client, "Paris", status="draft")
-        plans = client.get("/travel-plans?destination=Tokyo&status=draft").json()
+        plans = client.get("/travel-plans?destination=Tokyo&status=draft").json()["items"]
         assert len(plans) == 1
         assert plans[0]["destination"] == "Tokyo"
         assert plans[0]["status"] == "draft"
@@ -217,7 +217,7 @@ class TestCombinedFilters:
         make_plan(client, "Tokyo", start_date="2026-06-15", end_date="2026-06-20")
         make_plan(client, "Tokyo", start_date="2026-08-01", end_date="2026-08-05")
         make_plan(client, "Paris", start_date="2026-06-15", end_date="2026-06-20")
-        plans = client.get("/travel-plans?destination=Tokyo&from=2026-06-01&to=2026-07-01").json()
+        plans = client.get("/travel-plans?destination=Tokyo&from=2026-06-01&to=2026-07-01").json()["items"]
         assert len(plans) == 1
         assert plans[0]["destination"] == "Tokyo"
 
@@ -227,12 +227,12 @@ class TestCombinedFilters:
         make_plan(client, "Paris", start_date="2026-06-15", end_date="2026-06-20", status="confirmed")
         plans = client.get(
             "/travel-plans?destination=Tokyo&status=confirmed&from=2026-06-01&to=2026-07-01"
-        ).json()
+        ).json()["items"]
         assert len(plans) == 1
         assert plans[0]["destination"] == "Tokyo"
         assert plans[0]["status"] == "confirmed"
 
     def test_no_matches_with_combined(self, client):
         make_plan(client, "Tokyo", status="draft")
-        plans = client.get("/travel-plans?destination=Tokyo&status=confirmed").json()
+        plans = client.get("/travel-plans?destination=Tokyo&status=confirmed").json()["items"]
         assert plans == []

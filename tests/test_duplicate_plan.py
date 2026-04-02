@@ -81,7 +81,7 @@ class TestDuplicatePlan:
     def test_duplicate_appears_in_list(self, client: TestClient):
         plan = _create_plan(client)
         client.post(f"/travel-plans/{plan['id']}/duplicate")
-        all_plans = client.get("/travel-plans").json()
+        all_plans = client.get("/travel-plans").json()["items"]
         assert len(all_plans) == 2
 
     def test_original_unaffected_by_duplicate(self, client: TestClient):

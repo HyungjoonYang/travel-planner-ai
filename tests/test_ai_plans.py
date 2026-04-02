@@ -392,7 +392,7 @@ class TestMultiplePlans:
         with _patch_service(SIMPLE_RESPONSE):
             client.post("/ai/generate", json=PAYLOAD_A)
             client.post("/ai/generate", json=PAYLOAD_B)
-        all_plans = client.get("/travel-plans/").json()
+        all_plans = client.get("/travel-plans/").json()["items"]
         destinations = {p["destination"] for p in all_plans}
         assert "Seoul" in destinations
         assert "Busan" in destinations

@@ -10,7 +10,9 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-_(없음 — 다음 phase 태스크 대기 중)_
+- [ ] #26 - Add notes field to travel plans (`notes: str` on TravelPlan model + PATCH support + filter by keyword) [feature]
+- [ ] #27 - Plan export endpoint (`GET /travel-plans/{id}/export` returns full plan JSON as downloadable attachment) [feature]
+- [ ] #28 - Add tags to travel plans (comma-separated tags field + `GET /travel-plans?tag=` filter) [feature]
 
 ## Done
 
@@ -38,6 +40,7 @@ _(없음 — 다음 phase 태스크 대기 중)_
 - [x] #22 - Plan duplication endpoint (`POST /travel-plans/{id}/duplicate`; copies plan + itineraries + places as new draft; expenses excluded; 21 tests) [feature] — 2026-04-02
 - [x] #23 - Place ordering endpoint (`PATCH /plans/{id}/itineraries/{day_id}/places/reorder`; ordered list of place IDs → atomic `order` field update; 24 tests) [feature] — 2026-04-02
 - [x] #24 - Travel plan search & filter (`GET /travel-plans?destination=&status=&from=&to=`; destination: case-insensitive ILIKE; status: exact; from/to: start_date range; secondary id DESC sort; 27 tests) [feature] — 2026-04-02
+- [x] #25 - Add pagination to GET /travel-plans (`PaginatedPlans` envelope: items/total/page/page_size/pages; `page` ge=1, `page_size` ge=1 le=100 default=20; updated 5 existing test files + 33 new pagination tests) [feature] — 2026-04-02
 
 ## Blocked
 
@@ -49,6 +52,6 @@ _(없음)_
 
 - Velocity: 1 task/run
 - Avg time per task: ~100s
-- Total tasks: 24
-- Completed: 24/24 ✓
-- Phase 5 backlog: 0 tasks remaining
+- Total tasks: 25
+- Completed: 25/25 ✓
+- Phase 6 backlog: 3 tasks remaining

@@ -1,3 +1,4 @@
+import math
 from datetime import date as _Date
 from typing import Optional
 
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import DayItinerary, Place, TravelPlan
-from app.schemas import TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate
+from app.schemas import PaginatedPlans, TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate
 
 router = APIRouter(prefix="/travel-plans", tags=["travel-plans"])
 
@@ -20,12 +21,14 @@ def create_travel_plan(payload: TravelPlanCreate, db: Session = Depends(get_db))
     return plan
 
 
-@router.get("", response_model=list[TravelPlanSummary])
+@router.get("", response_model=PaginatedPlans)
 def list_travel_plans(
     destination: Optional[str] = Query(default=None, description="Case-insensitive partial match on destination"),
     status_filter: Optional[str] = Query(default=None, alias="status", pattern="^(draft|confirmed)$"),
     from_date: Optional[_Date] = Query(default=None, alias="from", description="Filter plans where start_date >= this date"),
     to_date: Optional[_Date] = Query(default=None, alias="to", description="Filter plans where start_date <= this date"),
+    page: int = Query(default=1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(default=20, ge=1, le=100, description="Items per page (max 100)"),
     db: Session = Depends(get_db),
 ):
     q = db.query(TravelPlan)
@@ -37,7 +40,11 @@ def list_travel_plans(
         q = q.filter(TravelPlan.start_date >= from_date)
     if to_date is not None:
         q = q.filter(TravelPlan.start_date <= to_date)
-    return q.order_by(TravelPlan.created_at.desc(), TravelPlan.id.desc()).all()
+    q = q.order_by(TravelPlan.created_at.desc(), TravelPlan.id.desc())
+    total = q.count()
+    pages = max(1, math.ceil(total / page_size))
+    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedPlans(items=items, total=total, page=page, page_size=page_size, pages=pages)
 
 
 @router.get("/{plan_id}", response_model=TravelPlanOut)

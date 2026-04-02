@@ -160,3 +160,11 @@ class TravelPlanSummary(TravelPlanBase):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedPlans(BaseModel):
+    items: list[TravelPlanSummary]
+    total: int
+    page: int
+    page_size: int
+    pages: int

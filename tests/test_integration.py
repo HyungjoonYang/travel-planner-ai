@@ -100,7 +100,7 @@ class TestTravelPlanLifecycle:
         plan_b = _create_plan(client, PARIS_PLAN)
         r = client.get("/travel-plans")
         assert r.status_code == 200
-        ids = [p["id"] for p in r.json()]
+        ids = [p["id"] for p in r.json()["items"]]
         assert plan_a["id"] in ids
         assert plan_b["id"] in ids
 
@@ -378,7 +378,7 @@ class TestAIPlanGenerationIntegration:
             })
         assert r.status_code == 200
         # The plan list should be empty — preview does not persist
-        plans = client.get("/travel-plans").json()
+        plans = client.get("/travel-plans").json()["items"]
         assert len(plans) == 0
 
 

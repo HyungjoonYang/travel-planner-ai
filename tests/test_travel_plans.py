@@ -48,13 +48,13 @@ class TestListTravelPlans:
     def test_list_empty(self, client: TestClient):
         resp = client.get("/travel-plans")
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert resp.json()["items"] == []
 
     def test_list_after_create(self, client: TestClient):
         client.post("/travel-plans", json=PLAN_PAYLOAD)
         resp = client.get("/travel-plans")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["items"]
         assert len(data) == 1
         assert data[0]["destination"] == "Tokyo, Japan"
 
@@ -63,7 +63,7 @@ class TestListTravelPlans:
         second = {**PLAN_PAYLOAD, "destination": "Paris, France"}
         client.post("/travel-plans", json=second)
         resp = client.get("/travel-plans")
-        assert len(resp.json()) == 2
+        assert len(resp.json()["items"]) == 2
 
 
 class TestGetTravelPlan:
@@ -134,7 +134,7 @@ class TestDeleteTravelPlan:
         created = client.post("/travel-plans", json=PLAN_PAYLOAD).json()
         client.delete(f"/travel-plans/{created['id']}")
         resp = client.get("/travel-plans")
-        assert resp.json() == []
+        assert resp.json()["items"] == []
 
     def test_delete_not_found(self, client: TestClient):
         resp = client.delete("/travel-plans/9999")
