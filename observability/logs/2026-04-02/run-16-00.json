@@ -1,0 +1,62 @@
+{
+  "trace": {
+    "run_id": "2026-04-02-1600",
+    "timestamp": "2026-04-02T16:00:00Z",
+    "phase": "Phase 5: Enhancements",
+    "health": "GREEN",
+    "task": "#22 - Plan duplication endpoint"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-02T16:00:00Z",
+      "end": "2026-04-02T16:00:06Z",
+      "duration_ms": 5940,
+      "result": "pass",
+      "details": {"tests_passed": 636, "tests_failed": 0}
+    },
+    {
+      "name": "status_check",
+      "start": "2026-04-02T16:00:06Z",
+      "end": "2026-04-02T16:00:07Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"error_budget": "HEALTHY", "budget_remaining": 1.0}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-02T16:00:07Z",
+      "end": "2026-04-02T16:00:08Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"selected": "#22 - Plan duplication endpoint", "source": "Ready queue"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-02T16:00:08Z",
+      "end": "2026-04-02T16:01:30Z",
+      "duration_ms": 82000,
+      "result": "pass",
+      "details": {
+        "files_modified": ["src/app/routers/travel_plans.py"],
+        "files_created": ["tests/test_duplicate_plan.py"],
+        "new_endpoint": "POST /travel-plans/{plan_id}/duplicate",
+        "tests_added": 21
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-02T16:01:30Z",
+      "end": "2026-04-02T16:01:36Z",
+      "duration_ms": 6050,
+      "result": "pass",
+      "details": {"tests_passed": 657, "tests_failed": 0}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 96050, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 85, "lines_removed": 1, "files_changed": 2},
+    "errors": {"test_failures": 0, "fix_attempts": 0, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 2}
+  }
+}

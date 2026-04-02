@@ -1,22 +1,34 @@
 # Status
 
-Last run: 2026-04-02T15:00:00Z (Run #26)
-Run count: 31
+Last run: 2026-04-02T16:00:00Z (Run #27)
+Run count: 32
 Phase: Phase 5: Enhancements
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 21/21 ✓
+Tasks completed: 22/22 ✓
 Current focus: _(none — task complete)_
-Next planned: #22 - Plan duplication (copy as new draft)
+Next planned: #23 - Place ordering endpoint
 
 ## LTES Snapshot
 
-- Latency: ~5610ms (pytest 636 tests in 5.61s)
-- Traffic: 26 commits last 24h
-- Errors: 0 test failures (636/636 pass), error_rate=0.0%
-- Saturation: 3 tasks remaining in backlog
+- Latency: ~6050ms (pytest 657 tests in 6.05s)
+- Traffic: 27 commits last 24h
+- Errors: 0 test failures (657/657 pass), error_rate=0.0%
+- Saturation: 2 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #27 — 2026-04-02T16:00Z
+- **Task**: #22 - Plan duplication endpoint
+- **Phase**: Phase 5: Enhancements
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_duplicate_plan.py` — 21 tests: status forced to draft, new IDs, all fields copied, itineraries+places deep-copied, expenses excluded, delete isolation
+- **Files modified**:
+  - `src/app/routers/travel_plans.py` — added `POST /travel-plans/{plan_id}/duplicate`; uses `db.flush()` for ID assignment before child creation; deep-copies DayItinerary + Place rows; expenses intentionally excluded
+- **Tests**: 657/657 passed (was 636, added 21 new tests)
+- **LTES**: L=6050ms T=27 commits/day E=0.0% S=2 tasks remaining
+- **Impact**: Users can now re-use existing trip templates by duplicating a confirmed plan into a new draft, preserving full itinerary/place structure without copying expense records
 
 ### Run #26 — 2026-04-02T15:00Z
 - **Task**: #21 - Add manual itinerary editing (DayItinerary + Place CRUD)
@@ -51,16 +63,11 @@ Next planned: #22 - Plan duplication (copy as new draft)
 - **Coverage**: 98% → **100%** (all 759 statements covered)
 - **LTES**: L=7200ms T=25 commits/day E=0.0% S=0 tasks remaining
 
-### Run #24 — 2026-04-02T00:00Z
-- **Task**: #19 - Write README with architecture overview
-- **Phase**: Phase 4: Polish
-- **Result**: GREEN ✓
-
 ## Daily Summary
 
 ### 2026-04-02
-- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing)
-- **Tests**: 572 → 636 (+64)
+- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication)
+- **Tests**: 572 → 657 (+85)
 - **Health**: GREEN throughout
-- **Milestone**: Phase 4 complete (20/20 tasks). Phase 5 started with #21.
-- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 new endpoints)
+- **Milestone**: Phase 4 complete. Phase 5 progressing (22/22 tasks done, 2 remaining).
+- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication endpoint
