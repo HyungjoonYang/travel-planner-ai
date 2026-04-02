@@ -73,6 +73,8 @@ class Place(Base):
     estimated_cost: Mapped[float] = mapped_column(Float, default=0.0)
     ai_reason: Mapped[str] = mapped_column(Text, default="")
     order: Mapped[int] = mapped_column(Integer, default=0)
+    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5 stars
+    review: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     day_itinerary: Mapped["DayItinerary"] = relationship(
         "DayItinerary", back_populates="places"

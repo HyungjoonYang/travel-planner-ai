@@ -6,11 +6,14 @@
 
 ## In Progress
 
-_(없음)_
+- [ ] #34 - Place ratings and reviews (`rating: int 1-5`, `review: str` fields on Place; PATCH via existing place endpoint; `GET /travel-plans/{id}/top-places?min_rating=&limit=` endpoint; tests) [feature]
 
 ## Ready (우선순위 순)
 
-_(없음)_
+- [ ] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature]
+- [ ] #36 - Favorite places library (`POST /favorite-places`, `GET /favorite-places`, `DELETE /favorite-places/{id}`; global across plans; copy a place from itinerary to favorites) [feature]
+- [ ] #37 - Plan activity log (`PlanActivity` model; record create/update/delete events on plans with timestamp+action+detail; `GET /travel-plans/{id}/activity`) [feature]
+- [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
 
 ## Done
 
@@ -58,6 +61,6 @@ _(없음)_
 
 - Velocity: 1 task/run
 - Avg time per task: ~100s
-- Total tasks: 33 planned (33 done, 0 ready)
-- Completed: 33/33
-- Phase 8 backlog: 0 tasks remaining — ALL DONE
+- Total tasks: 38 planned (33 done, 4 ready, 1 in-progress)
+- Completed: 33/38
+- Phase 9 backlog: 5 tasks remaining

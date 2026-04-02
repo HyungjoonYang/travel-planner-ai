@@ -16,6 +16,7 @@ from app.schemas import (
     CommentCreate, CommentOut,
     PaginatedPlans, PlanSnapshotOut, PlanSnapshotSummary,
     RefineRequest, ShareOut, SnapshotCreateRequest,
+    TopPlaceOut,
     TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate,
 )
 
@@ -416,3 +417,54 @@ def get_snapshot(plan_id: int, snap_id: int, db: Session = Depends(get_db)):
         created_at=snap.created_at,
         snapshot_data=json.loads(snap.snapshot_data),
     )
+
+
+# ---------------------------------------------------------------------------
+# Place ratings — top-rated places for a plan
+# ---------------------------------------------------------------------------
+
+@router.get("/{plan_id}/top-places", response_model=list[TopPlaceOut])
+def get_top_places(
+    plan_id: int,
+    min_rating: int = Query(default=1, ge=1, le=5),
+    limit: int = Query(default=10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    """Return the highest-rated places across all days of a plan.
+
+    Only places with a non-null ``rating`` (1-5) are returned.
+    Results are sorted by rating descending, then by place name ascending.
+    """
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+
+    rows = (
+        db.query(Place, DayItinerary.date)
+        .join(DayItinerary, Place.day_itinerary_id == DayItinerary.id)
+        .filter(
+            DayItinerary.travel_plan_id == plan_id,
+            Place.rating.isnot(None),
+            Place.rating >= min_rating,
+        )
+        .order_by(Place.rating.desc(), Place.name.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        TopPlaceOut(
+            id=place.id,
+            name=place.name,
+            category=place.category,
+            address=place.address,
+            estimated_cost=place.estimated_cost,
+            ai_reason=place.ai_reason,
+            order=place.order,
+            rating=place.rating,
+            review=place.review,
+            day_itinerary_id=place.day_itinerary_id,
+            day_date=day_date,
+        )
+        for place, day_date in rows
+    ]

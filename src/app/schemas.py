@@ -16,6 +16,8 @@ class PlaceBase(BaseModel):
     estimated_cost: float = Field(default=0.0, ge=0)
     ai_reason: str = ""
     order: int = Field(default=0, ge=0)
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    review: Optional[str] = None
 
 
 class PlaceCreate(PlaceBase):
@@ -29,6 +31,8 @@ class PlaceUpdate(BaseModel):
     estimated_cost: Optional[float] = Field(default=None, ge=0)
     ai_reason: Optional[str] = None
     order: Optional[int] = Field(default=None, ge=0)
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+    review: Optional[str] = None
 
 
 class PlaceReorderRequest(BaseModel):
@@ -214,6 +218,24 @@ class PlanSnapshotOut(BaseModel):
 
 
 # --- PlanComment ---
+
+# --- TopPlace ---
+
+class TopPlaceOut(BaseModel):
+    id: int
+    name: str
+    category: str
+    address: str
+    estimated_cost: float
+    ai_reason: str
+    order: int
+    rating: int
+    review: Optional[str]
+    day_itinerary_id: int
+    day_date: date
+
+    model_config = {"from_attributes": True}
+
 
 class CommentCreate(BaseModel):
     author_name: str = Field(..., min_length=1, max_length=100)

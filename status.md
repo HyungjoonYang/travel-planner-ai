@@ -1,22 +1,37 @@
 # Status
 
-Last run: 2026-04-02T20:35:00Z (Run #49)
-Run count: 49
-Phase: Phase 8: AI Enhancement
+Last run: 2026-04-02T21:00:00Z (Run #50)
+Run count: 50
+Phase: Phase 9: User Experience & Polish
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 33/33 ✓ ALL COMPLETE
-Current focus: _(none — all tasks complete)_
-Next planned: _(backlog empty — agent may generate new tasks)_
+Tasks completed: 34/38
+Current focus: _(none — #34 just completed)_
+Next planned: #35 - Per-day cost summary
 
 ## LTES Snapshot
 
-- Latency: ~14970ms (pytest 959 tests in 14.97s)
-- Traffic: 25 commits last 24h
-- Errors: 0 test failures (959/959 pass), error_rate=0.0%
-- Saturation: 0 tasks remaining in backlog
+- Latency: ~16360ms (pytest 994 tests in 16.36s)
+- Traffic: 28 commits last 24h
+- Errors: 0 test failures (994/994 pass), error_rate=0.0%
+- Saturation: 4 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #50 — 2026-04-02T21:00Z
+- **Task**: #34 - Place ratings and reviews
+- **Phase**: Phase 9: User Experience & Polish (kickoff)
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_ratings.py` — 35 tests: PlaceRatingFields (6), RatePlace (9), TopPlaces (20)
+- **Files modified**:
+  - `src/app/models.py` — added `rating: Mapped[Optional[int]]` (nullable) and `review: Mapped[Optional[str]]` (nullable Text) to `Place`
+  - `src/app/schemas.py` — added `rating: Optional[int] = Field(ge=1, le=5)` and `review: Optional[str]` to `PlaceBase` and `PlaceUpdate`; added `TopPlaceOut` schema (includes `day_date`, `day_itinerary_id`)
+  - `src/app/routers/travel_plans.py` — added `GET /travel-plans/{plan_id}/top-places?min_rating=&limit=` endpoint; joins Place↔DayItinerary; filters by plan + non-null rating + min_rating; sorts rating DESC, name ASC; imported `TopPlaceOut`
+- **Tests**: 994/994 passed (was 959, added 35 new tests)
+- **Fix**: 0 fix attempts — all tests passed first run
+- **LTES**: L=16360ms T=28 commits/day E=0.0% S=4 tasks remaining
+- **Impact**: Places can now be rated 1-5 stars with an optional review via the existing PATCH endpoint. `GET /travel-plans/{id}/top-places` returns the best-rated places across all days of a plan, sorted by rating descending, with `day_date` context. New Phase 9 backlog generated with 5 tasks (#34-#38).
 
 ### Run #49 — 2026-04-02T20:35Z
 - **Task**: #33 - Collaborative comments on shared plans
@@ -56,74 +71,11 @@ Next planned: _(backlog empty — agent may generate new tasks)_
 - **LTES**: L=14490ms T=26 commits/day E=0.0% S=1 task remaining
 - **Impact**: Travel plans can now be versioned. `POST /travel-plans/{id}/snapshot` captures frozen JSON of full plan state. `GET /travel-plans/{id}/snapshots` lists all versions (lightweight, no data). `GET /travel-plans/{id}/snapshots/{snap_id}` returns full snapshot with `snapshot_data` dict. Snapshots cascade-delete with their plan. Plan edits after snapshotting don't affect frozen snapshots.
 
-### Run #46 — 2026-04-02T19:50Z
-- **Task**: #31 - Budget overage alerts
-- **Phase**: Phase 8: AI Enhancement
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_budget_alerts.py` — 20 tests: BudgetSummary fields (11), over_budget filter (9)
-- **Files modified**:
-  - `src/app/schemas.py` — added `over_budget: bool` and `overage_pct: float` to `BudgetSummary`
-  - `src/app/routers/expenses.py` — compute `over_budget` and `overage_pct` in `get_budget_summary`
-  - `src/app/routers/travel_plans.py` — added `over_budget: Optional[bool]` query param; subquery via `func.sum(Expense.amount)` to filter plans over/under budget; imported `func`, `Expense`
-  - `tests/test_expenses.py` — updated `test_budget_summary_fields` to include new required fields
-- **Tests**: 904/904 passed (was 884, added 20 new tests)
-- **Fix**: 1 fix attempt — `test_expenses.py::test_budget_summary_fields` used bare `BudgetSummary(...)` missing new required fields
-- **LTES**: L=12980ms T=25 commits/day E=0.0% S=2 tasks remaining
-- **Impact**: `/plans/{id}/expenses/summary` now reports `over_budget: bool` and `overage_pct: float`; `GET /travel-plans?over_budget=true/false` filters plans by budget status using expense subquery.
-
-### Monitor #19 — 2026-04-02T19:33Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 884/884 passed (12.59s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **LTES**: L=12590ms T=24 commits/day E=0.0% S=3 tasks remaining
-- **Action**: No incidents, no fixes needed
-
-### Run #44 — 2026-04-02T19:23Z
-- **Task**: #30 - AI plan refinement endpoint
-- **Phase**: Phase 8: AI Enhancement (kickoff)
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_refine.py` — 30 tests: status codes (9), response content (10), itinerary replacement (4), service call verification (7)
-- **Files modified**:
-  - `src/app/schemas.py` — added `RefineRequest(instruction: str, min_length=1, max_length=2000)` schema
-  - `src/app/ai.py` — added `refine_itinerary()` method to `GeminiService`; builds prompt with current plan + user instruction; returns `AIItineraryResult`
-  - `src/app/routers/travel_plans.py` — added `POST /{id}/refine` endpoint; loads plan → serializes current days → calls AI → deletes old itineraries (cascade) → creates new ones from refined result; imported `GeminiService`, `RefineRequest`
-- **Tests**: 884/884 passed (was 854, added 30 new tests)
-- **Fix**: 1 fix attempt — expense URL in tests was `/travel-plans/{id}/expenses` should be `/plans/{id}/expenses`
-- **LTES**: L=11160ms T=35 commits/day E=0.0% S=3 tasks remaining
-- **Impact**: Users can now iteratively refine an AI-generated travel plan with a natural language instruction. `POST /travel-plans/{id}/refine` → AI regenerates the itinerary while preserving plan metadata and expenses.
-
-### Run #43 — 2026-04-02T18:52Z
-- **Task**: #29 - Plan sharing feature
-- **Phase**: Phase 7: Collaboration & Sharing (kickoff)
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_sharing.py` — 32 tests: create share (11), revoke share (7), get shared plan (10), is_shared field (4)
-- **Files modified**:
-  - `src/app/models.py` — added `is_shared: Mapped[bool]` and `share_token: Mapped[Optional[str]]` (unique, indexed) to `TravelPlan`
-  - `src/app/schemas.py` — added `is_shared: bool = False` to `TravelPlanOut` and `TravelPlanSummary`; added `ShareOut(plan_id, token, share_url)` schema
-  - `src/app/routers/travel_plans.py` — added `POST /{id}/share` (generate `secrets.token_urlsafe(32)`, idempotent); `DELETE /{id}/share` (revoke); `GET /shared/{token}` (public read-only); imported `secrets`, `Request`, `ShareOut`
-  - `tests/test_error_handling.py` — converted `TestTravelPlanAPIDateValidation`, `TestRequestIDMiddleware`, `TestExpenseValidation` to use conftest `client` fixture (was using module-level `TestClient(app)` hitting stale on-disk DB that lacked new columns)
-- **Tests**: 854/854 passed (was 822, added 32 new tests)
-- **Fix**: 2 fix attempts — (1) test used wrong itinerary URL prefix; (2) test_error_handling.py needed conftest fixture migration for DB-touching tests
-- **LTES**: L=10470ms T=25 commits/day E=0.0% S=0 tasks remaining
-- **Impact**: Travel plans can now be shared via a public read-only URL. `POST /travel-plans/{id}/share` generates a token; `GET /travel-plans/shared/{token}` returns the full plan without auth; `DELETE /travel-plans/{id}/share` revokes. `is_shared` visible in all plan responses.
-
-### Monitor #18 — 2026-04-02T18:33Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 822/822 passed (10.50s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **LTES**: L=10500ms T=24 commits/day E=0.0% S=0 tasks remaining
-- **Action**: No incidents, no fixes needed
-
 ## Daily Summary
 
 ### 2026-04-02
-- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter), #25 (pagination), #26 (notes field), #27 (export endpoint), #28 (tags field), #29 (plan sharing), #30 (AI plan refinement)
-- **Tests**: 572 → 884 (+312)
+- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter), #25 (pagination), #26 (notes field), #27 (export endpoint), #28 (tags field), #29 (plan sharing), #30 (AI plan refinement), #31 (budget overage alerts), #32 (plan version history), #33 (collaborative comments), #34 (place ratings & reviews)
+- **Tests**: 572 → 994 (+422)
 - **Health**: GREEN throughout
-- **Milestone**: Phase 6 complete + Phase 7 complete + Phase 8 started. 30/33 tasks done.
-- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication + place reorder + search & filter + pagination with envelope response + notes field + export endpoint + tags field with exact filter + plan sharing (public read-only URLs via token) + AI plan refinement (iterative improvement via natural language instruction)
+- **Milestone**: Phase 6 complete + Phase 7 complete + Phase 8 complete + Phase 9 started. 34/38 tasks done.
+- **Key achievements today**: 100% test coverage + manual itinerary CRUD + plan duplication + place reorder + search & filter + pagination + notes + export + tags + plan sharing + AI refinement + budget alerts + version history + collaborative comments + place ratings & reviews (top-places endpoint)

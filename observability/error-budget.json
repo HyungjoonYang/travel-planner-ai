@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 49,
-    "successful_runs": 45,
+    "total_runs": 50,
+    "successful_runs": 46,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -68,6 +68,7 @@
     {"run_id": "2026-04-02-1950", "task": "#31 - Budget overage alerts", "result": "success", "tests_passed": 904, "tests_total": 904},
     {"run_id": "2026-04-02-2010", "task": "#32 - Plan version history", "result": "success", "tests_passed": 934, "tests_total": 934},
     {"run_id": "monitor-2026-04-02-2025", "task": "monitor", "result": "success", "tests_passed": 934, "tests_total": 934},
-    {"run_id": "2026-04-02-2035", "task": "#33 - Collaborative comments on shared plans", "result": "success", "tests_passed": 959, "tests_total": 959}
+    {"run_id": "2026-04-02-2035", "task": "#33 - Collaborative comments on shared plans", "result": "success", "tests_passed": 959, "tests_total": 959},
+    {"run_id": "2026-04-02-2100", "task": "#34 - Place ratings and reviews", "result": "success", "tests_passed": 994, "tests_total": 994}
   ]
 }
