@@ -1,0 +1,46 @@
+{
+  "trace": {
+    "run_id": "monitor-2026-04-02-0001",
+    "timestamp": "2026-04-02T00:01:00Z",
+    "type": "monitor",
+    "health": "GREEN"
+  },
+  "spans": [
+    {
+      "name": "test_run",
+      "start": "2026-04-02T00:01:00Z",
+      "end": "2026-04-02T00:01:05Z",
+      "duration_ms": 5200,
+      "result": "pass",
+      "details": {"tests_passed": 572, "tests_failed": 0, "tests_total": 572}
+    },
+    {
+      "name": "ltes_collection",
+      "start": "2026-04-02T00:01:05Z",
+      "end": "2026-04-02T00:01:10Z",
+      "duration_ms": 5000,
+      "result": "pass",
+      "details": {
+        "commits_24h": 24,
+        "backlog_remaining": 1,
+        "error_budget_status": "HEALTHY"
+      }
+    },
+    {
+      "name": "status_update",
+      "start": "2026-04-02T00:01:10Z",
+      "end": "2026-04-02T00:01:20Z",
+      "duration_ms": 10000,
+      "result": "pass",
+      "details": {
+        "files_updated": ["status.md", "observability/dashboard.json", "observability/error-budget.json"]
+      }
+    }
+  ],
+  "ltes": {
+    "latency": {"pytest_ms": 5200, "total_run_ms": 20000},
+    "traffic": {"commits_24h": 24, "lines_added": 380, "lines_removed": 51, "files_changed": 6},
+    "errors": {"test_failures": 0, "error_rate_pct": 0.0},
+    "saturation": {"backlog_remaining": 1, "log_files": 2}
+  }
+}
