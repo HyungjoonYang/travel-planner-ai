@@ -1,0 +1,30 @@
+{
+  "run_id": "monitor-2026-04-02-1634",
+  "timestamp": "2026-04-02T16:34:03Z",
+  "type": "monitor",
+  "health": "GREEN",
+  "ltes": {
+    "latency": {
+      "pytest_duration_ms": 8390,
+      "tests_collected": 708
+    },
+    "traffic": {
+      "commits_last_24h": 24,
+      "last_commit": "f519dcc feat: add travel plan search & filter"
+    },
+    "errors": {
+      "tests_passed": 708,
+      "tests_failed": 0,
+      "error_rate_pct": 0.0
+    },
+    "saturation": {
+      "backlog_remaining": 0,
+      "logs_dir_entries": 6
+    }
+  },
+  "error_budget": {
+    "status": "HEALTHY",
+    "budget_remaining": 1.0
+  },
+  "action": "No incidents, no fixes needed"
+}
