@@ -27,6 +27,7 @@ def list_travel_plans(
     status_filter: Optional[str] = Query(default=None, alias="status", pattern="^(draft|confirmed)$"),
     from_date: Optional[_Date] = Query(default=None, alias="from", description="Filter plans where start_date >= this date"),
     to_date: Optional[_Date] = Query(default=None, alias="to", description="Filter plans where start_date <= this date"),
+    notes: Optional[str] = Query(default=None, description="Case-insensitive keyword search in notes"),
     page: int = Query(default=1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page (max 100)"),
     db: Session = Depends(get_db),
@@ -40,6 +41,8 @@ def list_travel_plans(
         q = q.filter(TravelPlan.start_date >= from_date)
     if to_date is not None:
         q = q.filter(TravelPlan.start_date <= to_date)
+    if notes is not None:
+        q = q.filter(TravelPlan.notes.ilike(f"%{notes}%"))
     q = q.order_by(TravelPlan.created_at.desc(), TravelPlan.id.desc())
     total = q.count()
     pages = max(1, math.ceil(total / page_size))
@@ -91,6 +94,7 @@ def duplicate_travel_plan(plan_id: int, db: Session = Depends(get_db)):
         end_date=original.end_date,
         budget=original.budget,
         interests=original.interests,
+        notes=original.notes,
         status="draft",
     )
     db.add(copy)

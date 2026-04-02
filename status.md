@@ -1,22 +1,37 @@
 # Status
 
-Last run: 2026-04-02T16:51:39Z (Evolve Run #30)
-Run count: 37
+Last run: 2026-04-02T17:19:52Z (Evolve Run #31)
+Run count: 38
 Phase: Phase 6: Polish & Production Readiness
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 25/25 ✓
+Tasks completed: 26/26 ✓
 Current focus: _(none — task complete)_
-Next planned: #26 - Add notes field to travel plans
+Next planned: #27 - Plan export endpoint
 
 ## LTES Snapshot
 
-- Latency: ~8590ms (pytest 741 tests in 8.59s)
-- Traffic: 30 commits last 24h
-- Errors: 0 test failures (741/741 pass), error_rate=0.0%
-- Saturation: 3 tasks remaining in backlog
+- Latency: ~8440ms (pytest 764 tests in 8.44s)
+- Traffic: 31 commits last 24h
+- Errors: 0 test failures (764/764 pass), error_rate=0.0%
+- Saturation: 2 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #31 — 2026-04-02T17:19Z
+- **Task**: #26 - Add notes field to travel plans
+- **Phase**: Phase 6: Polish & Production Readiness
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_notes.py` — 23 tests: create with/without notes (5), PATCH notes (5), GET filter by keyword (11), duplicate copies notes (3)
+- **Files modified**:
+  - `src/app/models.py` — added `notes: Mapped[str] = mapped_column(Text, default="")` to `TravelPlan`
+  - `src/app/schemas.py` — added `notes: str = ""` to `TravelPlanBase`; `notes: Optional[str] = None` to `TravelPlanUpdate`
+  - `src/app/routers/travel_plans.py` — added `notes` query param to `GET /travel-plans` (case-insensitive ILIKE filter); copied `notes` in `duplicate_travel_plan`
+- **Tests**: 764/764 passed (was 741, added 23 new tests)
+- **Fix**: removed stale `travel_planner.db` (schema lacked `notes` column, caused 7 module-level test failures)
+- **LTES**: L=8440ms T=31 commits/day E=0.0% S=2 tasks remaining
+- **Impact**: `TravelPlan` now has a `notes` free-text field; settable on create/PATCH; searchable via `GET /travel-plans?notes=<keyword>` (case-insensitive partial match, composable with existing filters); copied on duplicate
 
 ### Run #30 — 2026-04-02T16:51Z
 - **Task**: #25 - Add pagination to GET /travel-plans

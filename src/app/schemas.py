@@ -115,6 +115,7 @@ class TravelPlanBase(BaseModel):
     budget: float = Field(..., gt=0)
     interests: str = ""
     status: str = Field(default="draft", pattern="^(draft|confirmed)$")
+    notes: str = ""
 
     @model_validator(mode="after")
     def end_date_not_before_start_date(self) -> "TravelPlanBase":
@@ -134,6 +135,7 @@ class TravelPlanUpdate(BaseModel):
     budget: Optional[float] = Field(default=None, gt=0)
     interests: Optional[str] = None
     status: Optional[str] = Field(default=None, pattern="^(draft|confirmed)$")
+    notes: Optional[str] = None
 
     @model_validator(mode="after")
     def end_date_not_before_start_date(self) -> "TravelPlanUpdate":
