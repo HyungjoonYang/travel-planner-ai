@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 32,
-    "successful_runs": 28,
+    "total_runs": 33,
+    "successful_runs": 29,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -51,6 +51,7 @@
     {"run_id": "2026-04-02-1409", "task": "#20 - Final test coverage review and gap filling", "result": "success", "tests_passed": 585, "tests_total": 585},
     {"run_id": "monitor-2026-04-02-1439", "task": "monitor", "result": "success", "tests_passed": 585, "tests_total": 585},
     {"run_id": "2026-04-02-1500", "task": "#21 - Add manual itinerary editing", "result": "success", "tests_passed": 636, "tests_total": 636},
-    {"run_id": "2026-04-02-1600", "task": "#22 - Plan duplication endpoint", "result": "success", "tests_passed": 657, "tests_total": 657}
+    {"run_id": "2026-04-02-1600", "task": "#22 - Plan duplication endpoint", "result": "success", "tests_passed": 657, "tests_total": 657},
+    {"run_id": "monitor-2026-04-02-1537", "task": "monitor", "result": "success", "tests_passed": 657, "tests_total": 657}
   ]
 }
