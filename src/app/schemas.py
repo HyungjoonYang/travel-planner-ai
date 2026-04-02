@@ -186,3 +186,28 @@ class ShareOut(BaseModel):
 
 class RefineRequest(BaseModel):
     instruction: str = Field(..., min_length=1, max_length=2000, description="Natural language instruction for how to refine the travel plan")
+
+
+# --- PlanSnapshot ---
+
+class SnapshotCreateRequest(BaseModel):
+    label: Optional[str] = Field(default=None, max_length=100, description="Optional short description for the snapshot")
+
+
+class PlanSnapshotSummary(BaseModel):
+    id: int
+    travel_plan_id: int
+    label: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PlanSnapshotOut(BaseModel):
+    id: int
+    travel_plan_id: int
+    label: Optional[str]
+    created_at: datetime
+    snapshot_data: dict
+
+    model_config = {"from_attributes": True}

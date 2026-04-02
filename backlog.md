@@ -10,7 +10,6 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-- [ ] #32 - Plan version history (track changes via lightweight `PlanSnapshot` model; `POST /travel-plans/{id}/snapshot`, `GET /travel-plans/{id}/snapshots`, `GET /travel-plans/{id}/snapshots/{snap_id}` restore preview; ~25 tests) [feature]
 - [ ] #33 - Collaborative comments on shared plans (`POST /travel-plans/shared/{token}/comments`; anonymous name + text; `GET /travel-plans/shared/{token}/comments`; `DELETE /travel-plans/{id}/comments/{comment_id}` (owner only); ~25 tests) [feature]
 
 ## Done
@@ -44,6 +43,8 @@ _(없음)_
 - [x] #27 - Plan export endpoint (`GET /travel-plans/{id}/export`; returns full plan JSON with itineraries+places+expenses as `Content-Disposition: attachment` download; 33 tests) [feature] — 2026-04-02
 - [x] #28 - Add tags to travel plans (comma-separated `tags` field; PATCH support; `GET /travel-plans?tag=` exact case-insensitive filter using OR conditions; copied on duplicate; included in export; 25 tests) [feature] — 2026-04-02
 - [x] #29 - Plan sharing feature (`POST /travel-plans/{id}/share` → generate URLsafe token + set is_shared; `DELETE /travel-plans/{id}/share` → revoke; `GET /travel-plans/shared/{token}` → public read-only view; `is_shared` in TravelPlanOut+Summary; 32 tests; also fixed test_error_handling.py module-level DB issue) [feature] — 2026-04-02
+- [x] #32 - Plan version history (`PlanSnapshot` model; `POST /travel-plans/{id}/snapshot`, `GET /travel-plans/{id}/snapshots`, `GET /travel-plans/{id}/snapshots/{snap_id}`; snapshot_data frozen JSON; cascade delete; 30 tests) [feature] — 2026-04-02
+- [x] #31 - Budget overage alerts (`over_budget: bool`, `overage_pct: float` in BudgetSummary; `GET /travel-plans?over_budget=` filter; 20 tests) [feature] — 2026-04-02
 - [x] #30 - AI plan refinement endpoint (`POST /travel-plans/{id}/refine`; RefineRequest.instruction (min=1, max=2000); AI reads current plan + instruction → regenerates itinerary; replaces old DayItinerary/Place; preserves expenses; 503/502 error handling; 30 tests) [feature] — 2026-04-02
 
 ## Blocked
@@ -56,6 +57,6 @@ _(없음)_
 
 - Velocity: 1 task/run
 - Avg time per task: ~100s
-- Total tasks: 33 planned (30 done, 3 ready)
-- Completed: 30/33
-- Phase 8 backlog: 3 tasks remaining
+- Total tasks: 33 planned (32 done, 1 ready)
+- Completed: 32/33
+- Phase 8 backlog: 1 task remaining

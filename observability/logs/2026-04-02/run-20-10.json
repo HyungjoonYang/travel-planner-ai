@@ -1,0 +1,52 @@
+{
+  "trace": {
+    "run_id": "2026-04-02-2010",
+    "timestamp": "2026-04-02T20:10:00Z",
+    "phase": "Phase 8: AI Enhancement",
+    "health": "GREEN",
+    "task": "#32 - Plan version history"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-02T20:10:00Z",
+      "end": "2026-04-02T20:10:14Z",
+      "duration_ms": 14000,
+      "result": "pass",
+      "details": {"tests_passed": 904, "tests_total": 904}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-02T20:10:14Z",
+      "end": "2026-04-02T20:10:15Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"selected": "#32 - Plan version history", "source": "Ready queue"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-02T20:10:15Z",
+      "end": "2026-04-02T20:10:55Z",
+      "duration_ms": 40000,
+      "result": "pass",
+      "details": {
+        "files_created": ["tests/test_snapshots.py"],
+        "files_modified": ["src/app/models.py", "src/app/schemas.py", "src/app/routers/travel_plans.py"]
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-02T20:10:55Z",
+      "end": "2026-04-02T20:11:10Z",
+      "duration_ms": 14490,
+      "result": "pass",
+      "details": {"tests_passed": 934, "tests_total": 934, "new_tests": 30, "fix_attempts": 0}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 70000, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 150, "lines_removed": 5, "files_changed": 4},
+    "errors": {"test_failures": 0, "fix_attempts": 0, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 1}
+  }
+}

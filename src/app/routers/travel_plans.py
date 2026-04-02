@@ -11,8 +11,12 @@ from sqlalchemy.orm import Session
 
 from app.ai import GeminiService
 from app.database import get_db
-from app.models import DayItinerary, Expense, Place, TravelPlan
-from app.schemas import PaginatedPlans, RefineRequest, ShareOut, TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate
+from app.models import DayItinerary, Expense, Place, PlanSnapshot, TravelPlan
+from app.schemas import (
+    PaginatedPlans, PlanSnapshotOut, PlanSnapshotSummary,
+    RefineRequest, ShareOut, SnapshotCreateRequest,
+    TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate,
+)
 
 router = APIRouter(prefix="/travel-plans", tags=["travel-plans"])
 
@@ -291,3 +295,68 @@ def get_shared_travel_plan(token: str, db: Session = Depends(get_db)):
     if plan is None:
         raise HTTPException(status_code=404, detail="Shared plan not found")
     return plan
+
+
+# --- Snapshot endpoints ---
+
+@router.post("/{plan_id}/snapshot", response_model=PlanSnapshotOut, status_code=status.HTTP_201_CREATED)
+def create_snapshot(plan_id: int, payload: SnapshotCreateRequest, db: Session = Depends(get_db)):
+    """Create a version snapshot of the current plan state."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+
+    plan_data = TravelPlanOut.model_validate(plan).model_dump(mode="json")
+    snap = PlanSnapshot(
+        travel_plan_id=plan_id,
+        label=payload.label,
+        snapshot_data=json.dumps(plan_data),
+    )
+    db.add(snap)
+    db.commit()
+    db.refresh(snap)
+    return PlanSnapshotOut(
+        id=snap.id,
+        travel_plan_id=snap.travel_plan_id,
+        label=snap.label,
+        created_at=snap.created_at,
+        snapshot_data=plan_data,
+    )
+
+
+@router.get("/{plan_id}/snapshots", response_model=list[PlanSnapshotSummary])
+def list_snapshots(plan_id: int, db: Session = Depends(get_db)):
+    """List all version snapshots for a travel plan (lightweight, no snapshot_data)."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+
+    return (
+        db.query(PlanSnapshot)
+        .filter(PlanSnapshot.travel_plan_id == plan_id)
+        .order_by(PlanSnapshot.created_at.desc())
+        .all()
+    )
+
+
+@router.get("/{plan_id}/snapshots/{snap_id}", response_model=PlanSnapshotOut)
+def get_snapshot(plan_id: int, snap_id: int, db: Session = Depends(get_db)):
+    """Retrieve a specific version snapshot (full plan data)."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+
+    snap = db.query(PlanSnapshot).filter(
+        PlanSnapshot.id == snap_id,
+        PlanSnapshot.travel_plan_id == plan_id,
+    ).first()
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    return PlanSnapshotOut(
+        id=snap.id,
+        travel_plan_id=snap.travel_plan_id,
+        label=snap.label,
+        created_at=snap.created_at,
+        snapshot_data=json.loads(snap.snapshot_data),
+    )

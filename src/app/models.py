@@ -32,6 +32,9 @@ class TravelPlan(Base):
     expenses: Mapped[list["Expense"]] = relationship(
         "Expense", back_populates="travel_plan", cascade="all, delete-orphan"
     )
+    snapshots: Mapped[list["PlanSnapshot"]] = relationship(
+        "PlanSnapshot", back_populates="travel_plan", cascade="all, delete-orphan"
+    )
 
 
 class DayItinerary(Base):
@@ -71,6 +74,20 @@ class Place(Base):
     day_itinerary: Mapped["DayItinerary"] = relationship(
         "DayItinerary", back_populates="places"
     )
+
+
+class PlanSnapshot(Base):
+    __tablename__ = "plan_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    travel_plan_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("travel_plans.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    snapshot_data: Mapped[str] = mapped_column(Text, nullable=False)  # JSON
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    travel_plan: Mapped["TravelPlan"] = relationship("TravelPlan", back_populates="snapshots")
 
 
 class Expense(Base):

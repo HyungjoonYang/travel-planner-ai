@@ -1,22 +1,37 @@
 # Status
 
-Last run: 2026-04-02T19:50:00Z (Run #46)
-Run count: 46
+Last run: 2026-04-02T20:10:00Z (Run #47)
+Run count: 47
 Phase: Phase 8: AI Enhancement
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 31/33 ✓
-Current focus: _(none — task #31 complete)_
-Next planned: #32 - Plan version history
+Tasks completed: 32/33 ✓
+Current focus: _(none — task #32 complete)_
+Next planned: #33 - Collaborative comments on shared plans
 
 ## LTES Snapshot
 
-- Latency: ~12980ms (pytest 904 tests in 12.98s)
-- Traffic: 25 commits last 24h
-- Errors: 0 test failures (904/904 pass), error_rate=0.0%
-- Saturation: 2 tasks remaining in backlog
+- Latency: ~14490ms (pytest 934 tests in 14.49s)
+- Traffic: 26 commits last 24h
+- Errors: 0 test failures (934/934 pass), error_rate=0.0%
+- Saturation: 1 task remaining in backlog
 
 ## Recent Changes
+
+### Run #47 — 2026-04-02T20:10Z
+- **Task**: #32 - Plan version history
+- **Phase**: Phase 8: AI Enhancement
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_snapshots.py` — 30 tests: create snapshot (13), list snapshots (9), get snapshot (7), cascade delete (1)
+- **Files modified**:
+  - `src/app/models.py` — added `PlanSnapshot` model (id, travel_plan_id FK cascade, label, snapshot_data Text, created_at); added `snapshots` relationship to `TravelPlan`
+  - `src/app/schemas.py` — added `SnapshotCreateRequest`, `PlanSnapshotSummary`, `PlanSnapshotOut` schemas
+  - `src/app/routers/travel_plans.py` — added `POST /{id}/snapshot`, `GET /{id}/snapshots`, `GET /{id}/snapshots/{snap_id}` endpoints; snapshot_data stored as JSON text, returned as dict
+- **Tests**: 934/934 passed (was 904, added 30 new tests)
+- **Fix**: 0 fix attempts — all tests passed first run
+- **LTES**: L=14490ms T=26 commits/day E=0.0% S=1 task remaining
+- **Impact**: Travel plans can now be versioned. `POST /travel-plans/{id}/snapshot` captures frozen JSON of full plan state. `GET /travel-plans/{id}/snapshots` lists all versions (lightweight, no data). `GET /travel-plans/{id}/snapshots/{snap_id}` returns full snapshot with `snapshot_data` dict. Snapshots cascade-delete with their plan. Plan edits after snapshotting don't affect frozen snapshots.
 
 ### Run #46 — 2026-04-02T19:50Z
 - **Task**: #31 - Budget overage alerts
