@@ -22,6 +22,15 @@ class PlaceCreate(PlaceBase):
     pass
 
 
+class PlaceUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    category: Optional[str] = None
+    address: Optional[str] = None
+    estimated_cost: Optional[float] = Field(default=None, ge=0)
+    ai_reason: Optional[str] = None
+    order: Optional[int] = Field(default=None, ge=0)
+
+
 class PlaceOut(PlaceBase):
     id: int
     day_itinerary_id: int
@@ -39,6 +48,12 @@ class DayItineraryBase(BaseModel):
 
 class DayItineraryCreate(DayItineraryBase):
     places: list[PlaceCreate] = []
+
+
+class DayItineraryUpdate(BaseModel):
+    date: Optional[_Date] = None
+    notes: Optional[str] = None
+    transport: Optional[str] = None
 
 
 class DayItineraryOut(DayItineraryBase):

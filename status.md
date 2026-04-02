@@ -1,22 +1,37 @@
 # Status
 
-Last run: 2026-04-02T14:39:44Z (Monitor #14)
-Run count: 30
-Phase: Phase 4: Polish — COMPLETE
+Last run: 2026-04-02T15:00:00Z (Run #26)
+Run count: 31
+Phase: Phase 5: Enhancements
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 20/20 ✓
-Current focus: _(all tasks complete)_
-Next planned: _(none — backlog empty)_
+Tasks completed: 21/21 ✓
+Current focus: _(none — task complete)_
+Next planned: #22 - Plan duplication (copy as new draft)
 
 ## LTES Snapshot
 
-- Latency: ~5350ms (pytest 585 tests in 5.35s)
-- Traffic: 25 commits last 24h
-- Errors: 0 test failures (585/585 pass), error_rate=0.0%
-- Saturation: 0 tasks remaining in backlog
+- Latency: ~5610ms (pytest 636 tests in 5.61s)
+- Traffic: 26 commits last 24h
+- Errors: 0 test failures (636/636 pass), error_rate=0.0%
+- Saturation: 3 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #26 — 2026-04-02T15:00Z
+- **Task**: #21 - Add manual itinerary editing (DayItinerary + Place CRUD)
+- **Phase**: Phase 5: Enhancements
+- **Result**: GREEN ✓
+- **Files created**:
+  - `src/app/routers/itineraries.py` — 8 new endpoints: POST/GET/PATCH/DELETE for DayItinerary + POST/PATCH/DELETE for Place; nested under `/plans/{plan_id}/itineraries`; plan/day/place ownership guards (404 on mismatch)
+  - `tests/test_itineraries.py` — 51 tests: schema unit tests (DayItineraryUpdate, PlaceUpdate), CRUD HTTP tests, 404 guard tests, integration tests verifying plan-level view reflects manual edits
+- **Files modified**:
+  - `src/app/schemas.py` — added `DayItineraryUpdate` (date/_Date alias fix) and `PlaceUpdate` schemas
+  - `src/app/main.py` — registered `itineraries.router`
+- **Tests**: 636/636 passed (was 585, added 51 new tests)
+- **Fix**: 1 fix attempt — `DayItineraryUpdate.date` needed `_Date` alias to avoid Pydantic annotation shadowing (same pattern as `ExpenseBase.date`)
+- **LTES**: L=5610ms T=26 commits/day E=0.0% S=3 tasks remaining
+- **Impact**: Users can now manually add/edit/delete days and places without re-running AI generation; all endpoints are properly nested and ownership-guarded
 
 ### Monitor #14 — 2026-04-02T14:39Z
 - **Type**: Health Check (monitor run)
@@ -31,56 +46,21 @@ Next planned: _(none — backlog empty)_
 - **Phase**: Phase 4: Polish
 - **Result**: GREEN ✓
 - **Files modified**:
-  - `tests/test_error_handling.py` — added 13 tests for 4 global exception handlers (IntegrityError→409, OperationalError→503, SQLAlchemyError→500, RuntimeError→500, FastAPIHTTPException re-raise guard); used `app.dependency_overrides` + `raise_server_exceptions=False` technique; `asyncio.run()` for direct async handler test
+  - `tests/test_error_handling.py` — added 13 tests for 4 global exception handlers
 - **Tests**: 585/585 passed (was 572, added 13 coverage-gap tests)
 - **Coverage**: 98% → **100%** (all 759 statements covered)
 - **LTES**: L=7200ms T=25 commits/day E=0.0% S=0 tasks remaining
-- **Impact**: Full 100% statement coverage across all 19 source modules; all 4 previously-uncovered exception handler bodies now validated
-
-### Monitor #13 — 2026-04-02T00:01Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 572/572 passed (5.20s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **LTES**: L=5200ms T=24 commits/day E=0.0% S=1 task remaining
-- **Action**: No incidents, no fixes needed
 
 ### Run #24 — 2026-04-02T00:00Z
 - **Task**: #19 - Write README with architecture overview
-- **Phase**: Phase 4: Polish
-- **Result**: GREEN ✓
-- **Files modified**:
-  - `README.md` — comprehensive rewrite: component map, data model diagram, AI pipeline, caching strategy, error handling table, full API reference (25 endpoints), LTES/error-budget guide, 18-file test index, environment variables table
-- **Tests**: 572/572 passed (unchanged — docs task)
-- **LTES**: L=4500ms T=30 commits/day E=0.0% S=1 task remaining
-- **Impact**: README is now a complete architectural reference for contributors and readers
-
-### Run #23 — 2026-04-01T23:30Z
-- **Task**: #18 - Performance optimization and caching
-- **Phase**: Phase 4: Polish
-- **Result**: GREEN ✓
-- **Files created**:
-  - `src/app/cache.py` — `TTLCache` class: thread-safe dict-based TTL cache with `get/set/delete/clear/evict_expired/stats`; singleton `search_cache` (5-min TTL)
-  - `tests/test_cache.py` — 35 tests: 9 unit tests (basics), 5 expiration tests (mock `time.monotonic`), 4 stats tests, 6 endpoint tests (GET /cache/stats, DELETE /cache), 15 search cache integration tests (places/hotels/flights cache hit/miss/case-insensitive/error-not-cached)
-- **Files modified**:
-  - `src/app/routers/search.py` — added `search_cache` lookup before each Gemini API call; cache key builders for places/hotels/flights; errors not cached
-  - `src/app/main.py` — imported `search_cache`; added `GET /cache/stats` and `DELETE /cache` admin endpoints
-  - `tests/conftest.py` — added `autouse` fixture `clear_search_cache` to isolate cache state between all tests
-- **Tests**: 572/572 passed (was 537, added 35 caching tests)
-- **LTES**: L=4430ms T=29 commits/day E=0.0% S=2 tasks remaining
-- **Impact**: Repeat search queries (same destination/params) skip the Gemini API call entirely; 5-min TTL; errors never cached; cache inspectable via `/cache/stats`
-
-### Run #22 — 2026-04-01T23:00Z
-- **Task**: #17 - Add comprehensive error handling and validation
 - **Phase**: Phase 4: Polish
 - **Result**: GREEN ✓
 
 ## Daily Summary
 
 ### 2026-04-02
-- **Tasks completed**: #19 (README), #20 (100% coverage)
-- **Tests**: 572 → 585 (+13)
-- **Coverage**: 98% → 100%
+- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing)
+- **Tests**: 572 → 636 (+64)
 - **Health**: GREEN throughout
-- **Milestone**: All 20 planned tasks completed. Phase 4: Polish COMPLETE. Backlog empty.
-- **Key achievements today**: Comprehensive README + 100% test coverage
+- **Milestone**: Phase 4 complete (20/20 tasks). Phase 5 started with #21.
+- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 new endpoints)

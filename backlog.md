@@ -10,7 +10,9 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-_(없음 — 모든 태스크 완료)_
+- [ ] #22 - Plan duplication — `POST /travel-plans/{id}/duplicate` copies a plan (and its itineraries/places) as a new draft; useful when re-using a trip template [feature]
+- [ ] #23 - Place ordering endpoint — `PATCH /plans/{id}/itineraries/{day_id}/places/reorder` accepts an ordered list of place IDs and updates `order` fields atomically; enables drag-and-drop reordering in UI [feature]
+- [ ] #24 - Travel plan search & filter — `GET /travel-plans?destination=&status=&from=&to=` query params; currently list returns all plans unsorted without filtering [feature]
 
 ## Done
 
@@ -34,6 +36,7 @@ _(없음 — 모든 태스크 완료)_
 - [x] #18 - Performance optimization and caching (TTLCache + search endpoint caching + GET /cache/stats + DELETE /cache + 35 tests) [improvement] — 2026-04-01
 - [x] #19 - Write README with architecture overview (component map, data model, API reference, AI pipeline, caching, error handling, full test index) [docs] — 2026-04-02
 - [x] #20 - Final test coverage review and gap filling (13 tests for 4 global exception handlers via app.dependency_overrides; 98% → 100% coverage) [test] — 2026-04-02
+- [x] #21 - Add manual itinerary editing (DayItineraryUpdate + PlaceUpdate schemas; 8 new endpoints for CRUD on DayItinerary/Place; ownership guards; 51 tests) [feature] — 2026-04-02
 
 ## Blocked
 
@@ -45,5 +48,6 @@ _(없음)_
 
 - Velocity: 1 task/run
 - Avg time per task: ~100s
-- Total tasks: 20
-- Completed: 20/20 ✓ ALL DONE
+- Total tasks: 21
+- Completed: 21/21 ✓
+- Phase 5 backlog: 3 tasks ready

@@ -1,0 +1,79 @@
+{
+  "trace": {
+    "run_id": "2026-04-02-1500",
+    "timestamp": "2026-04-02T15:00:00Z",
+    "phase": "Phase 5: Enhancements",
+    "health": "GREEN",
+    "task": "#21 - Add manual itinerary editing (DayItinerary + Place CRUD)"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-02T15:00:00Z",
+      "end": "2026-04-02T15:00:06Z",
+      "duration_ms": 6000,
+      "result": "pass",
+      "details": {"tests_passed": 585, "tests_failed": 0}
+    },
+    {
+      "name": "status_check",
+      "start": "2026-04-02T15:00:06Z",
+      "end": "2026-04-02T15:00:07Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"error_budget": "HEALTHY", "backlog": "empty — defined Phase 5 tasks"}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-02T15:00:07Z",
+      "end": "2026-04-02T15:00:08Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"selected": "#21 - Add manual itinerary editing", "phase": "Phase 5"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-02T15:00:08Z",
+      "end": "2026-04-02T15:01:30Z",
+      "duration_ms": 82000,
+      "result": "pass",
+      "details": {
+        "files_created": [
+          "src/app/routers/itineraries.py",
+          "tests/test_itineraries.py"
+        ],
+        "files_modified": [
+          "src/app/schemas.py",
+          "src/app/main.py"
+        ],
+        "endpoints_added": [
+          "POST /plans/{plan_id}/itineraries",
+          "GET /plans/{plan_id}/itineraries",
+          "GET /plans/{plan_id}/itineraries/{day_id}",
+          "PATCH /plans/{plan_id}/itineraries/{day_id}",
+          "DELETE /plans/{plan_id}/itineraries/{day_id}",
+          "POST /plans/{plan_id}/itineraries/{day_id}/places",
+          "PATCH /plans/{plan_id}/itineraries/{day_id}/places/{place_id}",
+          "DELETE /plans/{plan_id}/itineraries/{day_id}/places/{place_id}"
+        ],
+        "schemas_added": ["DayItineraryUpdate", "PlaceUpdate"],
+        "fix_attempts": 1,
+        "fix_reason": "DayItineraryUpdate.date needed _Date alias to avoid Pydantic shadowing"
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-02T15:01:30Z",
+      "end": "2026-04-02T15:01:36Z",
+      "duration_ms": 6000,
+      "result": "pass",
+      "details": {"tests_passed": 636, "tests_failed": 0, "new_tests": 51}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 96000, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 280, "lines_removed": 0, "files_changed": 4},
+    "errors": {"test_failures": 1, "fix_attempts": 1, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 3}
+  }
+}
