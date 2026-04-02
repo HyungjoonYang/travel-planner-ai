@@ -86,3 +86,57 @@ Instructions:
         )
 
         return AIItineraryResult.model_validate_json(response.text)
+
+    def refine_itinerary(
+        self,
+        destination: str,
+        start_date: date,
+        end_date: date,
+        budget: float,
+        interests: str,
+        current_days: list[dict],
+        instruction: str,
+    ) -> AIItineraryResult:
+        if not self._api_key:
+            raise ValueError("GEMINI_API_KEY is not configured")
+
+        import json as _json
+
+        num_days = (end_date - start_date).days + 1
+        current_plan_str = _json.dumps(current_days, indent=2, default=str)
+
+        prompt = f"""You are an expert travel planner. Refine the following existing travel itinerary based on the user's instruction.
+
+Trip Details:
+- Destination: {destination}
+- Start Date: {start_date}
+- End Date: {end_date}
+- Duration: {num_days} days
+- Budget: ${budget} USD total
+- Interests: {interests if interests else "sightseeing, food, culture"}
+
+Current Itinerary:
+{current_plan_str}
+
+User's Refinement Instruction:
+{instruction}
+
+Instructions:
+- Apply the user's instruction to update the itinerary
+- Keep the same number of days ({num_days} days, {start_date} to {end_date})
+- Maintain each day's date field in YYYY-MM-DD format
+- Keep total_estimated_cost within the ${budget} budget
+- Preserve unchanged days as-is; only modify days affected by the instruction
+- Each place must have name, category, address, estimated_cost, and ai_reason"""
+
+        client = genai.Client(api_key=self._api_key)
+        response = client.models.generate_content(
+            model=self.MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=AIItineraryResult,
+            ),
+        )
+
+        return AIItineraryResult.model_validate_json(response.text)

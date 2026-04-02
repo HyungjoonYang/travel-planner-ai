@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 43,
-    "successful_runs": 39,
+    "total_runs": 44,
+    "successful_runs": 40,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -62,6 +62,7 @@
     {"run_id": "2026-04-02-1750", "task": "#27 - Plan export endpoint", "result": "success", "tests_passed": 797, "tests_total": 797},
     {"run_id": "2026-04-02-1820", "task": "#28 - Add tags to travel plans", "result": "success", "tests_passed": 822, "tests_total": 822},
     {"run_id": "monitor-2026-04-02-1833", "task": "monitor", "result": "success", "tests_passed": 822, "tests_total": 822},
-    {"run_id": "2026-04-02-1852", "task": "#29 - Plan sharing feature", "result": "success", "tests_passed": 854, "tests_total": 854}
+    {"run_id": "2026-04-02-1852", "task": "#29 - Plan sharing feature", "result": "success", "tests_passed": 854, "tests_total": 854},
+    {"run_id": "2026-04-02-1923", "task": "#30 - AI plan refinement endpoint", "result": "success", "tests_passed": 884, "tests_total": 884}
   ]
 }

@@ -180,3 +180,7 @@ class ShareOut(BaseModel):
     plan_id: int
     token: str
     share_url: str
+
+
+class RefineRequest(BaseModel):
+    instruction: str = Field(..., min_length=1, max_length=2000, description="Natural language instruction for how to refine the travel plan")

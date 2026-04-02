@@ -1,22 +1,37 @@
 # Status
 
-Last run: 2026-04-02T18:52:24Z (Run #43)
-Run count: 43
-Phase: Phase 7: Collaboration & Sharing
+Last run: 2026-04-02T19:23:53Z (Run #44)
+Run count: 44
+Phase: Phase 8: AI Enhancement
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 29/29 ✓
-Current focus: _(none — all tasks complete)_
-Next planned: _(backlog empty — phase complete)_
+Tasks completed: 30/33 ✓
+Current focus: _(none — task #30 complete)_
+Next planned: #31 - Budget overage alerts
 
 ## LTES Snapshot
 
-- Latency: ~10470ms (pytest 854 tests in 10.47s)
-- Traffic: 25 commits last 24h
-- Errors: 0 test failures (854/854 pass), error_rate=0.0%
-- Saturation: 0 tasks remaining in backlog
+- Latency: ~11160ms (pytest 884 tests in 11.16s)
+- Traffic: 35 commits last 24h
+- Errors: 0 test failures (884/884 pass), error_rate=0.0%
+- Saturation: 3 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #44 — 2026-04-02T19:23Z
+- **Task**: #30 - AI plan refinement endpoint
+- **Phase**: Phase 8: AI Enhancement (kickoff)
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_refine.py` — 30 tests: status codes (9), response content (10), itinerary replacement (4), service call verification (7)
+- **Files modified**:
+  - `src/app/schemas.py` — added `RefineRequest(instruction: str, min_length=1, max_length=2000)` schema
+  - `src/app/ai.py` — added `refine_itinerary()` method to `GeminiService`; builds prompt with current plan + user instruction; returns `AIItineraryResult`
+  - `src/app/routers/travel_plans.py` — added `POST /{id}/refine` endpoint; loads plan → serializes current days → calls AI → deletes old itineraries (cascade) → creates new ones from refined result; imported `GeminiService`, `RefineRequest`
+- **Tests**: 884/884 passed (was 854, added 30 new tests)
+- **Fix**: 1 fix attempt — expense URL in tests was `/travel-plans/{id}/expenses` should be `/plans/{id}/expenses`
+- **LTES**: L=11160ms T=35 commits/day E=0.0% S=3 tasks remaining
+- **Impact**: Users can now iteratively refine an AI-generated travel plan with a natural language instruction. `POST /travel-plans/{id}/refine` → AI regenerates the itinerary while preserving plan metadata and expenses.
 
 ### Run #43 — 2026-04-02T18:52Z
 - **Task**: #29 - Plan sharing feature
@@ -42,24 +57,11 @@ Next planned: _(backlog empty — phase complete)_
 - **LTES**: L=10500ms T=24 commits/day E=0.0% S=0 tasks remaining
 - **Action**: No incidents, no fixes needed
 
-### Run #33 — 2026-04-02T18:20Z
-- **Task**: #28 - Add tags to travel plans
-- **Phase**: Phase 6: Polish & Production Readiness
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_tags.py` — 25 tests: create (5), PATCH (4), tag filter (12), duplicate copies tags (2), export includes tags (1), list response (1)
-- **Files modified**:
-  - `src/app/models.py` — added `tags: Mapped[str] = mapped_column(Text, default="")` to `TravelPlan`
-  - `src/app/schemas.py` — added `tags: str = ""` to `TravelPlanBase`; `tags: Optional[str] = None` to `TravelPlanUpdate`
-  - `src/app/routers/travel_plans.py` — added `tag` query param to `GET /travel-plans`; exact case-insensitive OR filter (`tags == tag OR tags ILIKE 'tag,%' OR tags ILIKE '%,tag' OR tags ILIKE '%,tag,%'`); copied `tags` in `duplicate_travel_plan`; imported `or_` from sqlalchemy
-- **Tests**: 822/822 passed (was 797, added 25 new tests)
-- **LTES**: L=9390ms T=26 commits/day E=0.0% S=0 tasks remaining
-
 ## Daily Summary
 
 ### 2026-04-02
-- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter), #25 (pagination), #26 (notes field), #27 (export endpoint), #28 (tags field), #29 (plan sharing)
-- **Tests**: 572 → 854 (+282)
+- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter), #25 (pagination), #26 (notes field), #27 (export endpoint), #28 (tags field), #29 (plan sharing), #30 (AI plan refinement)
+- **Tests**: 572 → 884 (+312)
 - **Health**: GREEN throughout
-- **Milestone**: Phase 6 complete + Phase 7 started. All 29 tasks done. Backlog empty.
-- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication + place reorder + search & filter + pagination with envelope response + notes field + export endpoint + tags field with exact filter + plan sharing (public read-only URLs via token)
+- **Milestone**: Phase 6 complete + Phase 7 complete + Phase 8 started. 30/33 tasks done.
+- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication + place reorder + search & filter + pagination with envelope response + notes field + export endpoint + tags field with exact filter + plan sharing (public read-only URLs via token) + AI plan refinement (iterative improvement via natural language instruction)

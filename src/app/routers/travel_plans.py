@@ -9,9 +9,10 @@ from fastapi.responses import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.ai import GeminiService
 from app.database import get_db
 from app.models import DayItinerary, Place, TravelPlan
-from app.schemas import PaginatedPlans, ShareOut, TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate
+from app.schemas import PaginatedPlans, RefineRequest, ShareOut, TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate
 
 router = APIRouter(prefix="/travel-plans", tags=["travel-plans"])
 
@@ -138,6 +139,84 @@ def duplicate_travel_plan(plan_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(copy)
     return copy
+
+
+@router.post("/{plan_id}/refine", response_model=TravelPlanOut)
+def refine_travel_plan(plan_id: int, payload: RefineRequest, db: Session = Depends(get_db)):
+    """Refine an existing travel plan's itinerary using AI based on a natural language instruction."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+
+    current_days = []
+    for day in sorted(plan.itineraries, key=lambda d: d.date):
+        current_days.append({
+            "date": str(day.date),
+            "notes": day.notes,
+            "transport": day.transport,
+            "places": [
+                {
+                    "name": p.name,
+                    "category": p.category,
+                    "address": p.address,
+                    "estimated_cost": p.estimated_cost,
+                    "ai_reason": p.ai_reason,
+                }
+                for p in sorted(day.places, key=lambda p: p.order)
+            ],
+        })
+
+    service = GeminiService()
+    try:
+        result = service.refine_itinerary(
+            destination=plan.destination,
+            start_date=plan.start_date,
+            end_date=plan.end_date,
+            budget=plan.budget,
+            interests=plan.interests,
+            current_days=current_days,
+            instruction=payload.instruction,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI refinement failed: {exc}")
+
+    # Replace existing itineraries (cascades to places via model cascade)
+    for day in list(plan.itineraries):
+        db.delete(day)
+    db.flush()
+
+    from datetime import date as _date
+    for ai_day in result.days:
+        try:
+            day_date = _date.fromisoformat(ai_day.date)
+        except ValueError:
+            continue
+
+        itinerary = DayItinerary(
+            travel_plan_id=plan.id,
+            date=day_date,
+            notes=ai_day.notes,
+            transport=ai_day.transport,
+        )
+        db.add(itinerary)
+        db.flush()
+
+        for order, ai_place in enumerate(ai_day.places):
+            db.add(Place(
+                day_itinerary_id=itinerary.id,
+                name=ai_place.name,
+                category=ai_place.category,
+                address=ai_place.address,
+                estimated_cost=ai_place.estimated_cost,
+                ai_reason=ai_place.ai_reason,
+                order=order,
+            ))
+
+    db.commit()
+    db.refresh(plan)
+    return plan
 
 
 @router.get("/{plan_id}/export")
