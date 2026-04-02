@@ -10,7 +10,6 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-- [ ] #31 - Budget overage alerts (`GET /travel-plans/{id}/expenses/summary` enhancement; add `over_budget: bool` + `overage_pct: float` fields; `GET /travel-plans?over_budget=true` filter; budget warning in plan responses; ~20 tests) [feature]
 - [ ] #32 - Plan version history (track changes via lightweight `PlanSnapshot` model; `POST /travel-plans/{id}/snapshot`, `GET /travel-plans/{id}/snapshots`, `GET /travel-plans/{id}/snapshots/{snap_id}` restore preview; ~25 tests) [feature]
 - [ ] #33 - Collaborative comments on shared plans (`POST /travel-plans/shared/{token}/comments`; anonymous name + text; `GET /travel-plans/shared/{token}/comments`; `DELETE /travel-plans/{id}/comments/{comment_id}` (owner only); ~25 tests) [feature]
 

@@ -104,6 +104,8 @@ class BudgetSummary(BaseModel):
     remaining: float
     by_category: dict[str, float]
     expense_count: int
+    over_budget: bool
+    overage_pct: float
 
 
 # --- TravelPlan ---

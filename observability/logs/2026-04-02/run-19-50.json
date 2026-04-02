@@ -1,0 +1,61 @@
+{
+  "trace": {
+    "run_id": "2026-04-02-1950",
+    "timestamp": "2026-04-02T19:50:00Z",
+    "phase": "Phase 8: AI Enhancement",
+    "health": "GREEN",
+    "task": "#31 - Budget overage alerts"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-02T19:45:00Z",
+      "end": "2026-04-02T19:45:14Z",
+      "duration_ms": 13520,
+      "result": "pass",
+      "details": {"tests_passed": 884, "tests_failed": 0}
+    },
+    {
+      "name": "status_check",
+      "start": "2026-04-02T19:45:14Z",
+      "end": "2026-04-02T19:45:15Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"budget_status": "HEALTHY", "health": "GREEN"}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-02T19:45:15Z",
+      "end": "2026-04-02T19:45:16Z",
+      "duration_ms": 1000,
+      "result": "pass",
+      "details": {"task_id": 31, "task": "Budget overage alerts", "source": "Ready queue"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-02T19:45:16Z",
+      "end": "2026-04-02T19:49:30Z",
+      "duration_ms": 254000,
+      "result": "pass",
+      "details": {
+        "files_modified": ["src/app/schemas.py", "src/app/routers/expenses.py", "src/app/routers/travel_plans.py", "tests/test_expenses.py"],
+        "files_created": ["tests/test_budget_alerts.py"],
+        "fix_attempts": 1
+      }
+    },
+    {
+      "name": "test_run",
+      "start": "2026-04-02T19:49:30Z",
+      "end": "2026-04-02T19:49:43Z",
+      "duration_ms": 12980,
+      "result": "pass",
+      "details": {"tests_passed": 904, "tests_failed": 0, "tests_added": 20}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 12980, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 95, "lines_removed": 5, "files_changed": 5},
+    "errors": {"test_failures": 0, "fix_attempts": 1, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 2}
+  }
+}

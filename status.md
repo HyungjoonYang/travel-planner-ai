@@ -1,22 +1,38 @@
 # Status
 
-Last run: 2026-04-02T19:33:55Z (Run #45)
-Run count: 45
+Last run: 2026-04-02T19:50:00Z (Run #46)
+Run count: 46
 Phase: Phase 8: AI Enhancement
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 30/33 ✓
-Current focus: _(none — task #30 complete)_
-Next planned: #31 - Budget overage alerts
+Tasks completed: 31/33 ✓
+Current focus: _(none — task #31 complete)_
+Next planned: #32 - Plan version history
 
 ## LTES Snapshot
 
-- Latency: ~12590ms (pytest 884 tests in 12.59s)
-- Traffic: 24 commits last 24h
-- Errors: 0 test failures (884/884 pass), error_rate=0.0%
-- Saturation: 3 tasks remaining in backlog
+- Latency: ~12980ms (pytest 904 tests in 12.98s)
+- Traffic: 25 commits last 24h
+- Errors: 0 test failures (904/904 pass), error_rate=0.0%
+- Saturation: 2 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #46 — 2026-04-02T19:50Z
+- **Task**: #31 - Budget overage alerts
+- **Phase**: Phase 8: AI Enhancement
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_budget_alerts.py` — 20 tests: BudgetSummary fields (11), over_budget filter (9)
+- **Files modified**:
+  - `src/app/schemas.py` — added `over_budget: bool` and `overage_pct: float` to `BudgetSummary`
+  - `src/app/routers/expenses.py` — compute `over_budget` and `overage_pct` in `get_budget_summary`
+  - `src/app/routers/travel_plans.py` — added `over_budget: Optional[bool]` query param; subquery via `func.sum(Expense.amount)` to filter plans over/under budget; imported `func`, `Expense`
+  - `tests/test_expenses.py` — updated `test_budget_summary_fields` to include new required fields
+- **Tests**: 904/904 passed (was 884, added 20 new tests)
+- **Fix**: 1 fix attempt — `test_expenses.py::test_budget_summary_fields` used bare `BudgetSummary(...)` missing new required fields
+- **LTES**: L=12980ms T=25 commits/day E=0.0% S=2 tasks remaining
+- **Impact**: `/plans/{id}/expenses/summary` now reports `over_budget: bool` and `overage_pct: float`; `GET /travel-plans?over_budget=true/false` filters plans by budget status using expense subquery.
 
 ### Monitor #19 — 2026-04-02T19:33Z
 - **Type**: Health Check (monitor run)

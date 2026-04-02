@@ -104,6 +104,8 @@ class TestExpenseSchemas:
             remaining=750.0,
             by_category={"food": 100.0, "transport": 150.0},
             expense_count=2,
+            over_budget=False,
+            overage_pct=0.0,
         )
         assert s.remaining == 750.0
         assert s.by_category["food"] == 100.0

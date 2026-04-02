@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 45,
-    "successful_runs": 41,
+    "total_runs": 46,
+    "successful_runs": 42,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -64,6 +64,7 @@
     {"run_id": "monitor-2026-04-02-1833", "task": "monitor", "result": "success", "tests_passed": 822, "tests_total": 822},
     {"run_id": "2026-04-02-1852", "task": "#29 - Plan sharing feature", "result": "success", "tests_passed": 854, "tests_total": 854},
     {"run_id": "2026-04-02-1923", "task": "#30 - AI plan refinement endpoint", "result": "success", "tests_passed": 884, "tests_total": 884},
-    {"run_id": "monitor-2026-04-02-1933", "task": "monitor", "result": "success", "tests_passed": 884, "tests_total": 884}
+    {"run_id": "monitor-2026-04-02-1933", "task": "monitor", "result": "success", "tests_passed": 884, "tests_total": 884},
+    {"run_id": "2026-04-02-1950", "task": "#31 - Budget overage alerts", "result": "success", "tests_passed": 904, "tests_total": 904}
   ]
 }

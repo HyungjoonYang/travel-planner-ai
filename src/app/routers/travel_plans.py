@@ -6,12 +6,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.ai import GeminiService
 from app.database import get_db
-from app.models import DayItinerary, Place, TravelPlan
+from app.models import DayItinerary, Expense, Place, TravelPlan
 from app.schemas import PaginatedPlans, RefineRequest, ShareOut, TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate
 
 router = APIRouter(prefix="/travel-plans", tags=["travel-plans"])
@@ -34,6 +34,7 @@ def list_travel_plans(
     to_date: Optional[_Date] = Query(default=None, alias="to", description="Filter plans where start_date <= this date"),
     notes: Optional[str] = Query(default=None, description="Case-insensitive keyword search in notes"),
     tag: Optional[str] = Query(default=None, description="Filter by exact tag (case-insensitive)"),
+    over_budget: Optional[bool] = Query(default=None, description="Filter plans where total expenses exceed budget"),
     page: int = Query(default=1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page (max 100)"),
     db: Session = Depends(get_db),
@@ -57,6 +58,20 @@ def list_travel_plans(
             TravelPlan.tags.ilike(f"%,{t}"),
             TravelPlan.tags.ilike(f"%,{t},%"),
         ))
+    if over_budget is not None:
+        expense_totals = (
+            db.query(Expense.travel_plan_id, func.sum(Expense.amount).label("total"))
+            .group_by(Expense.travel_plan_id)
+            .subquery()
+        )
+        if over_budget:
+            q = q.outerjoin(expense_totals, TravelPlan.id == expense_totals.c.travel_plan_id).filter(
+                func.coalesce(expense_totals.c.total, 0) > TravelPlan.budget
+            )
+        else:
+            q = q.outerjoin(expense_totals, TravelPlan.id == expense_totals.c.travel_plan_id).filter(
+                func.coalesce(expense_totals.c.total, 0) <= TravelPlan.budget
+            )
     q = q.order_by(TravelPlan.created_at.desc(), TravelPlan.id.desc())
     total = q.count()
     pages = max(1, math.ceil(total / page_size))

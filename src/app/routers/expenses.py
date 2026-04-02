@@ -56,6 +56,8 @@ def get_budget_summary(plan_id: int, db: Session = Depends(get_db)):
     for e in expenses:
         key = e.category or "other"
         by_category[key] = round(by_category.get(key, 0.0) + e.amount, 2)
+    over_budget = total_spent > plan.budget
+    overage_pct = round((total_spent - plan.budget) / plan.budget * 100, 2) if over_budget else 0.0
     return BudgetSummary(
         plan_id=plan_id,
         budget=plan.budget,
@@ -63,6 +65,8 @@ def get_budget_summary(plan_id: int, db: Session = Depends(get_db)):
         remaining=round(plan.budget - total_spent, 2),
         by_category=by_category,
         expense_count=len(expenses),
+        over_budget=over_budget,
+        overage_pct=overage_pct,
     )
 
 
