@@ -1,9 +1,11 @@
 """Tests for comprehensive error handling and validation (task #17)."""
 from datetime import date, timedelta
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
 from app.main import app
 from app.schemas import TravelPlanCreate, TravelPlanUpdate
@@ -238,3 +240,163 @@ class TestExpenseValidation:
             "amount": 25.5,
         })
         assert resp.status_code == 201
+
+
+# ---------------------------------------------------------------------------
+# Global SQLAlchemy exception handlers (main.py)
+# Use app.dependency_overrides to inject a get_db that raises the target
+# exception, and raise_server_exceptions=False so FastAPI's exception handlers
+# run instead of re-raising inside the test process.
+# ---------------------------------------------------------------------------
+
+from app.database import get_db as _get_db
+
+
+def _db_that_raises(exc: Exception):
+    """Return a generator dependency that raises *exc* before yielding."""
+    def _override():
+        raise exc
+        yield  # noqa: unreachable — makes this a generator function
+    return _override
+
+
+class TestIntegrityErrorHandler:
+    """IntegrityError → 409 Conflict"""
+
+    def test_returns_409(self):
+        exc = IntegrityError("duplicate key", params=None, orig=None)
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert resp.status_code == 409
+
+    def test_response_detail(self):
+        exc = IntegrityError("duplicate key", params=None, orig=None)
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert "conflict" in resp.json()["detail"].lower()
+
+    def test_response_has_request_id(self):
+        exc = IntegrityError("duplicate key", params=None, orig=None)
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert "x-request-id" in resp.headers
+
+
+class TestOperationalErrorHandler:
+    """OperationalError → 503 Service Unavailable"""
+
+    def test_returns_503(self):
+        exc = OperationalError("db unavailable", params=None, orig=None)
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert resp.status_code == 503
+
+    def test_response_detail(self):
+        exc = OperationalError("db unavailable", params=None, orig=None)
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert "unavailable" in resp.json()["detail"].lower()
+
+    def test_response_has_request_id(self):
+        exc = OperationalError("db unavailable", params=None, orig=None)
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert "x-request-id" in resp.headers
+
+
+class TestSQLAlchemyErrorHandler:
+    """Generic SQLAlchemyError → 500"""
+
+    def test_returns_500(self):
+        exc = SQLAlchemyError("unexpected db error")
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert resp.status_code == 500
+
+    def test_response_detail(self):
+        exc = SQLAlchemyError("unexpected db error")
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert "database error" in resp.json()["detail"].lower()
+
+    def test_response_has_request_id(self):
+        exc = SQLAlchemyError("unexpected db error")
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert "x-request-id" in resp.headers
+
+
+class TestUnhandledExceptionHandler:
+    """Unexpected Python Exception → 500"""
+
+    def test_returns_500(self):
+        exc = RuntimeError("unexpected boom")
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert resp.status_code == 500
+
+    def test_response_detail(self):
+        exc = RuntimeError("unexpected boom")
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert "unexpected error" in resp.json()["detail"].lower()
+
+    def test_response_has_request_id(self):
+        exc = RuntimeError("unexpected boom")
+        app.dependency_overrides[_get_db] = _db_that_raises(exc)
+        try:
+            resp = TestClient(app, raise_server_exceptions=False).get("/travel-plans")
+        finally:
+            app.dependency_overrides.pop(_get_db, None)
+        assert "x-request-id" in resp.headers
+
+    def test_reraises_http_exception(self):
+        """The guard clause (line 86) re-raises FastAPIHTTPException untouched."""
+        import asyncio
+        from unittest.mock import MagicMock
+        from fastapi.exceptions import HTTPException as FastAPIHTTPException
+        from app.main import unhandled_exception_handler
+
+        request = MagicMock()
+        request.state.request_id = "test-req-id"
+        http_exc = FastAPIHTTPException(status_code=404, detail="not found")
+
+        async def _call():
+            return await unhandled_exception_handler(request, http_exc)
+
+        with pytest.raises(FastAPIHTTPException) as exc_info:
+            asyncio.run(_call())
+        assert exc_info.value.status_code == 404

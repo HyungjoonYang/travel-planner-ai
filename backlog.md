@@ -10,8 +10,7 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-### Phase 4: Polish
-- [ ] #20 - Final test coverage review and gap filling [test]
+_(없음 — 모든 태스크 완료)_
 
 ## Done
 
@@ -34,6 +33,7 @@ _(없음)_
 - [x] #17 - Add comprehensive error handling and validation (cross-field date validation, global SQLAlchemy exception handlers, request ID middleware, structured logging, 24 tests) [improvement] — 2026-04-01
 - [x] #18 - Performance optimization and caching (TTLCache + search endpoint caching + GET /cache/stats + DELETE /cache + 35 tests) [improvement] — 2026-04-01
 - [x] #19 - Write README with architecture overview (component map, data model, API reference, AI pipeline, caching, error handling, full test index) [docs] — 2026-04-02
+- [x] #20 - Final test coverage review and gap filling (13 tests for 4 global exception handlers via app.dependency_overrides; 98% → 100% coverage) [test] — 2026-04-02
 
 ## Blocked
 
@@ -46,4 +46,4 @@ _(없음)_
 - Velocity: 1 task/run
 - Avg time per task: ~100s
 - Total tasks: 20
-- Completed: 19/20
+- Completed: 20/20 ✓ ALL DONE
