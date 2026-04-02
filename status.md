@@ -1,22 +1,35 @@
 # Status
 
-Last run: 2026-04-02T17:00:00Z (Run #28)
-Run count: 34
+Last run: 2026-04-02T18:00:00Z (Run #29)
+Run count: 35
 Phase: Phase 5: Enhancements
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 23/23 ✓
+Tasks completed: 24/24 ✓
 Current focus: _(none — task complete)_
-Next planned: #24 - Travel plan search & filter
+Next planned: _(backlog empty — ready for new tasks)_
 
 ## LTES Snapshot
 
-- Latency: ~6990ms (pytest 681 tests in 6.99s)
-- Traffic: 24 commits last 24h
-- Errors: 0 test failures (681/681 pass), error_rate=0.0%
-- Saturation: 1 task remaining in backlog
+- Latency: ~7020ms (pytest 708 tests in 7.02s)
+- Traffic: 29 commits last 24h
+- Errors: 0 test failures (708/708 pass), error_rate=0.0%
+- Saturation: 0 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #29 — 2026-04-02T18:00Z
+- **Task**: #24 - Travel plan search & filter
+- **Phase**: Phase 5: Enhancements
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_search_filter.py` — 27 tests: no-filter baseline (empty/all/sort), destination filter (exact/partial/case-insensitive/no-match/empty), status filter (draft/confirmed/invalid→422), date-range filter (from/to boundaries/ranges/invalid→422), combined filters (destination+status, destination+dates, all-three, no-match)
+- **Files modified**:
+  - `src/app/routers/travel_plans.py` — updated `GET /travel-plans` with optional query params: `destination` (case-insensitive ILIKE), `status` (exact, pattern-validated), `from` / `to` (start_date range); secondary `id DESC` sort for stable ordering when timestamps match
+- **Tests**: 708/708 passed (was 681, added 27 new tests)
+- **Fix**: 1 fix attempt — sort test flaky in SQLite (same-second created_at); resolved by adding `id DESC` as secondary sort key
+- **LTES**: L=7020ms T=29 commits/day E=0.0% S=0 tasks remaining
+- **Impact**: `GET /travel-plans` now supports filtering by destination (partial, case-insensitive), plan status, and start_date range; all params are optional and composable
 
 ### Run #28 — 2026-04-02T17:00Z
 - **Task**: #23 - Place ordering endpoint
@@ -66,29 +79,11 @@ Next planned: #24 - Travel plan search & filter
 - **LTES**: L=5610ms T=26 commits/day E=0.0% S=3 tasks remaining
 - **Impact**: Users can now manually add/edit/delete days and places without re-running AI generation; all endpoints are properly nested and ownership-guarded
 
-### Monitor #14 — 2026-04-02T14:39Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 585/585 passed (5.35s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **LTES**: L=5350ms T=25 commits/day E=0.0% S=0 tasks remaining
-- **Action**: No incidents, no fixes needed
-
-### Run #25 — 2026-04-02T14:09Z
-- **Task**: #20 - Final test coverage review and gap filling
-- **Phase**: Phase 4: Polish
-- **Result**: GREEN ✓
-- **Files modified**:
-  - `tests/test_error_handling.py` — added 13 tests for 4 global exception handlers
-- **Tests**: 585/585 passed (was 572, added 13 coverage-gap tests)
-- **Coverage**: 98% → **100%** (all 759 statements covered)
-- **LTES**: L=7200ms T=25 commits/day E=0.0% S=0 tasks remaining
-
 ## Daily Summary
 
 ### 2026-04-02
-- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder)
-- **Tests**: 572 → 681 (+109)
+- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter)
+- **Tests**: 572 → 708 (+136)
 - **Health**: GREEN throughout
-- **Milestone**: Phase 4 complete. Phase 5 progressing (23/23 tasks done, 1 remaining).
-- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication endpoint + place reorder endpoint
+- **Milestone**: Phase 4 complete. Phase 5 complete (24/24 tasks done, 0 remaining).
+- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication endpoint + place reorder endpoint + search & filter endpoint

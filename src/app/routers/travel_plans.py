@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date as _Date
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -18,8 +21,23 @@ def create_travel_plan(payload: TravelPlanCreate, db: Session = Depends(get_db))
 
 
 @router.get("", response_model=list[TravelPlanSummary])
-def list_travel_plans(db: Session = Depends(get_db)):
-    return db.query(TravelPlan).order_by(TravelPlan.created_at.desc()).all()
+def list_travel_plans(
+    destination: Optional[str] = Query(default=None, description="Case-insensitive partial match on destination"),
+    status_filter: Optional[str] = Query(default=None, alias="status", pattern="^(draft|confirmed)$"),
+    from_date: Optional[_Date] = Query(default=None, alias="from", description="Filter plans where start_date >= this date"),
+    to_date: Optional[_Date] = Query(default=None, alias="to", description="Filter plans where start_date <= this date"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(TravelPlan)
+    if destination is not None:
+        q = q.filter(TravelPlan.destination.ilike(f"%{destination}%"))
+    if status_filter is not None:
+        q = q.filter(TravelPlan.status == status_filter)
+    if from_date is not None:
+        q = q.filter(TravelPlan.start_date >= from_date)
+    if to_date is not None:
+        q = q.filter(TravelPlan.start_date <= to_date)
+    return q.order_by(TravelPlan.created_at.desc(), TravelPlan.id.desc()).all()
 
 
 @router.get("/{plan_id}", response_model=TravelPlanOut)

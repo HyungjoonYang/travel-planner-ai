@@ -10,7 +10,7 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-- [ ] #24 - Travel plan search & filter — `GET /travel-plans?destination=&status=&from=&to=` query params; currently list returns all plans unsorted without filtering [feature]
+_(없음 — 다음 phase 태스크 대기 중)_
 
 ## Done
 
@@ -37,6 +37,7 @@ _(없음)_
 - [x] #21 - Add manual itinerary editing (DayItineraryUpdate + PlaceUpdate schemas; 8 new endpoints for CRUD on DayItinerary/Place; ownership guards; 51 tests) [feature] — 2026-04-02
 - [x] #22 - Plan duplication endpoint (`POST /travel-plans/{id}/duplicate`; copies plan + itineraries + places as new draft; expenses excluded; 21 tests) [feature] — 2026-04-02
 - [x] #23 - Place ordering endpoint (`PATCH /plans/{id}/itineraries/{day_id}/places/reorder`; ordered list of place IDs → atomic `order` field update; 24 tests) [feature] — 2026-04-02
+- [x] #24 - Travel plan search & filter (`GET /travel-plans?destination=&status=&from=&to=`; destination: case-insensitive ILIKE; status: exact; from/to: start_date range; secondary id DESC sort; 27 tests) [feature] — 2026-04-02
 
 ## Blocked
 
@@ -48,6 +49,6 @@ _(없음)_
 
 - Velocity: 1 task/run
 - Avg time per task: ~100s
-- Total tasks: 23
-- Completed: 23/23 ✓
-- Phase 5 backlog: 1 task ready
+- Total tasks: 24
+- Completed: 24/24 ✓
+- Phase 5 backlog: 0 tasks remaining
