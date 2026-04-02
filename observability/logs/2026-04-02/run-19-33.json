@@ -1,0 +1,32 @@
+{
+  "run_id": "monitor-2026-04-02-1933",
+  "type": "monitor",
+  "timestamp": "2026-04-02T19:33:55Z",
+  "run_number": 45,
+  "health": "GREEN",
+  "ltes": {
+    "latency": {
+      "pytest_duration_ms": 12590,
+      "description": "884 tests in 12.59s"
+    },
+    "traffic": {
+      "commits_last_24h": 24,
+      "last_commit": "49615ab feat: add AI plan refinement endpoint"
+    },
+    "errors": {
+      "tests_total": 884,
+      "tests_passed": 884,
+      "tests_failed": 0,
+      "error_rate": 0.0
+    },
+    "saturation": {
+      "backlog_remaining": 3,
+      "logs_dir_entries": 6
+    }
+  },
+  "error_budget": {
+    "status": "HEALTHY",
+    "budget_remaining": 1.0
+  },
+  "action": "No incidents, no fixes needed"
+}
