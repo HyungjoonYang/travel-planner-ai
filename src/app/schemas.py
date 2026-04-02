@@ -151,6 +151,7 @@ class TravelPlanOut(TravelPlanBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    is_shared: bool = False
     itineraries: list[DayItineraryOut] = []
     expenses: list[ExpenseOut] = []
 
@@ -162,6 +163,7 @@ class TravelPlanSummary(TravelPlanBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    is_shared: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -172,3 +174,9 @@ class PaginatedPlans(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class ShareOut(BaseModel):
+    plan_id: int
+    token: str
+    share_url: str

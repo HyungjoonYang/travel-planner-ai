@@ -40,6 +40,7 @@ _(없음)_
 - [x] #26 - Add notes field to travel plans (`notes: str` on TravelPlan model + PATCH support + `GET /travel-plans?notes=` keyword filter; 23 tests) [feature] — 2026-04-02
 - [x] #27 - Plan export endpoint (`GET /travel-plans/{id}/export`; returns full plan JSON with itineraries+places+expenses as `Content-Disposition: attachment` download; 33 tests) [feature] — 2026-04-02
 - [x] #28 - Add tags to travel plans (comma-separated `tags` field; PATCH support; `GET /travel-plans?tag=` exact case-insensitive filter using OR conditions; copied on duplicate; included in export; 25 tests) [feature] — 2026-04-02
+- [x] #29 - Plan sharing feature (`POST /travel-plans/{id}/share` → generate URLsafe token + set is_shared; `DELETE /travel-plans/{id}/share` → revoke; `GET /travel-plans/shared/{token}` → public read-only view; `is_shared` in TravelPlanOut+Summary; 32 tests; also fixed test_error_handling.py module-level DB issue) [feature] — 2026-04-02
 
 ## Blocked
 
@@ -51,6 +52,6 @@ _(없음)_
 
 - Velocity: 1 task/run
 - Avg time per task: ~100s
-- Total tasks: 27
-- Completed: 28/28 ✓
-- Phase 6 backlog: 0 tasks remaining
+- Total tasks: 29
+- Completed: 29/29 ✓
+- Phase 7 backlog: 0 tasks remaining

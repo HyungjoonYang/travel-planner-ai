@@ -1,6 +1,7 @@
 from datetime import date, datetime
+from typing import Optional
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -18,6 +19,8 @@ class TravelPlan(Base):
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | confirmed
     notes: Mapped[str] = mapped_column(Text, default="")
     tags: Mapped[str] = mapped_column(Text, default="")  # comma-separated tags
+    is_shared: Mapped[bool] = mapped_column(Boolean, default=False)
+    share_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

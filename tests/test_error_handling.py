@@ -85,7 +85,7 @@ class TestTravelPlanAPIDateValidation:
         })
         assert resp.status_code == 422
 
-    def test_post_valid_date_range_returns_201(self):
+    def test_post_valid_date_range_returns_201(self, client):
         resp = client.post("/travel-plans", json={
             "destination": "Seoul",
             "start_date": "2026-06-01",
@@ -94,7 +94,7 @@ class TestTravelPlanAPIDateValidation:
         })
         assert resp.status_code == 201
 
-    def test_patch_invalid_date_range_returns_422(self):
+    def test_patch_invalid_date_range_returns_422(self, client):
         # Create a plan first
         create_resp = client.post("/travel-plans", json={
             "destination": "Berlin",
@@ -111,7 +111,7 @@ class TestTravelPlanAPIDateValidation:
         })
         assert resp.status_code == 422
 
-    def test_post_zero_budget_returns_422(self):
+    def test_post_zero_budget_returns_422(self, client):
         resp = client.post("/travel-plans", json={
             "destination": "Rome",
             "start_date": "2026-06-01",
@@ -120,7 +120,7 @@ class TestTravelPlanAPIDateValidation:
         })
         assert resp.status_code == 422
 
-    def test_post_negative_budget_returns_422(self):
+    def test_post_negative_budget_returns_422(self, client):
         resp = client.post("/travel-plans", json={
             "destination": "Rome",
             "start_date": "2026-06-01",
@@ -129,7 +129,7 @@ class TestTravelPlanAPIDateValidation:
         })
         assert resp.status_code == 422
 
-    def test_post_invalid_status_returns_422(self):
+    def test_post_invalid_status_returns_422(self, client):
         resp = client.post("/travel-plans", json={
             "destination": "Rome",
             "start_date": "2026-06-01",
@@ -139,7 +139,7 @@ class TestTravelPlanAPIDateValidation:
         })
         assert resp.status_code == 422
 
-    def test_post_empty_destination_returns_422(self):
+    def test_post_empty_destination_returns_422(self, client):
         resp = client.post("/travel-plans", json={
             "destination": "",
             "start_date": "2026-06-01",
@@ -154,15 +154,15 @@ class TestTravelPlanAPIDateValidation:
 # ---------------------------------------------------------------------------
 
 class TestRequestIDMiddleware:
-    def test_response_has_x_request_id_header(self):
+    def test_response_has_x_request_id_header(self, client):
         resp = client.get("/health")
         assert "x-request-id" in resp.headers
 
-    def test_custom_request_id_is_echoed(self):
+    def test_custom_request_id_is_echoed(self, client):
         resp = client.get("/health", headers={"X-Request-ID": "test-abc-123"})
         assert resp.headers.get("x-request-id") == "test-abc-123"
 
-    def test_auto_generated_request_id_is_uuid(self):
+    def test_auto_generated_request_id_is_uuid(self, client):
         resp = client.get("/health")
         rid = resp.headers.get("x-request-id")
         assert rid is not None
@@ -170,11 +170,11 @@ class TestRequestIDMiddleware:
         import re
         assert re.match(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", rid)
 
-    def test_request_id_on_404(self):
+    def test_request_id_on_404(self, client):
         resp = client.get("/travel-plans/999999")
         assert "x-request-id" in resp.headers
 
-    def test_request_id_on_201(self):
+    def test_request_id_on_201(self, client):
         resp = client.post("/travel-plans", json={
             "destination": "Sydney",
             "start_date": "2026-08-01",
@@ -184,7 +184,7 @@ class TestRequestIDMiddleware:
         assert resp.status_code == 201
         assert "x-request-id" in resp.headers
 
-    def test_request_id_on_422(self):
+    def test_request_id_on_422(self, client):
         resp = client.post("/travel-plans", json={
             "destination": "X",
             "start_date": "2026-06-10",
@@ -200,7 +200,7 @@ class TestRequestIDMiddleware:
 # ---------------------------------------------------------------------------
 
 class TestExpenseValidation:
-    def _make_plan(self):
+    def _make_plan(self, client):
         resp = client.post("/travel-plans", json={
             "destination": "Madrid",
             "start_date": "2026-09-01",
@@ -209,32 +209,32 @@ class TestExpenseValidation:
         })
         return resp.json()["id"]
 
-    def test_zero_amount_returns_422(self):
-        plan_id = self._make_plan()
+    def test_zero_amount_returns_422(self, client):
+        plan_id = self._make_plan(client)
         resp = client.post(f"/plans/{plan_id}/expenses", json={
             "name": "Dinner",
             "amount": 0,
         })
         assert resp.status_code == 422
 
-    def test_negative_amount_returns_422(self):
-        plan_id = self._make_plan()
+    def test_negative_amount_returns_422(self, client):
+        plan_id = self._make_plan(client)
         resp = client.post(f"/plans/{plan_id}/expenses", json={
             "name": "Dinner",
             "amount": -50,
         })
         assert resp.status_code == 422
 
-    def test_empty_name_returns_422(self):
-        plan_id = self._make_plan()
+    def test_empty_name_returns_422(self, client):
+        plan_id = self._make_plan(client)
         resp = client.post(f"/plans/{plan_id}/expenses", json={
             "name": "",
             "amount": 50,
         })
         assert resp.status_code == 422
 
-    def test_valid_expense_accepted(self):
-        plan_id = self._make_plan()
+    def test_valid_expense_accepted(self, client):
+        plan_id = self._make_plan(client)
         resp = client.post(f"/plans/{plan_id}/expenses", json={
             "name": "Lunch",
             "amount": 25.5,

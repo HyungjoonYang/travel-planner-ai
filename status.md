@@ -1,22 +1,38 @@
 # Status
 
-Last run: 2026-04-02T18:33:29Z (Run #42)
-Run count: 42
-Phase: Phase 6: Polish & Production Readiness
+Last run: 2026-04-02T18:52:24Z (Run #43)
+Run count: 43
+Phase: Phase 7: Collaboration & Sharing
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 28/28 ✓
+Tasks completed: 29/29 ✓
 Current focus: _(none — all tasks complete)_
 Next planned: _(backlog empty — phase complete)_
 
 ## LTES Snapshot
 
-- Latency: ~10500ms (pytest 822 tests in 10.50s)
-- Traffic: 24 commits last 24h
-- Errors: 0 test failures (822/822 pass), error_rate=0.0%
+- Latency: ~10470ms (pytest 854 tests in 10.47s)
+- Traffic: 25 commits last 24h
+- Errors: 0 test failures (854/854 pass), error_rate=0.0%
 - Saturation: 0 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #43 — 2026-04-02T18:52Z
+- **Task**: #29 - Plan sharing feature
+- **Phase**: Phase 7: Collaboration & Sharing (kickoff)
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_sharing.py` — 32 tests: create share (11), revoke share (7), get shared plan (10), is_shared field (4)
+- **Files modified**:
+  - `src/app/models.py` — added `is_shared: Mapped[bool]` and `share_token: Mapped[Optional[str]]` (unique, indexed) to `TravelPlan`
+  - `src/app/schemas.py` — added `is_shared: bool = False` to `TravelPlanOut` and `TravelPlanSummary`; added `ShareOut(plan_id, token, share_url)` schema
+  - `src/app/routers/travel_plans.py` — added `POST /{id}/share` (generate `secrets.token_urlsafe(32)`, idempotent); `DELETE /{id}/share` (revoke); `GET /shared/{token}` (public read-only); imported `secrets`, `Request`, `ShareOut`
+  - `tests/test_error_handling.py` — converted `TestTravelPlanAPIDateValidation`, `TestRequestIDMiddleware`, `TestExpenseValidation` to use conftest `client` fixture (was using module-level `TestClient(app)` hitting stale on-disk DB that lacked new columns)
+- **Tests**: 854/854 passed (was 822, added 32 new tests)
+- **Fix**: 2 fix attempts — (1) test used wrong itinerary URL prefix; (2) test_error_handling.py needed conftest fixture migration for DB-touching tests
+- **LTES**: L=10470ms T=25 commits/day E=0.0% S=0 tasks remaining
+- **Impact**: Travel plans can now be shared via a public read-only URL. `POST /travel-plans/{id}/share` generates a token; `GET /travel-plans/shared/{token}` returns the full plan without auth; `DELETE /travel-plans/{id}/share` revokes. `is_shared` visible in all plan responses.
 
 ### Monitor #18 — 2026-04-02T18:33Z
 - **Type**: Health Check (monitor run)
@@ -37,49 +53,13 @@ Next planned: _(backlog empty — phase complete)_
   - `src/app/schemas.py` — added `tags: str = ""` to `TravelPlanBase`; `tags: Optional[str] = None` to `TravelPlanUpdate`
   - `src/app/routers/travel_plans.py` — added `tag` query param to `GET /travel-plans`; exact case-insensitive OR filter (`tags == tag OR tags ILIKE 'tag,%' OR tags ILIKE '%,tag' OR tags ILIKE '%,tag,%'`); copied `tags` in `duplicate_travel_plan`; imported `or_` from sqlalchemy
 - **Tests**: 822/822 passed (was 797, added 25 new tests)
-- **Fix**: 1 fix attempt — test file used module-level engine without StaticPool (same pattern as notes fix); rewrote to use conftest `client` fixture; also removed stale `travel_planner.db`
 - **LTES**: L=9390ms T=26 commits/day E=0.0% S=0 tasks remaining
-- **Impact**: `TravelPlan` now has a `tags` comma-separated field; settable on create/PATCH; filterable via `GET /travel-plans?tag=<value>` with exact case-insensitive matching (not substring); copied on duplicate; included in export
-
-### Run #32 — 2026-04-02T17:50Z
-- **Task**: #27 - Plan export endpoint
-- **Phase**: Phase 6: Polish & Production Readiness
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_export.py` — 33 tests: status codes (3), headers (3), body shape (13), nested itineraries (7), nested expenses (4), serialization (3)
-- **Files modified**:
-  - `src/app/routers/travel_plans.py` — added `GET /travel-plans/{plan_id}/export`; returns `TravelPlanOut` (full plan JSON with itineraries+places+expenses) as `Content-Disposition: attachment; filename="travel-plan-{id}.json"`; pretty-printed JSON via `json.dumps(indent=2)`
-- **Tests**: 797/797 passed (was 764, added 33 new tests)
-- **Fix**: 2 fix attempts — wrong URL prefix in test fixtures (`/travel-plans/` vs `/plans/`); corrected to match actual router prefixes
-- **LTES**: L=10250ms T=25 commits/day E=0.0% S=1 task remaining
-- **Impact**: `GET /travel-plans/{id}/export` allows clients to download a complete JSON snapshot of any travel plan including all day itineraries, places, and expenses as a file attachment
-
-### Monitor #17 — 2026-04-02T17:32Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 764/764 passed (9.18s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **LTES**: L=9180ms T=24 commits/day E=0.0% S=2 tasks remaining
-- **Action**: No incidents, no fixes needed
-
-### Run #31 — 2026-04-02T17:19Z
-- **Task**: #26 - Add notes field to travel plans
-- **Phase**: Phase 6: Polish & Production Readiness
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_notes.py` — 23 tests: create with/without notes (5), PATCH notes (5), GET filter by keyword (11), duplicate copies notes (3)
-- **Files modified**:
-  - `src/app/models.py` — added `notes: Mapped[str] = mapped_column(Text, default="")` to `TravelPlan`
-  - `src/app/schemas.py` — added `notes: str = ""` to `TravelPlanBase`; `notes: Optional[str] = None` to `TravelPlanUpdate`
-  - `src/app/routers/travel_plans.py` — added `notes` query param to `GET /travel-plans` (case-insensitive ILIKE filter); copied `notes` in `duplicate_travel_plan`
-- **Tests**: 764/764 passed (was 741, added 23 new tests)
-- **LTES**: L=8440ms T=31 commits/day E=0.0% S=2 tasks remaining
 
 ## Daily Summary
 
 ### 2026-04-02
-- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter), #25 (pagination), #26 (notes field), #27 (export endpoint), #28 (tags field)
-- **Tests**: 572 → 822 (+250)
+- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter), #25 (pagination), #26 (notes field), #27 (export endpoint), #28 (tags field), #29 (plan sharing)
+- **Tests**: 572 → 854 (+282)
 - **Health**: GREEN throughout
-- **Milestone**: Phase 6 complete — all 28 tasks done. Backlog empty.
-- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication + place reorder + search & filter + pagination with envelope response + notes field + export endpoint + tags field with exact filter
+- **Milestone**: Phase 6 complete + Phase 7 started. All 29 tasks done. Backlog empty.
+- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication + place reorder + search & filter + pagination with envelope response + notes field + export endpoint + tags field with exact filter + plan sharing (public read-only URLs via token)

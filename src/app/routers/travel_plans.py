@@ -1,16 +1,17 @@
 import json
 import math
+import secrets
 from datetime import date as _Date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import DayItinerary, Place, TravelPlan
-from app.schemas import PaginatedPlans, TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate
+from app.schemas import PaginatedPlans, ShareOut, TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate
 
 router = APIRouter(prefix="/travel-plans", tags=["travel-plans"])
 
@@ -154,3 +155,45 @@ def export_travel_plan(plan_id: int, db: Session = Depends(get_db)):
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/{plan_id}/share", response_model=ShareOut, status_code=status.HTTP_201_CREATED)
+def share_travel_plan(plan_id: int, request: Request, db: Session = Depends(get_db)):
+    """Generate a shareable read-only token for a travel plan."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+
+    if not plan.is_shared or not plan.share_token:
+        plan.share_token = secrets.token_urlsafe(32)
+        plan.is_shared = True
+        db.commit()
+        db.refresh(plan)
+
+    base_url = str(request.base_url).rstrip("/")
+    share_url = f"{base_url}/travel-plans/shared/{plan.share_token}"
+    return ShareOut(plan_id=plan.id, token=plan.share_token, share_url=share_url)
+
+
+@router.delete("/{plan_id}/share", status_code=status.HTTP_204_NO_CONTENT)
+def unshare_travel_plan(plan_id: int, db: Session = Depends(get_db)):
+    """Revoke the shareable link for a travel plan."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+
+    plan.is_shared = False
+    plan.share_token = None
+    db.commit()
+
+
+@router.get("/shared/{token}", response_model=TravelPlanOut)
+def get_shared_travel_plan(token: str, db: Session = Depends(get_db)):
+    """Public read-only access to a shared travel plan via token."""
+    plan = db.query(TravelPlan).filter(
+        TravelPlan.share_token == token,
+        TravelPlan.is_shared == True,  # noqa: E712
+    ).first()
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Shared plan not found")
+    return plan
