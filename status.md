@@ -1,22 +1,35 @@
 # Status
 
-Last run: 2026-04-02T17:32:43Z (Monitor #17)
-Run count: 39
+Last run: 2026-04-02T17:50:00Z (Run #32)
+Run count: 40
 Phase: Phase 6: Polish & Production Readiness
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 26/26 ✓
+Tasks completed: 27/27 ✓
 Current focus: _(none — task complete)_
-Next planned: #27 - Plan export endpoint
+Next planned: #28 - Add tags to travel plans
 
 ## LTES Snapshot
 
-- Latency: ~9180ms (pytest 764 tests in 9.18s)
-- Traffic: 24 commits last 24h
-- Errors: 0 test failures (764/764 pass), error_rate=0.0%
-- Saturation: 2 tasks remaining in backlog
+- Latency: ~10250ms (pytest 797 tests in 10.25s)
+- Traffic: 25 commits last 24h
+- Errors: 0 test failures (797/797 pass), error_rate=0.0%
+- Saturation: 1 task remaining in backlog
 
 ## Recent Changes
+
+### Run #32 — 2026-04-02T17:50Z
+- **Task**: #27 - Plan export endpoint
+- **Phase**: Phase 6: Polish & Production Readiness
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_export.py` — 33 tests: status codes (3), headers (3), body shape (13), nested itineraries (7), nested expenses (4), serialization (3)
+- **Files modified**:
+  - `src/app/routers/travel_plans.py` — added `GET /travel-plans/{plan_id}/export`; returns `TravelPlanOut` (full plan JSON with itineraries+places+expenses) as `Content-Disposition: attachment; filename="travel-plan-{id}.json"`; pretty-printed JSON via `json.dumps(indent=2)`
+- **Tests**: 797/797 passed (was 764, added 33 new tests)
+- **Fix**: 2 fix attempts — wrong URL prefix in test fixtures (`/travel-plans/` vs `/plans/`); corrected to match actual router prefixes
+- **LTES**: L=10250ms T=25 commits/day E=0.0% S=1 task remaining
+- **Impact**: `GET /travel-plans/{id}/export` allows clients to download a complete JSON snapshot of any travel plan including all day itineraries, places, and expenses as a file attachment
 
 ### Monitor #17 — 2026-04-02T17:32Z
 - **Type**: Health Check (monitor run)

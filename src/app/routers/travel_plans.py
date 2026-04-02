@@ -1,8 +1,10 @@
+import json
 import math
 from datetime import date as _Date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -124,3 +126,20 @@ def duplicate_travel_plan(plan_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(copy)
     return copy
+
+
+@router.get("/{plan_id}/export")
+def export_travel_plan(plan_id: int, db: Session = Depends(get_db)):
+    """Return full plan JSON (plan + itineraries + places + expenses) as a downloadable file."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+
+    plan_data = TravelPlanOut.model_validate(plan).model_dump(mode="json")
+    filename = f"travel-plan-{plan_id}.json"
+    content = json.dumps(plan_data, indent=2, ensure_ascii=False)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

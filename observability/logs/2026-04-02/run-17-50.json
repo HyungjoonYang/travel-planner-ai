@@ -1,0 +1,62 @@
+{
+  "trace": {
+    "run_id": "2026-04-02-1750",
+    "timestamp": "2026-04-02T17:50:00Z",
+    "phase": "Phase 6: Polish & Production Readiness",
+    "health": "GREEN",
+    "task": "#27 - Plan export endpoint"
+  },
+  "spans": [
+    {
+      "name": "health_check",
+      "start": "2026-04-02T17:45:00Z",
+      "end": "2026-04-02T17:45:10Z",
+      "duration_ms": 10250,
+      "result": "pass",
+      "details": {"tests_passed": 764, "tests_failed": 0}
+    },
+    {
+      "name": "status_check",
+      "start": "2026-04-02T17:45:10Z",
+      "end": "2026-04-02T17:45:11Z",
+      "duration_ms": 500,
+      "result": "pass",
+      "details": {"error_budget": "HEALTHY", "budget_remaining": 1.0}
+    },
+    {
+      "name": "task_selection",
+      "start": "2026-04-02T17:45:11Z",
+      "end": "2026-04-02T17:45:12Z",
+      "duration_ms": 300,
+      "result": "pass",
+      "details": {"task": "#27 - Plan export endpoint", "source": "Ready queue"}
+    },
+    {
+      "name": "implementation",
+      "start": "2026-04-02T17:45:12Z",
+      "end": "2026-04-02T17:49:00Z",
+      "duration_ms": 228000,
+      "result": "pass",
+      "details": {
+        "files_modified": ["src/app/routers/travel_plans.py"],
+        "files_created": ["tests/test_export.py"],
+        "fix_attempts": 2,
+        "fix_reason": "test fixtures used wrong URL prefix (/travel-plans/ instead of /plans/)"
+      }
+    },
+    {
+      "name": "full_test_suite",
+      "start": "2026-04-02T17:49:00Z",
+      "end": "2026-04-02T17:49:10Z",
+      "duration_ms": 10250,
+      "result": "pass",
+      "details": {"tests_passed": 797, "tests_failed": 0, "new_tests": 33}
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 10250, "task_runs_to_complete": 1},
+    "traffic": {"commits": 1, "lines_added": 115, "lines_removed": 2, "files_changed": 3},
+    "errors": {"test_failures": 0, "fix_attempts": 2, "build_errors": 0},
+    "saturation": {"tokens_used": 0, "backlog_remaining": 1}
+  }
+}
