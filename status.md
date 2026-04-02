@@ -1,22 +1,37 @@
 # Status
 
-Last run: 2026-04-02T17:50:00Z (Run #32)
-Run count: 40
+Last run: 2026-04-02T18:20:00Z (Run #33)
+Run count: 41
 Phase: Phase 6: Polish & Production Readiness
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 27/27 ✓
-Current focus: _(none — task complete)_
-Next planned: #28 - Add tags to travel plans
+Tasks completed: 28/28 ✓
+Current focus: _(none — all tasks complete)_
+Next planned: _(backlog empty — phase complete)_
 
 ## LTES Snapshot
 
-- Latency: ~10250ms (pytest 797 tests in 10.25s)
-- Traffic: 25 commits last 24h
-- Errors: 0 test failures (797/797 pass), error_rate=0.0%
-- Saturation: 1 task remaining in backlog
+- Latency: ~9390ms (pytest 822 tests in 9.39s)
+- Traffic: 26 commits last 24h
+- Errors: 0 test failures (822/822 pass), error_rate=0.0%
+- Saturation: 0 tasks remaining in backlog
 
 ## Recent Changes
+
+### Run #33 — 2026-04-02T18:20Z
+- **Task**: #28 - Add tags to travel plans
+- **Phase**: Phase 6: Polish & Production Readiness
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_tags.py` — 25 tests: create (5), PATCH (4), tag filter (12), duplicate copies tags (2), export includes tags (1), list response (1)
+- **Files modified**:
+  - `src/app/models.py` — added `tags: Mapped[str] = mapped_column(Text, default="")` to `TravelPlan`
+  - `src/app/schemas.py` — added `tags: str = ""` to `TravelPlanBase`; `tags: Optional[str] = None` to `TravelPlanUpdate`
+  - `src/app/routers/travel_plans.py` — added `tag` query param to `GET /travel-plans`; exact case-insensitive OR filter (`tags == tag OR tags ILIKE 'tag,%' OR tags ILIKE '%,tag' OR tags ILIKE '%,tag,%'`); copied `tags` in `duplicate_travel_plan`; imported `or_` from sqlalchemy
+- **Tests**: 822/822 passed (was 797, added 25 new tests)
+- **Fix**: 1 fix attempt — test file used module-level engine without StaticPool (same pattern as notes fix); rewrote to use conftest `client` fixture; also removed stale `travel_planner.db`
+- **LTES**: L=9390ms T=26 commits/day E=0.0% S=0 tasks remaining
+- **Impact**: `TravelPlan` now has a `tags` comma-separated field; settable on create/PATCH; filterable via `GET /travel-plans?tag=<value>` with exact case-insensitive matching (not substring); copied on duplicate; included in export
 
 ### Run #32 — 2026-04-02T17:50Z
 - **Task**: #27 - Plan export endpoint
@@ -50,55 +65,13 @@ Next planned: #28 - Add tags to travel plans
   - `src/app/schemas.py` — added `notes: str = ""` to `TravelPlanBase`; `notes: Optional[str] = None` to `TravelPlanUpdate`
   - `src/app/routers/travel_plans.py` — added `notes` query param to `GET /travel-plans` (case-insensitive ILIKE filter); copied `notes` in `duplicate_travel_plan`
 - **Tests**: 764/764 passed (was 741, added 23 new tests)
-- **Fix**: removed stale `travel_planner.db` (schema lacked `notes` column, caused 7 module-level test failures)
 - **LTES**: L=8440ms T=31 commits/day E=0.0% S=2 tasks remaining
-- **Impact**: `TravelPlan` now has a `notes` free-text field; settable on create/PATCH; searchable via `GET /travel-plans?notes=<keyword>` (case-insensitive partial match, composable with existing filters); copied on duplicate
-
-### Run #30 — 2026-04-02T16:51Z
-- **Task**: #25 - Add pagination to GET /travel-plans
-- **Phase**: Phase 6: Polish & Production Readiness
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_pagination.py` — 33 tests: response envelope shape (6), empty DB metadata (5), defaults page=1/page_size=20 (4), page param (5), page_size param (7), ordering across pages (2), filters composing with pagination (4)
-- **Files modified**:
-  - `src/app/schemas.py` — added `PaginatedPlans(items, total, page, page_size, pages)` schema
-  - `src/app/routers/travel_plans.py` — updated `GET /travel-plans` to accept `page` (ge=1, default=1) and `page_size` (ge=1, le=100, default=20); returns `PaginatedPlans` envelope; `total` reflects filter count; `pages = max(1, ceil(total/page_size))`
-  - `tests/test_travel_plans.py` — updated 4 list tests to use `["items"]`
-  - `tests/test_search_filter.py` — updated 23 list accesses to use `["items"]`
-  - `tests/test_integration.py` — updated 2 list accesses to use `["items"]`
-  - `tests/test_duplicate_plan.py` — updated 1 list access to use `["items"]`
-  - `tests/test_ai_plans.py` — updated 1 list access to use `["items"]`
-- **Tests**: 741/741 passed (was 708, added 33 new pagination tests)
-- **Fix**: 0 fix attempts needed
-- **LTES**: L=8590ms T=30 commits/day E=0.0% S=3 tasks remaining
-- **Impact**: `GET /travel-plans` now returns a paginated envelope `{items, total, page, page_size, pages}`. All filter params compose with pagination (total/pages reflect filtered count). Clients can navigate large result sets without fetching all records. Breaking change: response format changed from array to object.
-
-### Monitor #16 — 2026-04-02T16:34Z
-- **Type**: Health Check (monitor run)
-- **Result**: GREEN ✓
-- **Tests**: 708/708 passed (8.39s)
-- **Error Budget**: HEALTHY (1.0 remaining)
-- **LTES**: L=8390ms T=24 commits/day E=0.0% S=0 tasks remaining
-- **Action**: No incidents, no fixes needed
-
-### Run #29 — 2026-04-02T18:00Z
-- **Task**: #24 - Travel plan search & filter
-- **Phase**: Phase 5: Enhancements
-- **Result**: GREEN ✓
-- **Files created**:
-  - `tests/test_search_filter.py` — 27 tests: no-filter baseline (empty/all/sort), destination filter (exact/partial/case-insensitive/no-match/empty), status filter (draft/confirmed/invalid→422), date-range filter (from/to boundaries/ranges/invalid→422), combined filters (destination+status, destination+dates, all-three, no-match)
-- **Files modified**:
-  - `src/app/routers/travel_plans.py` — updated `GET /travel-plans` with optional query params: `destination` (case-insensitive ILIKE), `status` (exact, pattern-validated), `from` / `to` (start_date range); secondary `id DESC` sort for stable ordering when timestamps match
-- **Tests**: 708/708 passed (was 681, added 27 new tests)
-- **Fix**: 1 fix attempt — sort test flaky in SQLite (same-second created_at); resolved by adding `id DESC` as secondary sort key
-- **LTES**: L=7020ms T=29 commits/day E=0.0% S=0 tasks remaining
-- **Impact**: `GET /travel-plans` now supports filtering by destination (partial, case-insensitive), plan status, and start_date range; all params are optional and composable
 
 ## Daily Summary
 
 ### 2026-04-02
-- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter), #25 (pagination)
-- **Tests**: 572 → 741 (+169)
+- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder), #24 (search & filter), #25 (pagination), #26 (notes field), #27 (export endpoint), #28 (tags field)
+- **Tests**: 572 → 822 (+250)
 - **Health**: GREEN throughout
-- **Milestone**: Phase 5 complete → Phase 6 started. 25/25 tasks done in backlog + 3 new tasks queued.
-- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication + place reorder + search & filter + pagination with envelope response
+- **Milestone**: Phase 6 complete — all 28 tasks done. Backlog empty.
+- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication + place reorder + search & filter + pagination with envelope response + notes field + export endpoint + tags field with exact filter

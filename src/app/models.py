@@ -17,6 +17,7 @@ class TravelPlan(Base):
     interests: Mapped[str] = mapped_column(Text, default="")  # comma-separated
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | confirmed
     notes: Mapped[str] = mapped_column(Text, default="")
+    tags: Mapped[str] = mapped_column(Text, default="")  # comma-separated tags
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

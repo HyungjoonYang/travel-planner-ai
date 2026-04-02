@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -30,6 +31,7 @@ def list_travel_plans(
     from_date: Optional[_Date] = Query(default=None, alias="from", description="Filter plans where start_date >= this date"),
     to_date: Optional[_Date] = Query(default=None, alias="to", description="Filter plans where start_date <= this date"),
     notes: Optional[str] = Query(default=None, description="Case-insensitive keyword search in notes"),
+    tag: Optional[str] = Query(default=None, description="Filter by exact tag (case-insensitive)"),
     page: int = Query(default=1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page (max 100)"),
     db: Session = Depends(get_db),
@@ -45,6 +47,14 @@ def list_travel_plans(
         q = q.filter(TravelPlan.start_date <= to_date)
     if notes is not None:
         q = q.filter(TravelPlan.notes.ilike(f"%{notes}%"))
+    if tag is not None:
+        t = tag.lower()
+        q = q.filter(or_(
+            TravelPlan.tags.ilike(t),
+            TravelPlan.tags.ilike(f"{t},%"),
+            TravelPlan.tags.ilike(f"%,{t}"),
+            TravelPlan.tags.ilike(f"%,{t},%"),
+        ))
     q = q.order_by(TravelPlan.created_at.desc(), TravelPlan.id.desc())
     total = q.count()
     pages = max(1, math.ceil(total / page_size))
@@ -97,6 +107,7 @@ def duplicate_travel_plan(plan_id: int, db: Session = Depends(get_db)):
         budget=original.budget,
         interests=original.interests,
         notes=original.notes,
+        tags=original.tags,
         status="draft",
     )
     db.add(copy)

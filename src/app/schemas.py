@@ -116,6 +116,7 @@ class TravelPlanBase(BaseModel):
     interests: str = ""
     status: str = Field(default="draft", pattern="^(draft|confirmed)$")
     notes: str = ""
+    tags: str = ""
 
     @model_validator(mode="after")
     def end_date_not_before_start_date(self) -> "TravelPlanBase":
@@ -136,6 +137,7 @@ class TravelPlanUpdate(BaseModel):
     interests: Optional[str] = None
     status: Optional[str] = Field(default=None, pattern="^(draft|confirmed)$")
     notes: Optional[str] = None
+    tags: Optional[str] = None
 
     @model_validator(mode="after")
     def end_date_not_before_start_date(self) -> "TravelPlanUpdate":

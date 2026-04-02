@@ -9,7 +9,6 @@
 _(없음)_
 
 ## Ready (우선순위 순)
-- [ ] #28 - Add tags to travel plans (comma-separated tags field + `GET /travel-plans?tag=` filter) [feature]
 
 ## Done
 
@@ -40,6 +39,7 @@ _(없음)_
 - [x] #25 - Add pagination to GET /travel-plans (`PaginatedPlans` envelope: items/total/page/page_size/pages; `page` ge=1, `page_size` ge=1 le=100 default=20; updated 5 existing test files + 33 new pagination tests) [feature] — 2026-04-02
 - [x] #26 - Add notes field to travel plans (`notes: str` on TravelPlan model + PATCH support + `GET /travel-plans?notes=` keyword filter; 23 tests) [feature] — 2026-04-02
 - [x] #27 - Plan export endpoint (`GET /travel-plans/{id}/export`; returns full plan JSON with itineraries+places+expenses as `Content-Disposition: attachment` download; 33 tests) [feature] — 2026-04-02
+- [x] #28 - Add tags to travel plans (comma-separated `tags` field; PATCH support; `GET /travel-plans?tag=` exact case-insensitive filter using OR conditions; copied on duplicate; included in export; 25 tests) [feature] — 2026-04-02
 
 ## Blocked
 
@@ -52,5 +52,5 @@ _(없음)_
 - Velocity: 1 task/run
 - Avg time per task: ~100s
 - Total tasks: 27
-- Completed: 27/27 ✓
-- Phase 6 backlog: 1 task remaining
+- Completed: 28/28 ✓
+- Phase 6 backlog: 0 tasks remaining
