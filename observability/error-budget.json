@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 38,
-    "successful_runs": 34,
+    "total_runs": 39,
+    "successful_runs": 35,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -57,6 +57,7 @@
     {"run_id": "2026-04-02-1800", "task": "#24 - Travel plan search & filter", "result": "success", "tests_passed": 708, "tests_total": 708},
     {"run_id": "monitor-2026-04-02-1634", "task": "monitor", "result": "success", "tests_passed": 708, "tests_total": 708},
     {"run_id": "2026-04-02-1651", "task": "#25 - Add pagination to GET /travel-plans", "result": "success", "tests_passed": 741, "tests_total": 741},
-    {"run_id": "2026-04-02-1719", "task": "#26 - Add notes field to travel plans", "result": "success", "tests_passed": 764, "tests_total": 764}
+    {"run_id": "2026-04-02-1719", "task": "#26 - Add notes field to travel plans", "result": "success", "tests_passed": 764, "tests_total": 764},
+    {"run_id": "monitor-2026-04-02-1732", "task": "monitor", "result": "success", "tests_passed": 764, "tests_total": 764}
   ]
 }
