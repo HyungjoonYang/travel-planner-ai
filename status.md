@@ -1,22 +1,35 @@
 # Status
 
-Last run: 2026-04-02T15:37:00Z (Monitor #15)
-Run count: 33
+Last run: 2026-04-02T17:00:00Z (Run #28)
+Run count: 34
 Phase: Phase 5: Enhancements
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 22/22 ✓
+Tasks completed: 23/23 ✓
 Current focus: _(none — task complete)_
-Next planned: #23 - Place ordering endpoint
+Next planned: #24 - Travel plan search & filter
 
 ## LTES Snapshot
 
-- Latency: ~6020ms (pytest 657 tests in 6.02s)
+- Latency: ~6990ms (pytest 681 tests in 6.99s)
 - Traffic: 24 commits last 24h
-- Errors: 0 test failures (657/657 pass), error_rate=0.0%
-- Saturation: 2 tasks remaining in backlog
+- Errors: 0 test failures (681/681 pass), error_rate=0.0%
+- Saturation: 1 task remaining in backlog
 
 ## Recent Changes
+
+### Run #28 — 2026-04-02T17:00Z
+- **Task**: #23 - Place ordering endpoint
+- **Phase**: Phase 5: Enhancements
+- **Result**: GREEN ✓
+- **Files created**:
+  - `tests/test_place_reorder.py` — 24 tests: schema validation, happy path (order values, persistence, idempotency), edge cases (single place, two-place swap, sibling day isolation), validation errors (extra/missing/duplicate IDs, wrong-day IDs), 404 guards
+- **Files modified**:
+  - `src/app/schemas.py` — added `PlaceReorderRequest(place_ids: list[int])` schema
+  - `src/app/routers/itineraries.py` — added `PATCH /{day_id}/places/reorder`; validates all day's place IDs are supplied (no extras, no omissions, no duplicates); atomically assigns 0-based `order` from list position; returns places sorted by order
+- **Tests**: 681/681 passed (was 657, added 24 new tests)
+- **LTES**: L=6990ms T=28 commits/day E=0.0% S=1 task remaining
+- **Impact**: Clients (e.g. drag-and-drop UI) can now atomically reorder places within a day using a single PATCH call; partial lists and duplicates are rejected with 422
 
 ### Monitor #15 — 2026-04-02T15:37Z
 - **Type**: Health Check (monitor run)
@@ -74,8 +87,8 @@ Next planned: #23 - Place ordering endpoint
 ## Daily Summary
 
 ### 2026-04-02
-- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication)
-- **Tests**: 572 → 657 (+85)
+- **Tasks completed**: #19 (README), #20 (100% coverage), #21 (manual itinerary editing), #22 (plan duplication), #23 (place reorder)
+- **Tests**: 572 → 681 (+109)
 - **Health**: GREEN throughout
-- **Milestone**: Phase 4 complete. Phase 5 progressing (22/22 tasks done, 2 remaining).
-- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication endpoint
+- **Milestone**: Phase 4 complete. Phase 5 progressing (23/23 tasks done, 1 remaining).
+- **Key achievements today**: 100% test coverage + manual itinerary CRUD (8 endpoints) + plan duplication endpoint + place reorder endpoint

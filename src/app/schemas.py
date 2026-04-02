@@ -31,6 +31,10 @@ class PlaceUpdate(BaseModel):
     order: Optional[int] = Field(default=None, ge=0)
 
 
+class PlaceReorderRequest(BaseModel):
+    place_ids: list[int] = Field(..., min_length=1)
+
+
 class PlaceOut(PlaceBase):
     id: int
     day_itinerary_id: int

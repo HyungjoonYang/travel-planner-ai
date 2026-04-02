@@ -10,6 +10,7 @@ from app.schemas import (
     DayItineraryUpdate,
     PlaceCreate,
     PlaceOut,
+    PlaceReorderRequest,
     PlaceUpdate,
 )
 
@@ -112,6 +113,45 @@ def add_place(
     db.commit()
     db.refresh(place)
     return place
+
+
+@router.patch("/{day_id}/places/reorder", response_model=list[PlaceOut])
+def reorder_places(
+    plan_id: int,
+    day_id: int,
+    payload: PlaceReorderRequest,
+    db: Session = Depends(get_db),
+):
+    """Atomically reorder places within a day by supplying an ordered list of place IDs.
+
+    All place IDs that belong to the day must be provided (no extras, no omissions).
+    Each place's ``order`` field is set to its index (0-based) in the supplied list.
+    """
+    _get_day_or_404(plan_id, day_id, db)
+    day_places: list[Place] = (
+        db.query(Place).filter(Place.day_itinerary_id == day_id).all()
+    )
+    existing_ids = {p.id for p in day_places}
+    requested_ids = payload.place_ids
+
+    if set(requested_ids) != existing_ids:
+        raise HTTPException(
+            status_code=422,
+            detail="place_ids must contain exactly the places belonging to this day",
+        )
+    if len(requested_ids) != len(set(requested_ids)):
+        raise HTTPException(
+            status_code=422,
+            detail="place_ids must not contain duplicates",
+        )
+
+    place_map = {p.id: p for p in day_places}
+    for new_order, place_id in enumerate(requested_ids):
+        place_map[place_id].order = new_order
+    db.commit()
+    for p in day_places:
+        db.refresh(p)
+    return sorted(day_places, key=lambda p: p.order)
 
 
 @router.patch("/{day_id}/places/{place_id}", response_model=PlaceOut)

@@ -10,7 +10,6 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-- [ ] #23 - Place ordering endpoint — `PATCH /plans/{id}/itineraries/{day_id}/places/reorder` accepts an ordered list of place IDs and updates `order` fields atomically; enables drag-and-drop reordering in UI [feature]
 - [ ] #24 - Travel plan search & filter — `GET /travel-plans?destination=&status=&from=&to=` query params; currently list returns all plans unsorted without filtering [feature]
 
 ## Done
@@ -37,6 +36,7 @@ _(없음)_
 - [x] #20 - Final test coverage review and gap filling (13 tests for 4 global exception handlers via app.dependency_overrides; 98% → 100% coverage) [test] — 2026-04-02
 - [x] #21 - Add manual itinerary editing (DayItineraryUpdate + PlaceUpdate schemas; 8 new endpoints for CRUD on DayItinerary/Place; ownership guards; 51 tests) [feature] — 2026-04-02
 - [x] #22 - Plan duplication endpoint (`POST /travel-plans/{id}/duplicate`; copies plan + itineraries + places as new draft; expenses excluded; 21 tests) [feature] — 2026-04-02
+- [x] #23 - Place ordering endpoint (`PATCH /plans/{id}/itineraries/{day_id}/places/reorder`; ordered list of place IDs → atomic `order` field update; 24 tests) [feature] — 2026-04-02
 
 ## Blocked
 
@@ -48,6 +48,6 @@ _(없음)_
 
 - Velocity: 1 task/run
 - Avg time per task: ~100s
-- Total tasks: 22
-- Completed: 22/22 ✓
-- Phase 5 backlog: 2 tasks ready
+- Total tasks: 23
+- Completed: 23/23 ✓
+- Phase 5 backlog: 1 task ready
