@@ -164,6 +164,10 @@ _(에이전트가 학습하면서 추가)_
 | 2026-04-01 | interests stored as comma-separated string (not JSON array) | Simpler SQLite storage; easy to read/write; can be split by AI prompt layer |
 | 2026-04-01 | Web search via Gemini `google_search` grounding tool (not a separate search API) | No extra API key required; Gemini natively fetches and grounds answers in real-time Google Search results; keeps dependency count low |
 | 2026-04-01 | Frontend: vanilla JS SPA served via FastAPI `StaticFiles` + `FileResponse` | No build step, no Node.js toolchain; single `index.html` with embedded CSS and JS; served at `GET /` and `/static/*`; consistent with lightweight backend-first architecture |
+| 2026-04-03 | Gemini model: gemini-2.0-flash → gemini-3.0-flash | gemini-2.0-flash deprecated (404); 3.0-flash is current stable model |
+| 2026-04-03 | Multi-agent evolve pipeline (5 agents with file-based handoff) | Single-agent evolve lacked separation of concerns; now each agent has focused role + clear input/output contract; enables parallel QA and better observability |
+| 2026-04-03 | SSE (not WebSocket) for chat streaming | Unidirectional server→client streaming; no extra dependencies; FastAPI StreamingResponse native support; auto-reconnect built-in |
+| 2026-04-03 | PR-based evolve (not direct push to main) | Safety: CI tests + auto-merge on pass; failed changes don't reach main; human review possible via `evolve-needs-review` label |
 
 ---
 
@@ -171,24 +175,36 @@ _(에이전트가 학습하면서 추가)_
 
 ```
 travel-planner-ai/
-├── CLAUDE.md                    # 이 파일 (에이전트의 두뇌)
-├── .claude/commands/            # 에이전트 커맨드
-│   ├── evolve.md                # 메인 진화 루프
-│   ├── monitor.md               # 헬스체크 + LTES
-│   └── fix.md                   # Incident Response
+├── CLAUDE.md                    # 이 파일 (에이전트의 두뇌) ⚠️ Reporter가 매 run 동기화
+├── .claude/
+│   ├── commands/                # 에이전트 커맨드
+│   │   ├── evolve.md            # Multi-agent 오케스트레이터
+│   │   ├── monitor.md           # 헬스체크 + LTES
+│   │   └── fix.md               # Incident Response
+│   └── agents/                  # 에이전트별 역할 정의
+│       ├── coordinator.md       # 🧠 상태 파악 + 태스크 배정
+│       ├── architect.md         # 📐 스펙→태스크 기획
+│       ├── builder.md           # 🔨 코드 구현
+│       ├── qa.md                # 🧪 품질 검증
+│       └── reporter.md          # 📝 기록 + PR 생성
 ├── .github/workflows/
-│   ├── evolve.yml               # cron 기반 에이전트 실행 (야간)
+│   ├── evolve.yml               # Multi-agent evolve (5-step pipeline)
+│   ├── ci.yml                   # PR 테스트 + auto-merge
+│   ├── qa.yml                   # Playwright E2E (daily cron)
 │   └── monitor.yml              # 헬스체크 (가벼운 실행)
-├── status.md                    # 현재 상태 (에이전트 관리)
-├── backlog.md                   # 태스크 보드 (에이전트 관리)
+├── .evolve/                     # 에이전트 간 핸드오프 (ephemeral, .gitignore)
+├── markdowns/                   # 기능 스펙 문서 (Architect가 참조)
+├── e2e/                         # Playwright E2E 테스트
+├── status.md                    # 현재 상태 (Reporter가 매 run 업데이트)
+├── backlog.md                   # 태스크 보드 (Coordinator/Architect/Reporter가 관리)
 ├── observability/
 │   ├── logs/                    # 실행별 LTES 로그
 │   ├── traces/                  # Trace + Span 로그
 │   ├── postmortems/             # 장애 사후 분석
 │   ├── dashboard.json           # LTES 대시보드 데이터
 │   └── error-budget.json        # Error Budget 추적
-├── src/                         # 앱 소스 코드 (에이전트가 작성)
-├── tests/                       # 테스트 (에이전트가 작성)
+├── src/                         # 앱 소스 코드
+├── tests/                       # 단위/통합 테스트
 ├── render.yaml                  # Render 배포 설정
 ├── requirements.txt             # Python dependencies
 ├── .env.example                 # 환경변수 템플릿
@@ -218,6 +234,11 @@ ruff check src/ tests/
 
 ## Current Phase
 
-Phase 1: POC — FastAPI 프로젝트 초기화 및 기본 CRUD
+Phase 10: Chat + Multi-Agent Dashboard — AI 채팅 인터페이스 + 실시간 에이전트 대시보드
 
-_(에이전트가 phase 전환 시 업데이트)_
+> ⚠️ **이 섹션은 Reporter Agent가 매 evolve run마다 `status.md`와 동기화해야 한다.**
+> Phase, 완료 태스크 수, 테스트 수를 status.md에서 읽어 여기에 반영한다.
+
+- 완료: 34 tasks (994 tests)
+- 현재 스펙: `markdowns/feat-chat-dashboard.md`
+- Evolve 방식: Multi-agent pipeline (Coordinator → Architect → Builder → QA → Reporter)

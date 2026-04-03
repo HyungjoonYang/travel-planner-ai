@@ -59,6 +59,14 @@
 - "Recent Changes" 섹션에 이번 실행 결과 추가
   - 어떤 에이전트가 무엇을 했는지 포함
 
+### 3.5. CLAUDE.md "Current Phase" 동기화 (필수)
+`CLAUDE.md`의 "Current Phase" 섹션을 `status.md`와 동기화한다:
+- Phase 이름
+- 완료 태스크 수
+- 테스트 수
+- Builder가 CLAUDE.md "Tech Stack Decisions Log"에 새 결정을 기록했으면 그대로 둔다
+- **이 단계를 건너뛰지 않는다** — CLAUDE.md는 모든 에이전트가 읽는 프로젝트의 두뇌다
+
 ### 4. backlog.md 업데이트
 - QA pass → 태스크를 "Done"으로 이동
 - QA fail → 태스크를 "In Progress"에 유지, 실패 내역을 태스크 설명에 추가
