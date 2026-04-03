@@ -1,0 +1,119 @@
+name: QA (Playwright E2E)
+
+on:
+  # Render 배포 후 실행 (deploy_status webhook 또는 주기적)
+  schedule:
+    - cron: '0 14 * * *'   # 매일 KST 23:00 (UTC 14:00)
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Target URL to test"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: e2e
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install @playwright/test
+          npx playwright install chromium
+
+      - name: Wait for site to wake up
+        env:
+          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai.onrender.com' }}
+        run: |
+          echo "Target: $QA_BASE_URL"
+          # Render free tier sleeps — poke it and wait
+          for i in 1 2 3 4 5; do
+            if curl -sf "${QA_BASE_URL}/health" > /dev/null 2>&1; then
+              echo "Site is up!"
+              break
+            fi
+            echo "Attempt $i — waiting 15s for cold start..."
+            sleep 15
+          done
+
+      - name: Run Playwright tests
+        env:
+          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai.onrender.com' }}
+        run: npx playwright test --config=playwright.config.ts
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: e2e/results.json
+          retention-days: 14
+
+      - name: Slack Notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai.onrender.com' }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then exit 0; fi
+
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          STATUS="${{ job.status }}"
+
+          if [ "$STATUS" = "success" ]; then
+            EMOJI="✅"
+            TEXT="*QA passed* on \`${QA_BASE_URL}\`"
+          else
+            EMOJI="🔴"
+            TEXT="*QA FAILED* on \`${QA_BASE_URL}\` — check results"
+          fi
+
+          # Count pass/fail from results.json if available
+          if [ -f results.json ]; then
+            PASSED=$(jq '[.suites[].specs[].tests[] | select(.status=="expected")] | length' results.json 2>/dev/null || echo "?")
+            FAILED=$(jq '[.suites[].specs[].tests[] | select(.status!="expected")] | length' results.json 2>/dev/null || echo "?")
+            TEXT="${TEXT}\n*Tests:* ${PASSED} passed, ${FAILED} failed"
+          fi
+
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d "$(cat <<EOF
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "${EMOJI} ${TEXT}"
+                }
+              },
+              {
+                "type": "context",
+                "elements": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "<${RUN_URL}|View Details>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          )"

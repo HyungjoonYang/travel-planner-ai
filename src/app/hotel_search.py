@@ -29,7 +29,7 @@ class HotelSearchResult(BaseModel):
 
 
 class HotelSearchService:
-    MODEL = "gemini-2.0-flash"
+    MODEL = "gemini-3.0-flash"
 
     def __init__(self, api_key: str = ""):
         self._api_key = api_key or GEMINI_API_KEY
