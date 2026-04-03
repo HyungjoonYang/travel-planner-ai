@@ -66,6 +66,6 @@ ruff check src/ tests/
 ## 규칙
 - **handoff.json에 지정된 태스크만 구현** — 범위를 벗어나지 않는다
 - **status.md, backlog.md를 수정하지 않는다** — Reporter의 역할
-- 기술 결정을 내리면 CLAUDE.md "Tech Stack Decisions Log"에 기록
+- 기술 결정을 내리면 `tech-decisions.md`에 기록
 - 기존 테스트를 깨뜨리지 않는다
 - `.env` 파일이나 시크릿을 하드코딩하지 않는다
