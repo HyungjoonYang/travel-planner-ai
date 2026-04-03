@@ -237,7 +237,7 @@ class TestReorderValidationErrors:
             f"/plans/{plan_id}/itineraries",
             json={"date": "2026-09-02", "notes": "", "transport": "", "places": []},
         ).json()["id"]
-        p_day1 = _add_place(client, plan_id, day1, "Place on day 1")
+        _add_place(client, plan_id, day1, "Place on day 1")
         p_day2 = _add_place(client, plan_id, day2, "Place on day 2")
         # reorder day1 but pass day2's place — should be rejected
         r = _reorder(client, plan_id, day1, [p_day2])

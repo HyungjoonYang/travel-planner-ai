@@ -4,10 +4,9 @@ Endpoint covered:
   POST /travel-plans/{id}/refine  → refine itinerary via AI instruction (200)
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from app.ai import AIDayItinerary, AIItineraryResult, AIPlace
+from app.ai import AIItineraryResult
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

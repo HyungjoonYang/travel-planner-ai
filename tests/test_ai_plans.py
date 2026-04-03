@@ -12,7 +12,6 @@ Covers gaps not addressed by test_ai.py and test_structured_output.py:
 - GeminiService model constant
 - Interests edge cases (empty, comma-separated, whitespace)
 """
-import json
 from datetime import date
 from unittest.mock import MagicMock, patch
 

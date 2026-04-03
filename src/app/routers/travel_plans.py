@@ -17,7 +17,7 @@ from app.schemas import (
     PaginatedPlans, PlanSnapshotOut, PlanSnapshotSummary,
     RefineRequest, ShareOut, SnapshotCreateRequest,
     TopPlaceOut,
-    TravelPlanCreate, TravelPlanOut, TravelPlanSummary, TravelPlanUpdate,
+    TravelPlanCreate, TravelPlanOut, TravelPlanUpdate,
 )
 
 router = APIRouter(prefix="/travel-plans", tags=["travel-plans"])

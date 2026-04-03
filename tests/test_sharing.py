@@ -6,7 +6,6 @@ Endpoints covered:
   GET    /travel-plans/shared/{token}    → public read-only view (200)
 """
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # Helpers

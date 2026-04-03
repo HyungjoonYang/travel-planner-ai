@@ -6,14 +6,14 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from datetime import date, timedelta
+from datetime import date
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 import httpx
 
-from app.calendar_service import CalendarService, CalendarExportResult, CalendarEventResult
+from app.calendar_service import CalendarService, CalendarExportResult
 
 
 # ---------------------------------------------------------------------------
@@ -394,9 +394,6 @@ class TestCalendarExportEndpoint:
 
     def test_401_on_invalid_google_token(self, client):
         # Create plan with AI generate (mocked)
-        fake_itinerary = {
-            "days": [{"date": "2024-03-15", "places": [], "notes": "", "transport": "Walk"}]
-        }
         with patch("app.ai.GeminiService.generate_itinerary") as mock_gen:
             from app.ai import AIItineraryResult, AIDayItinerary
             mock_gen.return_value = AIItineraryResult(days=[
@@ -432,9 +429,6 @@ class TestCalendarExportEndpoint:
         assert "access token" in resp.json()["detail"].lower()
 
     def test_502_on_google_api_server_error(self, client):
-        fake_itinerary = {
-            "days": [{"date": "2024-03-15", "places": [], "notes": "", "transport": "Walk"}]
-        }
         with patch("app.ai.GeminiService.generate_itinerary") as mock_gen:
             from app.ai import AIItineraryResult, AIDayItinerary
             mock_gen.return_value = AIItineraryResult(days=[

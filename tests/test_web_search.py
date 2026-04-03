@@ -192,7 +192,7 @@ class TestSearchPlaces:
             mock_genai.Client.return_value = mock_client
             self.svc.search_places("Paris")
         call_kwargs = mock_client.models.generate_content.call_args
-        config = call_kwargs.kwargs.get("config") or call_kwargs.args[2] if len(call_kwargs.args) > 2 else None
+        _config = call_kwargs.kwargs.get("config") or call_kwargs.args[2] if len(call_kwargs.args) > 2 else None  # noqa: F841
         # Verify generate_content was called once
         assert mock_client.models.generate_content.call_count == 1
 

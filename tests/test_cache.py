@@ -2,7 +2,6 @@
 import time
 import unittest.mock as mock
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.cache import TTLCache, search_cache
@@ -170,9 +169,9 @@ class TestCacheEndpoints:
 # Search endpoint caching integration tests
 # ---------------------------------------------------------------------------
 
-from app.web_search import DestinationSearchResult, PlaceSearchResult
-from app.hotel_search import HotelResult, HotelSearchResult
-from app.flight_search import FlightResult, FlightSearchResult
+from app.web_search import DestinationSearchResult, PlaceSearchResult  # noqa: E402
+from app.hotel_search import HotelResult, HotelSearchResult  # noqa: E402
+from app.flight_search import FlightResult, FlightSearchResult  # noqa: E402
 
 _PLACES_RESULT = DestinationSearchResult(
     destination="Tokyo",

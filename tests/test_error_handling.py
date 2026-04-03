@@ -1,6 +1,5 @@
 """Tests for comprehensive error handling and validation (task #17)."""
-from datetime import date, timedelta
-from unittest.mock import patch
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -249,14 +248,14 @@ class TestExpenseValidation:
 # run instead of re-raising inside the test process.
 # ---------------------------------------------------------------------------
 
-from app.database import get_db as _get_db
+from app.database import get_db as _get_db  # noqa: E402
 
 
 def _db_that_raises(exc: Exception):
     """Return a generator dependency that raises *exc* before yielding."""
     def _override():
         raise exc
-        yield  # noqa: unreachable — makes this a generator function
+        yield  # noqa: F702 — unreachable; makes this a generator function
     return _override
 
 

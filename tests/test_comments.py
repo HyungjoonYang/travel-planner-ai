@@ -6,7 +6,6 @@ Endpoints:
   DELETE /travel-plans/{id}/comments/{cid}       — owner deletes a comment
 """
 
-import pytest
 
 
 # ---------------------------------------------------------------------------

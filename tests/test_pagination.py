@@ -13,7 +13,6 @@ Covers:
 - Filters compose with pagination (total reflects filtered count)
 """
 
-import pytest
 
 
 # ---------------------------------------------------------------------------

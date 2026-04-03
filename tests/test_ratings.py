@@ -7,7 +7,6 @@ Endpoints covered:
          → list top-rated places across all days of a plan
 """
 
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +115,7 @@ class TestRatePlace:
         day = create_day(client, plan["id"])
         place = create_place(client, plan["id"], day["id"])
         rate_place(client, plan["id"], day["id"], place["id"], rating=3)
-        updated = client.get(
+        client.get(
             f"/plans/{plan['id']}/itineraries/{day['id']}/places/{place['id']}"
         )
         # verify via top-places instead (no direct get-place endpoint needed)
