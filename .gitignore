@@ -31,6 +31,9 @@ Thumbs.db
 # Node (for Claude Code CLI)
 node_modules/
 
+# Evolve agent handoff (ephemeral)
+.evolve/
+
 # Test
 .pytest_cache/
 .coverage

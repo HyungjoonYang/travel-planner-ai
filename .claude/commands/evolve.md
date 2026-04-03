@@ -1,183 +1,124 @@
-# Evolve Command
+# Evolve Command — Multi-Agent Orchestrator
 
-너는 Self-Evolving Travel Planner의 **Coordinator Agent**다.
-CLAUDE.md의 "Workflow (Evolve Loop)"를 실행한다.
+너는 Self-Evolving Travel Planner의 **Orchestrator**다.
+5개의 에이전트를 순서대로 실행하여 한 사이클의 진화를 완료한다.
+
+각 에이전트는 `.claude/agents/<name>.md`에 정의되어 있고,
+`.evolve/` 디렉토리의 JSON 파일로 상태를 주고받는다.
+
+---
+
+## Agent Pipeline
+
+```
+🧠 Coordinator → 📐 Architect (조건부) → 🔨 Builder → 🧪 QA → 📝 Reporter
+```
+
+각 에이전트는 **자기 역할만 수행**하고 결과를 파일에 남긴다.
+너(Orchestrator)는 각 에이전트의 역할을 순서대로 수행하되,
+각 단계에서 해당 에이전트의 `.claude/agents/<name>.md` 지침을 따른다.
 
 ---
 
 ## 실행 순서
 
-### 1. Health Check (Monitor Agent 역할)
+### Step 0. 준비
 ```bash
-# 테스트가 있는 경우에만 실행
-pytest tests/ -v --tb=short 2>&1 || true
-```
-- 테스트 파일이 없으면 → 정상으로 간주, Step 2로
-- 테스트 실패 있으면 → `/fix` 커맨드 로직 실행 (Incident Response)
-- fix 성공 → Step 2로 계속
-- fix 3회 실패 → 해당 태스크 Blocked, 이번 실행 종료
-
-### 2. 상태 파악
-- `status.md` 읽기 → 현재 phase, health, 마지막 작업 확인
-- `observability/error-budget.json` 읽기 → budget 상태 확인
-  - EXHAUSTED → 안정화 태스크만 선택 가능
-  - HEALTHY → 자유롭게 선택
-
-### 2.5. 자율 기획 (Architect 역할)
-
-**backlog.md의 "Ready" 목록이 비었거나 2개 이하일 때** 이 단계를 실행한다.
-
-#### 스펙 문서 기반 태스크 생성
-1. `markdowns/` 디렉토리의 스펙 문서를 읽는다
-2. 현재 코드 상태를 분석한다 (어디까지 구현되어 있는지)
-3. 스펙과 현재 상태의 **갭**을 파악한다
-4. 갭을 1-run 크기의 태스크로 분리한다 (한 태스크 = 1개 파일 or 1개 기능 단위)
-5. `backlog.md`의 "Ready" 섹션에 우선순위 순서로 추가한다
-
-#### 자체 판단 태스크 생성
-스펙 문서에 없더라도, 아래를 발견하면 태스크를 스스로 만든다:
-- 테스트 커버리지가 부족한 영역
-- 에러 로그에서 반복되는 패턴
-- 성능 병목 (LTES 메트릭 기반)
-- UX 개선 포인트 (에러 메시지, 응답 포맷 등)
-- 기술 부채 (TODO 주석, deprecated API 등)
-
-#### 태스크 작성 규칙
-- 각 태스크는 **독립적으로 구현+테스트 가능**해야 한다
-- 의존성이 있으면 순서를 명시한다 (예: "#22 다음에")
-- 태스크 설명에 포함할 것:
-  - 무엇을 만드는지 (what)
-  - 어떤 파일을 변경/생성하는지 (where)
-  - 참조할 스펙 문서 (ref)
-  - 완료 기준 (done when)
-- 태그: `[feature]`, `[test]`, `[refactor]`, `[fix]`, `[infra]`
-
-#### 예시
-```markdown
-- [ ] #21 - ChatService 기본 구조 (ConversationState, intent 추출, 세션 관리) [feature]
-  - ref: markdowns/feat-chat-dashboard.md "Phase 1"
-  - files: src/app/chat.py (new), src/app/schemas.py (modify)
-  - done: ChatService가 메시지를 받아 intent를 추출하고, 세션을 관리할 수 있음. 테스트 통과.
+mkdir -p .evolve
+rm -f .evolve/handoff.json .evolve/build-result.json .evolve/qa-result.json
 ```
 
-### 3. 태스크 선택
-- `backlog.md` 읽기
-- "In Progress" 항목이 있으면 → 이어서 진행
-- 없으면 → "Ready" 최상위 항목 선택
-- 선택한 태스크를 "In Progress"로 이동
-- `backlog.md` 저장
+### Step 1. 🧠 Coordinator
+`.claude/agents/coordinator.md`의 지침을 따른다.
 
-### 4. 구현 (Builder Agent 역할)
+**수행:**
+1. 전체 테스트 실행 → 상태 판단
+2. `status.md`, `backlog.md`, `error-budget.json` 읽기
+3. Architect 필요 여부 결정 (Ready 태스크 ≤ 2개)
+4. 태스크 선택 → backlog.md에서 "In Progress"로 이동
+5. `.evolve/handoff.json` 작성
 
-#### 4-1. 플랜 작성
-태스크가 `[feature]` 또는 `[refactor]`이면, 구현 전에 간단한 플랜을 세운다:
-- 참조할 스펙 문서가 있으면 해당 섹션을 읽는다
-- 변경할 파일과 내용을 미리 정리한다
-- 기존 코드와의 호환성을 확인한다
+**산출물:** `.evolve/handoff.json`
 
-#### 4-2. 구현
-- 코드는 `src/` 아래에 작성
-- **반드시** 관련 테스트를 `tests/`에 작성
-- 새 dependency 추가 시 `requirements.txt` 즉시 업데이트
-- 전체 테스트 실행:
-  ```bash
-  pytest tests/ -v --tb=short
-  ```
-- 실패 시 → 수정 시도 (최대 3회)
+### Step 2. 📐 Architect (조건부)
+**`handoff.json`의 `needs_architect`가 `true`일 때만 실행.**
 
-#### 4-3. 셀프 QA
-구현 후, 아래를 확인한다:
-- **기존 테스트 깨짐 없는지**: 전체 테스트 통과
-- **새 기능이 정상 동작하는지**: 새로 작성한 테스트가 의미 있게 커버하는지
-- **린트**: `ruff check src/ tests/`
-- **import/dependency**: 새 import가 있으면 requirements.txt에 반영했는지
+`.claude/agents/architect.md`의 지침을 따른다.
 
-### 5. 기록 (Reporter Agent 역할)
+**수행:**
+1. `markdowns/` 스펙 문서 읽기
+2. 현재 코드와 스펙의 갭 분석
+3. 1-run 크기 태스크 생성 (최대 5개)
+4. `backlog.md`의 "Ready"에 추가
 
-#### 5-1. LTES 실행 로그 작성
-`observability/logs/YYYY-MM-DD/run-HH-MM.json` 형식으로 기록:
-```json
-{
-  "trace": {
-    "run_id": "<YYYY-MM-DD-HHMM>",
-    "timestamp": "<ISO 8601>",
-    "phase": "<현재 phase>",
-    "health": "<GREEN|YELLOW|RED>",
-    "task": "<태스크 번호 및 제목>"
-  },
-  "spans": [
-    {
-      "name": "<단계명>",
-      "start": "<ISO 8601>",
-      "end": "<ISO 8601>",
-      "duration_ms": 0,
-      "result": "<pass|fail|skip>",
-      "details": {}
-    }
-  ],
-  "ltes": {
-    "latency": {"total_duration_ms": 0, "task_runs_to_complete": 0},
-    "traffic": {"commits": 0, "lines_added": 0, "lines_removed": 0, "files_changed": 0},
-    "errors": {"test_failures": 0, "fix_attempts": 0, "build_errors": 0},
-    "saturation": {"tokens_used": 0, "backlog_remaining": 0}
-  }
-}
-```
+**산출물:** `backlog.md` 업데이트
 
-#### 5-2. 상태 파일 업데이트
-- `status.md`: 현재 상태, LTES 스냅샷, 최근 변경사항
-- `backlog.md`: 완료 태스크 → Done으로 이동, 필요시 새 태스크 추가
-- `observability/error-budget.json`: 실행 결과 반영
-- `observability/dashboard.json`: 일별 트렌드 업데이트
+### Step 3. 🔨 Builder
+`.claude/agents/builder.md`의 지침을 따른다.
 
-#### 5-3. Commit & Create PR
-```bash
-# 브랜치 생성 (evolve/run-<number>-<task-slug>)
-BRANCH="evolve/run-$(printf '%03d' <number>)-<task-slug>"
-git checkout -b "$BRANCH"
+**수행:**
+1. `.evolve/handoff.json`에서 태스크 확인
+2. 스펙 문서 참조 (있으면)
+3. 테스트 먼저, 코드 구현
+4. 로컬 검증 (pytest + ruff)
+5. `.evolve/build-result.json` 작성
 
-git add -A
-git commit -m "<type>: <description>
+**산출물:** 코드 변경 + `.evolve/build-result.json`
 
-Evolve Run #<number> | Phase: <phase> | Health: <health>
-Task: <task description>"
-git push origin "$BRANCH"
+**실패 시:**
+- 3회 수정 시도 후에도 실패 → `build-result.json`에 `status: "failed"` 기록
+- Step 4 (QA)로 진행 (QA가 fail 판정)
 
-# PR 생성 — CI가 테스트 통과 확인 후 auto-merge
-gh pr create \
-  --title "<type>: <description> (#<task-number>)" \
-  --body "## Evolve Run #<number>
-- **Phase**: <phase>
-- **Health**: <health>
-- **Task**: <task description>
-- **Tests**: <passed>/<total> passed
+### Step 4. 🧪 QA
+`.claude/agents/qa.md`의 지침을 따른다.
 
-Auto-generated by Evolve Loop." \
-  --label "evolve"
+**수행:**
+1. 전체 테스트 실행
+2. 새 테스트 존재 확인
+3. 린트 검사
+4. 완료 기준 충족 여부
+5. 회귀 테스트
+6. 시크릿 검사
+7. `.evolve/qa-result.json` 작성
 
-# main으로 돌아가기
-git checkout main
-```
+**산출물:** `.evolve/qa-result.json`
 
-Commit type:
-- `feat`: 새 기능
-- `fix`: 버그 수정
-- `test`: 테스트 추가/수정
-- `refactor`: 리팩토링
-- `docs`: 문서 업데이트
-- `chore`: 설정, 의존성 등
+### Step 5. 📝 Reporter
+`.claude/agents/reporter.md`의 지침을 따른다.
 
-### 6. 일일 요약 (마지막 실행 판단)
-- 현재 시간이 UTC 20:30 이후이면 일일 요약 생성
-- `status.md`에 일일 요약 섹션 추가/업데이트
+**수행:**
+1. LTES 로그 작성
+2. `status.md` 업데이트 (에이전트별 활동 기록 포함)
+3. `backlog.md` 업데이트 (완료 or 유지)
+4. `error-budget.json` 업데이트
+5. Branch 생성 → commit → push → PR 생성
+6. `.evolve/` cleanup
+
+**산출물:** Git PR + 상태 파일 업데이트
 
 ---
 
-## 태스크 수행 가이드라인
+## 에이전트 간 통신
 
-- **한 번에 1개 태스크만** — 욕심내지 않는다
-- 태스크가 너무 크면 → 작은 서브태스크로 분리하고 backlog에 추가
-- 새 기능 추가 시 → 반드시 테스트 먼저 (TDD 지향)
-- 기존 코드 수정 시 → 기존 테스트 먼저 확인
-- 불확실한 기술 결정 → CLAUDE.md "Tech Stack Decisions Log"에 기록
-- 스펙 문서(`markdowns/`)는 방향 가이드이지 절대 규칙이 아니다 — 구현 중 더 나은 방법을 발견하면 스펙 문서를 업데이트하고 그 이유를 기록한다
+```
+.evolve/
+├── handoff.json       # Coordinator → Builder, QA, Reporter
+├── build-result.json  # Builder → QA, Reporter
+└── qa-result.json     # QA → Reporter
+```
+
+각 에이전트는 **자기 산출물만 쓰고, 이전 에이전트의 산출물만 읽는다.**
+
+---
+
+## Constraints
+
+- 한 사이클에 **1개 태스크만**
+- 각 에이전트는 자기 역할 범위를 벗어나지 않는다:
+  - Coordinator: 판단만 (코드 수정 X)
+  - Architect: 기획만 (코드 수정 X)
+  - Builder: 구현만 (상태 파일 수정 X)
+  - QA: 검증만 (코드/상태 파일 수정 X)
+  - Reporter: 기록만 (소스 코드 수정 X)
+- `.evolve/` 파일은 실행 간 전달 수단이지 영구 저장소가 아니다
+- Evolve 사이클이 끝나면 `.evolve/` 파일을 커밋에 포함하지 않는다 (`.gitignore` 처리)
