@@ -1,5 +1,4 @@
 """Tests for POST /travel-plans/{id}/duplicate endpoint."""
-import pytest
 from fastapi.testclient import TestClient
 
 

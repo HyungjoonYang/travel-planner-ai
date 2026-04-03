@@ -118,7 +118,6 @@ class TestEnvExample:
 
 class TestAppConfig:
     def test_database_url_has_default(self):
-        import importlib
         import sys
         # Reload config without any env overrides to check defaults
         mod = sys.modules.get("app.config")

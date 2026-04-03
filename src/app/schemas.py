@@ -4,7 +4,7 @@ from typing import Optional
 # Alias to avoid shadowing `date` type when used as a field name in models
 _Date = date
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator  # noqa: E402
 
 
 # --- Place ---

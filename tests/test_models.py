@@ -4,7 +4,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from datetime import date, datetime
+from datetime import date
 
 import pytest
 from sqlalchemy import create_engine
@@ -16,9 +16,7 @@ from app.models import TravelPlan, DayItinerary, Place, Expense
 from app.schemas import (
     TravelPlanCreate,
     TravelPlanUpdate,
-    TravelPlanOut,
     TravelPlanSummary,
-    DayItineraryCreate,
     ExpenseCreate,
     PlaceCreate,
 )

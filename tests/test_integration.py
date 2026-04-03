@@ -13,10 +13,8 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from datetime import date, timedelta
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
 import httpx
 
 # ---------------------------------------------------------------------------
@@ -224,7 +222,7 @@ class TestBudgetSummaryIntegration:
         plan = _create_plan(client)
         pid = plan["id"]
         e1 = _add_expense(client, pid, "Hotel", 200.0, "accommodation")
-        e2 = _add_expense(client, pid, "Dinner", 50.0, "food")
+        _add_expense(client, pid, "Dinner", 50.0, "food")
 
         # Delete hotel expense
         client.delete(f"/plans/{pid}/expenses/{e1['id']}")

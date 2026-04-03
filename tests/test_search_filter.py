@@ -9,7 +9,6 @@ Covers:
 - Sort order: created_at DESC (most-recent first)
 """
 
-import pytest
 
 
 # ---------------------------------------------------------------------------

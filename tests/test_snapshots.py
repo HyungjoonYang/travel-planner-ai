@@ -1,5 +1,4 @@
 """Tests for Plan version history — POST/GET /travel-plans/{id}/snapshot(s)."""
-import pytest
 
 
 PLAN_PAYLOAD = {
@@ -213,7 +212,7 @@ class TestSnapshotCascadeDelete:
     def test_snapshots_deleted_with_plan(self, client):
         """Deleting a travel plan cascades to its snapshots."""
         pid = _create_plan(client)
-        snap_id = client.post(f"/travel-plans/{pid}/snapshot", json={}).json()["id"]
+        client.post(f"/travel-plans/{pid}/snapshot", json={}).json()["id"]
 
         # Delete the plan
         assert client.delete(f"/travel-plans/{pid}").status_code == 204

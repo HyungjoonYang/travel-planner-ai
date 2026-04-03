@@ -4,10 +4,8 @@ Coverage:
 - BudgetSummary: over_budget + overage_pct fields (not over, exactly at, over)
 - GET /travel-plans?over_budget=true / false filter
 """
-import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from tests.conftest import client  # noqa: F401 — fixture
 
 

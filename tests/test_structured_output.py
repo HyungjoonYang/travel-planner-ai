@@ -10,9 +10,8 @@ import json
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-import pytest
 
-from app.ai import AIDayItinerary, AIItineraryResult, AIPlace, GeminiService
+from app.ai import AIItineraryResult, GeminiService
 
 # ---------------------------------------------------------------------------
 # Shared fixture data

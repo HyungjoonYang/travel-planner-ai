@@ -1,6 +1,5 @@
 """Tests for expense tracking endpoints (Task #14)."""
 import pytest
-from fastapi.testclient import TestClient
 
 # ---------------------------------------------------------------------------
 # Helpers

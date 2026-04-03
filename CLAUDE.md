@@ -9,6 +9,20 @@
 
 ---
 
+## 에이전트가 반드시 읽어야 할 파일
+
+| 파일 | 내용 | 변경 주기 |
+|------|------|-----------|
+| `status.md` | 현재 Phase, health, 최근 변경, LTES 스냅샷 | 매 evolve run |
+| `backlog.md` | 태스크 보드 (Ready / In Progress / Done) | 매 evolve run |
+| `tech-decisions.md` | 기술 결정 로그 (모든 결정의 이유) | 새 결정 시 |
+| `markdowns/*.md` | 기능 스펙 문서 (Architect가 참조) | 새 기능 기획 시 |
+| `observability/error-budget.json` | Error Budget 상태 | 매 evolve run |
+
+> **CLAUDE.md는 불변 원칙만 담는다.** 자주 바뀌는 상태는 위 파일들에서 확인한다.
+
+---
+
 ## Product Requirements
 
 ### 한 줄 요약
@@ -22,7 +36,7 @@
 4. **숙소/항공 검색**: 웹 검색으로 숙소/항공 옵션을 찾아서 추천한다
 5. **비용 관리**: 여행 예산 대비 예상 비용을 추적한다 (항목별 지출 기록)
 6. **캘린더 연동**: 확정된 일정을 Google Calendar에 동기화한다
-7. **프론트엔드**: 브라우저에서 사용할 수 있는 깔끔한 UI
+7. **프론트엔드**: AI 채팅 + 실시간 에이전트 대시보드 (스펙: `markdowns/feat-chat-dashboard.md`)
 
 ### 핵심 데이터 (방향만 — 세부 설계는 에이전트가 결정)
 
@@ -47,60 +61,39 @@
 
 ### 에이전트에게: 세부 설계는 자유
 
-위는 **방향**이다. 데이터 모델의 정확한 필드, API URL 설계, 프론트엔드 프레임워크, UI 레이아웃 등 세부 결정은 에이전트가 자율적으로 내린다. 결정할 때마다 아래 "Tech Stack Decisions Log"에 이유와 함께 기록한다.
+위는 **방향**이다. 데이터 모델의 정확한 필드, API URL 설계, 프론트엔드 프레임워크, UI 레이아웃 등 세부 결정은 에이전트가 자율적으로 내린다. 결정할 때마다 `tech-decisions.md`에 이유와 함께 기록한다.
 
 ---
 
 ## Architecture Direction
 
 - **Backend**: FastAPI + SQLite (경량, 빠른 개발)
-- **Frontend**: 에이전트가 결정 (React, vanilla JS, or HTMX — 결정 시 아래 Tech Stack Decisions Log에 기록)
-- **AI/LLM**: Google Gemini API (여행 계획 생성, 장소 추천, 일정 최적화) — `google-genai` SDK 사용
+- **Frontend**: vanilla JS SPA → Chat + Multi-Agent Dashboard로 전환 중
+- **AI/LLM**: Google Gemini API (gemini-3.0-flash) — `google-genai` SDK 사용
 - **Deployment**: Render (render.yaml 기반 자동 배포, push 시 auto-deploy)
 - **Observability**: LTES (Latency, Traffic, Errors, Saturation) 기반 구조화 로그
+- **Evolve**: Multi-agent pipeline (Coordinator → Architect → Builder → QA → Reporter)
 
 ---
 
 ## Workflow (Evolve Loop)
 
-매 실행(cron trigger) 시 아래 순서를 **반드시** 따른다:
+매 실행(cron trigger) 시 5개 에이전트가 순서대로 실행된다.
+상세 지침은 `.claude/commands/evolve.md`와 `.claude/agents/*.md`를 참조한다.
 
-### Step 1: Health Check
 ```
-기존 테스트 전체 실행
-├── 실패 있음 → Incident Response 모드 (.claude/commands/fix.md)
-└── 전부 통과 → Step 2로
+🧠 Coordinator → 📐 Architect (조건부) → 🔨 Builder → 🧪 QA → 📝 Reporter
 ```
 
-### Step 2: Status Check
-- `status.md` 읽고 현재 상태 파악
-- `observability/error-budget.json` 확인
-  - EXHAUSTED → 안정화/리팩토링 태스크만 선택 (새 기능 금지)
-  - WARNING → 리스크 낮은 태스크만
-  - HEALTHY → 자유롭게 선택
+| Agent | 역할 | 산출물 |
+|-------|------|--------|
+| 🧠 Coordinator | 상태 파악, 태스크 배정 | `.evolve/handoff.json` |
+| 📐 Architect | 스펙→태스크 기획 (Ready ≤ 2일 때만) | `backlog.md` 업데이트 |
+| 🔨 Builder | 코드 구현 + 테스트 | 코드 + `.evolve/build-result.json` |
+| 🧪 QA | 전체 검증 (tests, lint, 기준 충족) | `.evolve/qa-result.json` |
+| 📝 Reporter | 기록, 상태 업데이트, PR 생성 | `status.md` + `tech-decisions.md` + PR |
 
-### Step 3: Task Selection
-- `backlog.md`에서 다음 태스크 선택
-  - "In Progress"에 이미 있으면 이어서 진행
-  - 없으면 "Ready"에서 우선순위 최상위 선택
-  - 태스크를 "In Progress"로 이동
-
-### Step 4: Implementation
-- 코드 작성
-- **반드시** 테스트 작성 (테스트 없는 코드는 커밋 금지)
-- 전체 테스트 실행 → 통과 확인
-
-### Step 5: Record & Report
-- LTES 실행 로그 기록 (`observability/logs/`)
-- `status.md` 업데이트
-- `backlog.md` 업데이트 (완료 태스크 이동, 필요시 새 태스크 추가)
-- `observability/error-budget.json` 업데이트
-- `observability/dashboard.json` 업데이트
-- 변경사항 commit & push
-
-### Step 6: Daily Summary (마지막 실행 시)
-- UTC 21:00 (KST 06:00) 실행이면 그날의 성과 요약 생성
-- `status.md`에 일일 요약 추가
+에이전트 간 통신은 `.evolve/*.json` 파일로 핸드오프한다.
 
 ---
 
@@ -152,30 +145,14 @@ _(에이전트가 학습하면서 추가)_
 
 ---
 
-## Tech Stack Decisions Log
-
-에이전트가 기술 결정을 내릴 때마다 이유와 함께 여기에 기록한다.
-다음 실행 시 이전 결정을 참고하여 일관성을 유지한다.
-
-| Date | Decision | Reason |
-|------|----------|--------|
-| 2026-04-01 | SQLAlchemy mapped_column / Mapped[T] (2.0 style) | Type-safe ORM declarations; native Python type hints; compatible with Pydantic v2 `model_validate` |
-| 2026-04-01 | Pydantic v2 schemas with `from_attributes=True` | FastAPI native integration; strict validation (pattern, gt, ge); partial Update model via Optional fields |
-| 2026-04-01 | interests stored as comma-separated string (not JSON array) | Simpler SQLite storage; easy to read/write; can be split by AI prompt layer |
-| 2026-04-01 | Web search via Gemini `google_search` grounding tool (not a separate search API) | No extra API key required; Gemini natively fetches and grounds answers in real-time Google Search results; keeps dependency count low |
-| 2026-04-01 | Frontend: vanilla JS SPA served via FastAPI `StaticFiles` + `FileResponse` | No build step, no Node.js toolchain; single `index.html` with embedded CSS and JS; served at `GET /` and `/static/*`; consistent with lightweight backend-first architecture |
-| 2026-04-03 | Gemini model: gemini-2.0-flash → gemini-3.0-flash | gemini-2.0-flash deprecated (404); 3.0-flash is current stable model |
-| 2026-04-03 | Multi-agent evolve pipeline (5 agents with file-based handoff) | Single-agent evolve lacked separation of concerns; now each agent has focused role + clear input/output contract; enables parallel QA and better observability |
-| 2026-04-03 | SSE (not WebSocket) for chat streaming | Unidirectional server→client streaming; no extra dependencies; FastAPI StreamingResponse native support; auto-reconnect built-in |
-| 2026-04-03 | PR-based evolve (not direct push to main) | Safety: CI tests + auto-merge on pass; failed changes don't reach main; human review possible via `evolve-needs-review` label |
-
----
-
 ## Project Structure
 
 ```
 travel-planner-ai/
-├── CLAUDE.md                    # 이 파일 (에이전트의 두뇌) ⚠️ Reporter가 매 run 동기화
+├── CLAUDE.md                    # 불변 원칙 (이 파일)
+├── status.md                    # 가변 상태 (Phase, health, LTES)
+├── backlog.md                   # 태스크 보드
+├── tech-decisions.md            # 기술 결정 로그
 ├── .claude/
 │   ├── commands/                # 에이전트 커맨드
 │   │   ├── evolve.md            # Multi-agent 오케스트레이터
@@ -195,8 +172,6 @@ travel-planner-ai/
 ├── .evolve/                     # 에이전트 간 핸드오프 (ephemeral, .gitignore)
 ├── markdowns/                   # 기능 스펙 문서 (Architect가 참조)
 ├── e2e/                         # Playwright E2E 테스트
-├── status.md                    # 현재 상태 (Reporter가 매 run 업데이트)
-├── backlog.md                   # 태스크 보드 (Coordinator/Architect/Reporter가 관리)
 ├── observability/
 │   ├── logs/                    # 실행별 LTES 로그
 │   ├── traces/                  # Trace + Span 로그
@@ -229,16 +204,3 @@ pytest tests/ -v
 # 린트
 ruff check src/ tests/
 ```
-
----
-
-## Current Phase
-
-Phase 10: Chat + Multi-Agent Dashboard — AI 채팅 인터페이스 + 실시간 에이전트 대시보드
-
-> ⚠️ **이 섹션은 Reporter Agent가 매 evolve run마다 `status.md`와 동기화해야 한다.**
-> Phase, 완료 태스크 수, 테스트 수를 status.md에서 읽어 여기에 반영한다.
-
-- 완료: 34 tasks (994 tests)
-- 현재 스펙: `markdowns/feat-chat-dashboard.md`
-- Evolve 방식: Multi-agent pipeline (Coordinator → Architect → Builder → QA → Reporter)

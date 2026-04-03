@@ -1,5 +1,4 @@
 """Tests for notes field on TravelPlan (task #26)."""
-import pytest
 from fastapi.testclient import TestClient
 
 
