@@ -15,11 +15,6 @@ _(없음)_
 > 스펙 문서: `markdowns/feat-chat-dashboard.md`
 > 이 목록은 시드 태스크다. evolve가 Architect 단계에서 스펙을 분석하고 추가 태스크를 자율적으로 생성한다.
 
-- [ ] #39 - ChatService 기본 구조 (ConversationState, intent 추출, 세션 관리) [feature]
-  - ref: markdowns/feat-chat-dashboard.md "Phase 1"
-  - files: src/app/chat.py (new), src/app/schemas.py (modify)
-  - done: ChatService가 메시지를 받아 intent JSON을 반환. 세션 생성/조회/만료 동작. 테스트 통과.
-
 - [ ] #40 - Chat SSE 스트리밍 엔드포인트 [feature]
   - ref: markdowns/feat-chat-dashboard.md "Phase 1"
   - depends: #39
@@ -91,10 +86,13 @@ _(없음)_
 - [x] #33 - Collaborative comments [feature] — 2026-04-02
 - [x] #34 - Place ratings and reviews [feature] — 2026-04-02
 
+### Phase 10: Chat + Multi-Agent Dashboard
+- [x] #39 - ChatService 기본 구조 (ConversationState, intent 추출, 세션 관리) [feature] — 2026-04-03
+
 ---
 
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 34 done, 7 ready
+- Total tasks: 35 done, 6 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
