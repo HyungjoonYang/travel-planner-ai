@@ -23,6 +23,43 @@ pytest tests/ -v --tb=short 2>&1 || true
   - EXHAUSTED → 안정화 태스크만 선택 가능
   - HEALTHY → 자유롭게 선택
 
+### 2.5. 자율 기획 (Architect 역할)
+
+**backlog.md의 "Ready" 목록이 비었거나 2개 이하일 때** 이 단계를 실행한다.
+
+#### 스펙 문서 기반 태스크 생성
+1. `markdowns/` 디렉토리의 스펙 문서를 읽는다
+2. 현재 코드 상태를 분석한다 (어디까지 구현되어 있는지)
+3. 스펙과 현재 상태의 **갭**을 파악한다
+4. 갭을 1-run 크기의 태스크로 분리한다 (한 태스크 = 1개 파일 or 1개 기능 단위)
+5. `backlog.md`의 "Ready" 섹션에 우선순위 순서로 추가한다
+
+#### 자체 판단 태스크 생성
+스펙 문서에 없더라도, 아래를 발견하면 태스크를 스스로 만든다:
+- 테스트 커버리지가 부족한 영역
+- 에러 로그에서 반복되는 패턴
+- 성능 병목 (LTES 메트릭 기반)
+- UX 개선 포인트 (에러 메시지, 응답 포맷 등)
+- 기술 부채 (TODO 주석, deprecated API 등)
+
+#### 태스크 작성 규칙
+- 각 태스크는 **독립적으로 구현+테스트 가능**해야 한다
+- 의존성이 있으면 순서를 명시한다 (예: "#22 다음에")
+- 태스크 설명에 포함할 것:
+  - 무엇을 만드는지 (what)
+  - 어떤 파일을 변경/생성하는지 (where)
+  - 참조할 스펙 문서 (ref)
+  - 완료 기준 (done when)
+- 태그: `[feature]`, `[test]`, `[refactor]`, `[fix]`, `[infra]`
+
+#### 예시
+```markdown
+- [ ] #21 - ChatService 기본 구조 (ConversationState, intent 추출, 세션 관리) [feature]
+  - ref: markdowns/feat-chat-dashboard.md "Phase 1"
+  - files: src/app/chat.py (new), src/app/schemas.py (modify)
+  - done: ChatService가 메시지를 받아 intent를 추출하고, 세션을 관리할 수 있음. 테스트 통과.
+```
+
 ### 3. 태스크 선택
 - `backlog.md` 읽기
 - "In Progress" 항목이 있으면 → 이어서 진행
@@ -31,7 +68,14 @@ pytest tests/ -v --tb=short 2>&1 || true
 - `backlog.md` 저장
 
 ### 4. 구현 (Builder Agent 역할)
-- 선택한 태스크 수행
+
+#### 4-1. 플랜 작성
+태스크가 `[feature]` 또는 `[refactor]`이면, 구현 전에 간단한 플랜을 세운다:
+- 참조할 스펙 문서가 있으면 해당 섹션을 읽는다
+- 변경할 파일과 내용을 미리 정리한다
+- 기존 코드와의 호환성을 확인한다
+
+#### 4-2. 구현
 - 코드는 `src/` 아래에 작성
 - **반드시** 관련 테스트를 `tests/`에 작성
 - 새 dependency 추가 시 `requirements.txt` 즉시 업데이트
@@ -40,6 +84,13 @@ pytest tests/ -v --tb=short 2>&1 || true
   pytest tests/ -v --tb=short
   ```
 - 실패 시 → 수정 시도 (최대 3회)
+
+#### 4-3. 셀프 QA
+구현 후, 아래를 확인한다:
+- **기존 테스트 깨짐 없는지**: 전체 테스트 통과
+- **새 기능이 정상 동작하는지**: 새로 작성한 테스트가 의미 있게 커버하는지
+- **린트**: `ruff check src/ tests/`
+- **import/dependency**: 새 import가 있으면 requirements.txt에 반영했는지
 
 ### 5. 기록 (Reporter Agent 역할)
 
@@ -129,3 +180,4 @@ Commit type:
 - 새 기능 추가 시 → 반드시 테스트 먼저 (TDD 지향)
 - 기존 코드 수정 시 → 기존 테스트 먼저 확인
 - 불확실한 기술 결정 → CLAUDE.md "Tech Stack Decisions Log"에 기록
+- 스펙 문서(`markdowns/`)는 방향 가이드이지 절대 규칙이 아니다 — 구현 중 더 나은 방법을 발견하면 스펙 문서를 업데이트하고 그 이유를 기록한다
