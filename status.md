@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T28:00Z (Evolve #69 — Task #46)
-Run count: 69
+Last run: 2026-04-04T30:00Z (Evolve #70 — Task #47)
+Run count: 70
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 45
+Tasks completed: 46
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #47 modify_day intent handler
+Next planned: #48 Secretary save_plan handler
 
 ## LTES Snapshot
 
-- Latency: ~22490ms (total run; pytest 1170 tests in 22.49s)
+- Latency: ~19610ms (total run; pytest 1177 tests in 19.61s)
 - Traffic: 23 commits/24h
-- Errors: 0 test failures (1170/1170 pass), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Errors: 0 test failures (1177/1177 pass), error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #47 modify_day intent handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #70 — 2026-04-04T30:00Z
+- **Task**: #47 - modify_day intent handler: update a day's places via chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1177/1177 passed (+7 new, TestModifyDay class)
+- **Files changed**: src/app/chat.py, tests/test_chat.py
+- **Builder note**: _handle_modify_day added to ChatService. When session.last_plan exists, uses refine_itinerary (full plan context); otherwise falls back to generate_itinerary for the requested day. Planner emits thinking→working→done with day_update event. 7 new tests: test_modify_day_activates_planner_agent, test_modify_day_planner_thinking_then_working_then_done, test_modify_day_emits_day_update, test_modify_day_update_has_date_and_places, test_modify_day_with_existing_plan_uses_refine, test_modify_day_without_existing_plan_uses_generate, test_modify_day_error_emits_planner_error_status.
+- **LTES**: L=19610ms T=1 commit E=0.0% S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #69 — 2026-04-04T28:00Z
 - **Task**: #46 - SSE reconnect with exponential backoff + session state restore on reconnect

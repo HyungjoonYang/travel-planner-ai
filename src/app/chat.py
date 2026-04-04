@@ -191,6 +191,9 @@ Return a JSON object with these fields:
         elif intent.action == "search_places":
             async for event in self._handle_search_places(intent):
                 yield _track(event)
+        elif intent.action == "modify_day":
+            async for event in self._handle_modify_day(intent, session):
+                yield _track(event)
         elif intent.action == "save_plan":
             async for event in self._handle_save_plan(intent):
                 yield _track(event)
@@ -438,6 +441,86 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"장소 검색 중 오류가 발생했습니다: {exc}"},
+            }
+
+    async def _handle_modify_day(
+        self, intent: Intent, session: "ChatSession"
+    ) -> AsyncGenerator[dict, None]:
+        day_number = intent.day_number or 1
+        instruction = intent.query or intent.raw_message
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "thinking", "message": f"Day {day_number} 수정 준비 중..."},
+        }
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": f"Day {day_number} 일정 수정 중..."},
+        }
+
+        try:
+            last_plan = session.last_plan
+            if last_plan:
+                dest = last_plan.get("destination", intent.destination or "목적지")
+                budget = last_plan.get("budget", intent.budget or 2000.0)
+                start_str = last_plan.get("start_date")
+                end_str = last_plan.get("end_date")
+                try:
+                    start = date.fromisoformat(start_str) if start_str else None
+                except ValueError:
+                    start = None
+                try:
+                    end = date.fromisoformat(end_str) if end_str else None
+                except ValueError:
+                    end = None
+                if start is None:
+                    start = date.today() + timedelta(days=30)
+                if end is None:
+                    end = start + timedelta(days=3)
+                current_days = last_plan.get("days", [])
+
+                result = await asyncio.to_thread(
+                    self._gemini.refine_itinerary,
+                    dest, start, end, budget, intent.interests or "",
+                    current_days,
+                    f"Day {day_number}: {instruction}",
+                )
+            else:
+                dest = intent.destination or "목적지"
+                budget = intent.budget or 2000.0
+                start, end = self._parse_dates(intent)
+
+                result = await asyncio.to_thread(
+                    self._gemini.generate_itinerary,
+                    dest, start, end, budget, intent.interests or "",
+                )
+
+            day_index = day_number - 1
+            if 0 <= day_index < len(result.days):
+                updated_day = result.days[day_index]
+            elif result.days:
+                updated_day = result.days[0]
+            else:
+                raise ValueError(f"No days returned from Gemini for Day {day_number}")
+
+            yield {"type": "day_update", "data": updated_day.model_dump()}
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 수정 완료!"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"Day {day_number} 일정을 수정했습니다."},
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": f"Day {day_number} 수정 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"일정 수정 중 오류가 발생했습니다: {exc}"},
             }
 
     async def _handle_save_plan(self, intent: Intent) -> AsyncGenerator[dict, None]:

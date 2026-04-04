@@ -860,3 +860,151 @@ class TestGetSessionIncludesAgentStates:
         fetched = svc.get_session(session.session_id)
         assert fetched.last_plan is not None
         assert "days" in fetched.last_plan
+
+
+# ---------------------------------------------------------------------------
+# Task #47: modify_day intent handler
+# ---------------------------------------------------------------------------
+
+class TestModifyDay:
+    """_handle_modify_day dispatched on modify_day intent; emits planner
+    agent_status (thinking→working→done) + day_update event."""
+
+    def _make_service_with_gemini(self, gemini_mock):
+        return ChatService(
+            api_key="",
+            ttl_seconds=SESSION_TTL_SECONDS,
+            gemini_service=gemini_mock,
+            web_search_service=MagicMock(),
+            hotel_search_service=MagicMock(),
+            flight_search_service=MagicMock(),
+        )
+
+    def test_modify_day_activates_planner_agent(self):
+        """modify_day intent must activate the planner agent."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="modify_day", day_number=1, raw_message="1일차 맛집 위주로 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 맛집 위주로 바꿔줘")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "planner" in agent_names
+
+    def test_modify_day_planner_thinking_then_working_then_done(self):
+        """Planner must transition thinking → working → done."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="modify_day", day_number=1, raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        planner_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert "thinking" in planner_statuses
+        assert "working" in planner_statuses
+        assert "done" in planner_statuses
+        assert planner_statuses.index("thinking") < planner_statuses.index("working")
+        assert planner_statuses.index("working") < planner_statuses.index("done")
+
+    def test_modify_day_emits_day_update(self):
+        """modify_day must emit at least one day_update event."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="modify_day", day_number=1, raw_message="1일차 수정해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 수정해줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) >= 1
+
+    def test_modify_day_update_has_date_and_places(self):
+        """day_update event data must include date and places fields."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="modify_day", day_number=1, raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        day_update = next(e for e in events if e["type"] == "day_update")
+        assert "date" in day_update["data"]
+        assert "places" in day_update["data"]
+
+    def test_modify_day_with_existing_plan_uses_refine(self):
+        """When session.last_plan exists, refine_itinerary should be called."""
+        mock_gemini = MagicMock()
+        itinerary = _make_fake_itinerary()
+        mock_gemini.refine_itinerary.return_value = itinerary
+        mock_gemini.generate_itinerary.return_value = itinerary
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        # Pre-populate last_plan on the session
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-04",
+            "budget": 2000000.0,
+            "days": [d.model_dump() for d in itinerary.days],
+            "total_estimated_cost": itinerary.total_estimated_cost,
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="modify_day", day_number=1, raw_message="1일차 맛집 위주"
+        )):
+            _collect_events(svc, session.session_id, "1일차 맛집 위주")
+
+        mock_gemini.refine_itinerary.assert_called_once()
+
+    def test_modify_day_without_existing_plan_uses_generate(self):
+        """When session.last_plan is None, generate_itinerary should be called."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        # session.last_plan is None by default
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="modify_day", day_number=1, raw_message="1일차 수정"
+        )):
+            _collect_events(svc, session.session_id, "1일차 수정")
+
+        mock_gemini.generate_itinerary.assert_called_once()
+
+    def test_modify_day_error_emits_planner_error_status(self):
+        """When Gemini fails, planner agent must emit error status."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.side_effect = RuntimeError("Gemini down")
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="modify_day", day_number=1, raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status"
+            and e["data"]["agent"] == "planner"
+            and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
