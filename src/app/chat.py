@@ -3,7 +3,7 @@
 import asyncio
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import AsyncGenerator, Optional
+from typing import TYPE_CHECKING, AsyncGenerator, Optional
 
 from google import genai
 from google.genai import types
@@ -14,6 +14,9 @@ from app.config import GEMINI_API_KEY
 from app.flight_search import FlightSearchService
 from app.hotel_search import HotelSearchService
 from app.web_search import WebSearchService
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 SESSION_TTL_SECONDS = 1800  # 30 minutes
 
@@ -140,6 +143,7 @@ Return a JSON object with these fields:
         self,
         session_id: str,
         message: str,
+        db: Optional["Session"] = None,
     ) -> AsyncGenerator[dict, None]:
         """Process a user message and yield SSE event dicts."""
         session = self.get_session(session_id)
@@ -195,7 +199,7 @@ Return a JSON object with these fields:
             async for event in self._handle_modify_day(intent, session):
                 yield _track(event)
         elif intent.action == "save_plan":
-            async for event in self._handle_save_plan(intent):
+            async for event in self._handle_save_plan(intent, session, db):
                 yield _track(event)
         else:
             yield {
@@ -523,19 +527,67 @@ Return a JSON object with these fields:
                 "data": {"text": f"일정 수정 중 오류가 발생했습니다: {exc}"},
             }
 
-    async def _handle_save_plan(self, intent: Intent) -> AsyncGenerator[dict, None]:
+    async def _handle_save_plan(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
         yield {
             "type": "agent_status",
             "data": {"agent": "secretary", "status": "working", "message": "여행 계획 저장 중..."},
         }
         await asyncio.sleep(0)
+
+        plan_id: Optional[int] = None
+        if db is not None:
+            from app.models import TravelPlan as TravelPlanModel
+
+            last_plan = session.last_plan
+            if last_plan:
+                dest = last_plan.get("destination", intent.destination or "여행 계획")
+                start_str = last_plan.get("start_date")
+                end_str = last_plan.get("end_date")
+                budget = last_plan.get("budget", intent.budget or 2000.0)
+                interests = last_plan.get("interests", intent.interests or "")
+            else:
+                dest = intent.destination or "여행 계획"
+                start, end = self._parse_dates(intent)
+                start_str = start.isoformat()
+                end_str = end.isoformat()
+                budget = intent.budget or 2000.0
+                interests = intent.interests or ""
+
+            try:
+                start_date = date.fromisoformat(start_str) if start_str else date.today()
+            except ValueError:
+                start_date = date.today()
+            try:
+                end_date = date.fromisoformat(end_str) if end_str else start_date
+            except ValueError:
+                end_date = start_date
+            if end_date < start_date:
+                end_date = start_date
+
+            plan_record = TravelPlanModel(
+                destination=dest,
+                start_date=start_date,
+                end_date=end_date,
+                budget=float(budget),
+                interests=interests if isinstance(interests, str) else "",
+            )
+            db.add(plan_record)
+            db.commit()
+            db.refresh(plan_record)
+            plan_id = plan_record.id
+
         yield {
             "type": "agent_status",
             "data": {"agent": "secretary", "status": "done", "message": "저장 완료!"},
         }
         yield {
             "type": "plan_saved",
-            "data": {"message": "여행 계획이 저장되었습니다."},
+            "data": {"message": "여행 계획이 저장되었습니다.", "plan_id": plan_id},
         }
         yield {
             "type": "chat_chunk",

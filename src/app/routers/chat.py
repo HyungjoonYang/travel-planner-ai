@@ -3,10 +3,12 @@
 import json
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 from app.chat import chat_service
+from app.database import get_db
 from app.schemas import ChatMessageRequest, ChatSessionOut
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -49,14 +51,18 @@ def delete_session(session_id: str):
 
 
 @router.post("/sessions/{session_id}/messages")
-async def send_message(session_id: str, payload: ChatMessageRequest):
+async def send_message(
+    session_id: str,
+    payload: ChatMessageRequest,
+    db: Session = Depends(get_db),
+):
     """Send a user message; returns an SSE stream of agent events."""
     session = chat_service.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found or expired")
 
     async def event_stream() -> AsyncGenerator[str, None]:
-        async for event in chat_service.process_message(session_id, payload.message):
+        async for event in chat_service.process_message(session_id, payload.message, db=db):
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(

@@ -1008,3 +1008,101 @@ class TestModifyDay:
             and e["data"]["status"] == "error"
         ]
         assert len(error_events) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Task #48: Secretary save_plan handler — persist plan to DB
+# ---------------------------------------------------------------------------
+
+def _make_test_db():
+    """Return a (engine, Session) pair backed by an in-memory SQLite DB."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from app.database import Base
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    TestingSession = sessionmaker(bind=engine)
+    return engine, TestingSession
+
+
+def _collect_events_with_db(svc, session_id, message, db):
+    """Collect all events from process_message, passing a DB session."""
+    async def _run():
+        events = []
+        async for event in svc.process_message(session_id, message, db=db):
+            events.append(event)
+        return events
+
+    return asyncio.run(_run())
+
+
+class TestSavePlanPersistence:
+    """_handle_save_plan must create a TravelPlan DB record and include plan_id in plan_saved event."""
+
+    def test_plan_save_persists_to_db(self):
+        """save_plan intent creates a TravelPlan row in the database."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_plan = {
+                "destination": "도쿄",
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-04",
+                "budget": 2000000.0,
+                "interests": "food",
+            }
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="save_plan", raw_message="저장해줘"
+            )):
+                _collect_events_with_db(svc, session.session_id, "저장해줘", db)
+
+            plans = db.query(TravelPlanModel).all()
+            assert len(plans) == 1
+            assert plans[0].destination == "도쿄"
+            assert plans[0].budget == 2000000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_plan_saved_event_includes_plan_id(self):
+        """plan_saved SSE event must include a non-None plan_id after DB insert."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_plan = {
+                "destination": "파리",
+                "start_date": "2026-06-01",
+                "end_date": "2026-06-05",
+                "budget": 1500000.0,
+                "interests": "",
+            }
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="save_plan", raw_message="저장"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "저장", db)
+
+            saved_events = [e for e in events if e["type"] == "plan_saved"]
+            assert len(saved_events) == 1
+            assert "plan_id" in saved_events[0]["data"]
+            assert saved_events[0]["data"]["plan_id"] is not None
+            assert isinstance(saved_events[0]["data"]["plan_id"], int)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)

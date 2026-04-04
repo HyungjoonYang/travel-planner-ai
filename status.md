@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T31:00Z (Monitor — health check)
-Run count: 72
+Last run: 2026-04-04T32:00Z (Evolve Run #71 — #48 Secretary save_plan handler)
+Run count: 73
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 46
+Tasks completed: 47
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #48 Secretary save_plan handler
+Next planned: #49 E2E Playwright tests for chat page
 
 ## LTES Snapshot
 
-- Latency: ~20480ms (pytest 1177 tests in 20.48s)
-- Traffic: 24 commits/24h
-- Errors: 0 test failures (1177/1177 pass), error_rate=0.0%
-- Saturation: 5 tasks ready
+- Latency: ~21810ms (pytest 1179 tests in 21.81s)
+- Traffic: 25 commits/24h
+- Errors: 0 test failures (1179/1179 pass), error_rate=0.0%
+- Saturation: 4 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #48 Secretary save_plan handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #71 — 2026-04-04T32:00Z
+- **Task**: #48 - Secretary save_plan handler: persist plan to DB
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1179/1179 passed (+2 new: test_plan_save_persists_to_db, test_plan_saved_event_includes_plan_id)
+- **Files changed**: src/app/chat.py, src/app/routers/chat.py, tests/test_chat.py
+- **Builder note**: _handle_save_plan now accepts (intent, session, db) — when db is provided it inserts a TravelPlan row from session.last_plan (or intent fields as fallback) and returns plan_id in the plan_saved event. process_message gains optional db= param passed through to _handle_save_plan. Router injects Depends(get_db) and forwards db to process_message.
+- **LTES**: L=21810ms T=1 commit E=0.0% S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor — 2026-04-04T31:00Z
 - **Task**: health check
