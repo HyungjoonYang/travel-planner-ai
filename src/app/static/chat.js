@@ -444,7 +444,7 @@ function handleDayUpdate(data) {
 // Search results → agent expandable detail panel
 // ---------------------------------------------------------------------------
 
-const _SEARCH_AGENT = {hotels: 'hotel_finder', flights: 'flight_finder', places: 'place_scout'};
+const _SEARCH_AGENT = {hotels: 'hotel_finder', flights: 'flight_finder', places: 'place_scout', budget: 'budget_analyst'};
 
 function handleSearchResults(data) {
   const agentId = _SEARCH_AGENT[data.type];
@@ -478,6 +478,22 @@ function handleSearchResults(data) {
         ${p.category ? `<div class="meta">${escHtml(p.category)}</div>` : ''}
       </div>`
     ).join('');
+  } else if (data.type === 'budget') {
+    const cats = [
+      {key: 'accommodation', label: '🏨 숙소'},
+      {key: 'transport',     label: '🚌 교통'},
+      {key: 'food',          label: '🍜 식비'},
+      {key: 'activities',    label: '🎯 활동'},
+      {key: 'total',         label: '💰 합계'},
+    ];
+    itemsHtml = `<div class="budget-breakdown">` +
+      cats.map(c => {
+        const val = results[c.key];
+        const valStr = (val != null) ? `$${Math.round(val).toLocaleString()}` : '-';
+        return `<div class="budget-breakdown-row" style="display:flex;justify-content:space-between;padding:.2rem 0${c.key==='total'?';font-weight:bold;border-top:1px solid #ccc;margin-top:.3rem':''}">
+          <span>${c.label}</span><span>${valStr}</span></div>`;
+      }).join('') +
+      `</div>`;
   }
 
   // Append to agent detail panel (expandable)

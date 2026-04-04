@@ -18,6 +18,8 @@ from app.web_search import WebSearchService
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from app.ai import AIItineraryResult
+
 SESSION_TTL_SECONDS = 1800  # 30 minutes
 
 _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
@@ -230,6 +232,34 @@ Return a JSON object with these fields:
             end = start + timedelta(days=3)
         return start, end
 
+    @staticmethod
+    def _compute_budget_breakdown(result: "AIItineraryResult") -> dict:
+        """Compute per-category cost breakdown from itinerary places.
+
+        Returns a dict with keys: accommodation, transport, food, activities, total.
+        """
+        _FOOD_KEYWORDS = {"food", "restaurant", "cafe", "dining", "ramen", "sushi",
+                          "bar", "drink", "eat", "bakery", "snack", "market"}
+        _ACCOMMODATION_KEYWORDS = {"hotel", "accommodation", "hostel", "inn", "lodge", "resort", "stay"}
+        _TRANSPORT_KEYWORDS = {"transport", "transit", "train", "bus", "taxi", "flight",
+                               "ferry", "subway", "metro", "transfer"}
+
+        breakdown: dict[str, float] = {"accommodation": 0.0, "transport": 0.0, "food": 0.0, "activities": 0.0}
+        for day in result.days:
+            for place in day.places:
+                cat = place.category.lower()
+                cost = place.estimated_cost or 0.0
+                if any(kw in cat for kw in _FOOD_KEYWORDS):
+                    breakdown["food"] += cost
+                elif any(kw in cat for kw in _ACCOMMODATION_KEYWORDS):
+                    breakdown["accommodation"] += cost
+                elif any(kw in cat for kw in _TRANSPORT_KEYWORDS):
+                    breakdown["transport"] += cost
+                else:
+                    breakdown["activities"] += cost
+        breakdown["total"] = result.total_estimated_cost
+        return {k: round(v, 2) for k, v in breakdown.items()}
+
     async def _handle_create_plan(self, intent: Intent) -> AsyncGenerator[dict, None]:
         dest = intent.destination or "목적지"
         budget = intent.budget or 2000.0
@@ -265,13 +295,19 @@ Return a JSON object with these fields:
                     "result_count": place_count,
                 },
             }
+            breakdown = self._compute_budget_breakdown(result)
             yield {
                 "type": "agent_status",
                 "data": {
                     "agent": "budget_analyst",
                     "status": "done",
                     "message": f"총 ${result.total_estimated_cost:.0f} 예산 배분 완료",
+                    "result_count": len(breakdown) - 1,  # exclude "total"
                 },
+            }
+            yield {
+                "type": "search_results",
+                "data": {"type": "budget", "results": breakdown},
             }
 
             # Emit full plan (with overview fields) then per-day updates
