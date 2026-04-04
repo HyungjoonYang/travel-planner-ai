@@ -72,6 +72,25 @@ pytest tests/ -v --tb=short 2>&1 || true
 ### 5. handoff.json 작성
 위 형식으로 `.evolve/handoff.json` 저장.
 
+### 6. GitHub Issue 코멘트
+선택한 태스크에 연결된 GitHub Issue가 있으면 코멘트를 남긴다.
+
+태스크의 backlog.md 항목에 `gh: #<number>` 가 있으면 해당 Issue에 코멘트:
+```bash
+gh issue comment <issue-number> --body "🧠 **Coordinator**: Run #<run_id>에 이 태스크를 배정했습니다."
+```
+
+또한 handoff.json의 `selected_task`에 `github_issue` 필드를 추가한다:
+```json
+"selected_task": {
+  ...
+  "github_issue": <issue-number or null>
+}
+```
+
+- Issue가 없으면 건너뛴다 (backlog.md가 source of truth)
+- 코멘트 실패해도 진행을 멈추지 않는다
+
 ---
 
 ## 규칙

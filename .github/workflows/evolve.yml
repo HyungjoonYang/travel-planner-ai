@@ -50,6 +50,7 @@ jobs:
       - name: "🧠 Coordinator"
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           cat <<'PROMPT' | claude -p --allowedTools "Bash,Read,Write,Glob,Grep,Edit"
           You are the 🧠 Coordinator Agent.
@@ -62,6 +63,8 @@ jobs:
           3. Decide if Architect is needed (Ready tasks ≤ 2)
           4. Select a task and move it to "In Progress" in backlog.md
           5. Write .evolve/handoff.json with your decision
+          6. If the selected task has a linked GitHub Issue (gh: #N in backlog.md),
+             post a comment on that issue and include github_issue in handoff.json
 
           Do NOT write any source code. Do NOT ask for confirmation.
           PROMPT
@@ -87,6 +90,7 @@ jobs:
         if: steps.check_architect.outputs.needed == 'True' || steps.check_architect.outputs.needed == 'true'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           cat <<'PROMPT' | claude -p --allowedTools "Bash,Read,Write,Glob,Grep,Edit"
           You are the 📐 Architect Agent.
@@ -99,6 +103,8 @@ jobs:
           2. Analyze gaps between spec and current code in src/
           3. Generate up to 5 new tasks
           4. Add them to backlog.md "Ready" section
+          5. For each new task, create a GitHub Issue with appropriate labels and milestone
+             (use `gh issue create`). Record the issue number in backlog.md as `gh: #<number>`.
 
           Do NOT write any source code. Do NOT ask for confirmation.
           PROMPT
@@ -190,8 +196,11 @@ jobs:
           5. Create a git branch, commit all changes, push, and create a PR
              - If QA passed: use label "evolve" (will auto-merge)
              - If QA failed: use label "evolve-needs-review" (manual review needed)
-          6. Switch back to main
-          7. Remove .evolve/*.json files (do not commit them)
+             - If handoff.json has github_issue, include "Closes #<N>" in PR body (QA pass only)
+             - Use --milestone flag if a matching milestone exists
+          6. If QA failed and there's a github_issue, post a failure comment on the issue
+          7. Switch back to main
+          8. Remove .evolve/*.json files (do not commit them)
 
           Do NOT modify source code (src/, tests/). Do NOT ask for confirmation.
           PROMPT
@@ -204,6 +213,11 @@ jobs:
           echo "health=$(grep -oP 'Health: \K\w+' status.md 2>/dev/null || echo 'UNKNOWN')" >> "$GITHUB_OUTPUT"
           echo "task=$(grep -oP 'Current focus: \K.*' status.md 2>/dev/null || echo 'unknown')" >> "$GITHUB_OUTPUT"
 
+          # Use qa_check step output (file may be deleted by Reporter)
+          VERDICT="${{ steps.qa_check.outputs.verdict }}"
+          if [ -z "$VERDICT" ]; then VERDICT="unknown"; fi
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+
           TESTS="?"
           if [ -f .evolve/qa-result.json ]; then
             TESTS=$(python3 -c "
@@ -213,9 +227,6 @@ jobs:
           print(c)" 2>/dev/null || echo "?")
           fi
           echo "tests=$TESTS" >> "$GITHUB_OUTPUT"
-
-          VERDICT=$(python3 -c "import json; print(json.load(open('.evolve/qa-result.json'))['verdict'])" 2>/dev/null || echo "unknown")
-          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
 
           PR_URL=$(gh pr list --label evolve --state open --limit 1 --json url --jq '.[0].url' 2>/dev/null || echo '')
           if [ -z "$PR_URL" ]; then

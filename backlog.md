@@ -20,19 +20,25 @@ _(없음)_
   - depends: #39
   - files: src/app/routers/chat.py (new), src/app/main.py (modify)
   - done: POST /chat/sessions, POST /chat/sessions/{id}/messages (SSE), GET/DELETE 세션. 테스트 통과.
+  - gh: #3
 
 - [ ] #41 - ChatService intent 핸들러 연결 (create_plan → GeminiService, search → SearchService) [feature]
   - ref: markdowns/feat-chat-dashboard.md "Phase 1"
   - depends: #39
   - files: src/app/chat.py (modify)
   - done: intent에 따라 기존 서비스를 호출하고 결과를 SSE 이벤트로 emit. 테스트 통과.
+  - gh: #4
 
 ### Phase 9: User Experience & Polish (remaining)
 
 - [ ] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature]
+  - gh: #5
 - [ ] #36 - Favorite places library (`POST /favorite-places`, `GET /favorite-places`, `DELETE /favorite-places/{id}`; global across plans; copy a place from itinerary to favorites) [feature]
+  - gh: #6
 - [ ] #37 - Plan activity log (`PlanActivity` model; record create/update/delete events on plans with timestamp+action+detail; `GET /travel-plans/{id}/activity`) [feature]
+  - gh: #7
 - [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
+  - gh: #8
 
 ## Blocked
 
