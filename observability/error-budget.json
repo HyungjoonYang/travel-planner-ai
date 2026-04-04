@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 88,
-    "successful_runs": 83,
+    "total_runs": 89,
+    "successful_runs": 84,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -635,14 +635,21 @@
       "result": "success",
       "tests_passed": 1235,
       "tests_total": 1235
+    },
+    {
+      "run_id": "2026-04-04-5400",
+      "task": "#59 - Chat: delete_plan intent handler — delete a saved plan via chat",
+      "result": "success",
+      "tests_passed": 1241,
+      "tests_total": 1241
     }
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-04-5200",
-    "task": "#58 - Chat frontend: calendar_exported SSE event handler — show export confirmation",
+    "run_id": "2026-04-04-5400",
+    "task": "#59 - Chat: delete_plan intent handler — delete a saved plan via chat",
     "result": "success",
-    "tests_passed": 1235,
-    "tests_total": 1235
+    "tests_passed": 1241,
+    "tests_total": 1241
   }
 }

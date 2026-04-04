@@ -1857,3 +1857,168 @@ class TestConversationContext:
             assert "role" in entry
             assert "content" in entry
             assert entry["role"] in ("user", "assistant")
+
+
+# ---------------------------------------------------------------------------
+# Task #59: delete_plan intent handler
+# ---------------------------------------------------------------------------
+
+class TestDeletePlan:
+    """_handle_delete_plan must delete the plan from DB and emit plan_deleted."""
+
+    def test_delete_plan_activates_secretary(self):
+        """delete_plan intent activates the secretary agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="delete_plan", plan_id=1, raw_message="계획 삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "계획 삭제")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "secretary" in agent_names
+
+    def test_delete_plan_emits_plan_deleted_event(self):
+        """delete_plan must emit a plan_deleted SSE event when DB record is found."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            # Insert a plan to delete
+            plan = TravelPlanModel(
+                destination="바르셀로나",
+                start_date=date(2026, 7, 1),
+                end_date=date(2026, 7, 5),
+                budget=1800000.0,
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+            plan_id = plan.id
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_plan", plan_id=plan_id, raw_message="계획 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 삭제", db)
+
+            deleted_events = [e for e in events if e["type"] == "plan_deleted"]
+            assert len(deleted_events) == 1
+            assert deleted_events[0]["data"]["plan_id"] == plan_id
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_plan_removes_from_db(self):
+        """delete_plan must physically remove the TravelPlan row from the database."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="런던",
+                start_date=date(2026, 8, 1),
+                end_date=date(2026, 8, 7),
+                budget=3000000.0,
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+            plan_id = plan.id
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_plan", plan_id=plan_id, raw_message="삭제"
+            )):
+                _collect_events_with_db(svc, session.session_id, "삭제", db)
+
+            remaining = db.query(TravelPlanModel).filter(TravelPlanModel.id == plan_id).first()
+            assert remaining is None
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_plan_no_db_emits_error(self):
+        """delete_plan without a DB session must emit an error agent_status."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="delete_plan", plan_id=99, raw_message="삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "삭제")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_delete_plan_nonexistent_plan_emits_error(self):
+        """delete_plan for a missing plan_id must emit an error agent_status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_plan", plan_id=9999, raw_message="삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "삭제", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_plan_clears_session_last_saved_plan_id(self):
+        """After deleting the last saved plan, session.last_saved_plan_id must be cleared."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="뉴욕",
+                start_date=date(2026, 9, 1),
+                end_date=date(2026, 9, 5),
+                budget=5000000.0,
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+            plan_id = plan.id
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_plan", plan_id=plan_id, raw_message="삭제"
+            )):
+                _collect_events_with_db(svc, session.session_id, "삭제", db)
+
+            assert session.last_saved_plan_id is None
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
