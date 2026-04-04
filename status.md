@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T56:00Z (Evolve Run #83)
-Run count: 90
+Last run: 2026-04-04T58:00Z (Evolve Run #84)
+Run count: 91
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 59
+Tasks completed: 60
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #61 Reporter: weekly Discussion summary
+Next planned: #62 Chat dashboard: Hotels & Flights dedicated result sections
 
 ## LTES Snapshot
 
-- Latency: ~19470ms (pytest 1247 tests)
-- Traffic: 37 commits/24h
-- Errors: 0 test failures (1247/1247 pass), error_rate=0.0%
-- Saturation: 2 tasks ready
+- Latency: ~21820ms (pytest 1256 tests)
+- Traffic: 38 commits/24h
+- Errors: 0 test failures (1256/1256 pass), error_rate=0.0%
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #61 Reporter: weekly Discussion summary
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #84 — 2026-04-04T58:00Z
+- **Task**: #61 - Reporter: weekly Discussion summary — auto-post Phase progress as GitHub Discussion
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1256/1256 passed (+9 new: TestReporterWeeklyDiscussion class, tests/test_agent_specs.py)
+- **Files changed**: .claude/agents/reporter.md (+105/-0), tests/test_agent_specs.py (+9 tests)
+- **Builder note**: Added step 7.7 to reporter.md. Weekly Discussion Summary triggered on Monday (DAY_OF_WEEK=1) or Phase change. Posts '[Weekly] Phase N 진행 현황' Discussion to Retrospectives category via gh api graphql. Body includes Done tasks (last 10 from backlog.md), test counts from qa-result.json, and recent merged PRs. All gh api calls use '2>/dev/null || true' for silent error handling.
+- **LTES**: L=21820ms T=1 commit E=0.0% S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #83 — 2026-04-04T56:00Z
 - **Task**: #60 - Chat: `view_plan` intent handler — load saved plan into dashboard by name/ID

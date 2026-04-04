@@ -11,12 +11,33 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-
-- [ ] #61 - Reporter: weekly Discussion summary — auto-post Phase progress as GitHub Discussion [infra]
-  - ref: markdowns/feat-dynamic-repo.md (§4 Discussions)
-  - files: .claude/agents/reporter.md
-  - done: reporter.md posts Discussion on Monday or Phase change; title `[Weekly] Phase N 진행 현황`; body has tasks done, test count, PR links; API errors skipped silently
-  - gh: #47
+- [ ] #62 - Chat dashboard: Hotels & Flights dedicated result sections [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Dashboard Layout § Hotels / Flights)
+  - files: src/app/static/index.html, src/app/static/chat.js
+  - done: Hotels/Flights sections appear in plan dashboard after search; cards show name/price/rating; sections hidden when empty; test covers rendering
+  - gh: #53
+- [ ] #63 - Chat: `add_expense` intent handler + `expense_added` SSE frontend [feature]
+  - ref: CLAUDE.md User Story #5 (비용 관리)
+  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
+  - done: "식사 5만원 추가" persists expense via existing API; expense_added SSE emitted; frontend shows new row in budget section; tests pass
+  - gh: #54
+- [ ] #64 - Chat: `update_plan` intent handler — edit plan metadata via chat [feature]
+  - ref: CLAUDE.md User Story #2 (계획 관리)
+  - depends: #48 (save_plan)
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: budget/title/date update via natural language; plan_update SSE emitted; 3 field types tested
+  - gh: #55
+- [ ] #65 - Chat: `get_expense_summary` intent — expense breakdown via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Budget Analyst role)
+  - depends: #63
+  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
+  - done: "얼마 썼어" returns total/remaining/category breakdown; Budget Analyst shows working→done; zero/multi-expense cases tested
+  - gh: #56
+- [ ] #66 - Chat session: persist conversation history to SQLite [improvement]
+  - ref: markdowns/feat-chat-dashboard.md (SSE reconnect + session restore)
+  - files: src/app/models.py, src/app/chat.py, tests/test_chat.py
+  - done: messages written to DB each exchange; session restore loads last 10 from DB; Gemini context uses DB history; DB write/read tests
+  - gh: #57
 
 ### Phase 9: User Experience & Polish (remaining)
 - [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
@@ -97,6 +118,7 @@ _(없음)_
 - [x] #58 - Chat frontend: `calendar_exported` SSE event handler — show export confirmation [feature] — 2026-04-04
 - [x] #59 - Chat: `delete_plan` intent handler — delete a saved plan via chat [feature] — 2026-04-04
 - [x] #60 - Chat: `view_plan` intent handler — load saved plan into dashboard by name/ID [feature] — 2026-04-04
+- [x] #61 - Reporter: weekly Discussion summary — auto-post Phase progress as GitHub Discussion [infra] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -108,5 +130,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 59 done, 2 ready
+- Total tasks: 60 done, 6 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
