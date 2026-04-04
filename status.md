@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T14:00Z (Evolve #63 — Task #36)
-Run count: 63
+Last run: 2026-04-04T18:00Z (Evolve #64 — Task #37)
+Run count: 64
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 39
-Current focus: Phase 9 remaining tasks + Phase 10
-Next planned: #37 Plan activity log
+Tasks completed: 40
+Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
+Next planned: #38 Bulk expense import or #42 Chat page HTML/CSS
 
 ## LTES Snapshot
 
-- Latency: ~17830ms (total run; pytest 1090 tests in 17.83s)
+- Latency: ~21010ms (total run; pytest 1102 tests in 21.01s)
 - Traffic: 1 commit this run
-- Errors: 0 test failures (1090/1090 pass), error_rate=0.0%
-- Saturation: 2 tasks ready
+- Errors: 0 test failures (1102/1102 pass), error_rate=0.0%
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #37 Plan activity log
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #64 — 2026-04-04T18:00Z
+- **Task**: #37 - Plan activity log
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1102/1102 passed (+12 new, tests/test_activity.py)
+- **Files changed**: src/app/models.py, src/app/schemas.py, src/app/routers/travel_plans.py (+modified); tests/test_activity.py (+created)
+- **Builder note**: PlanActivity model added with id/travel_plan_id/action/detail/timestamp. Events logged on create (action='created'), update (action='updated', detail lists changed fields), delete (action='deleted'). GET /travel-plans/{id}/activity returns events ordered oldest-first. Cascade delete ensures activities removed with parent plan.
+- **LTES**: L=21010ms T=1 commit E=0.0% S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #63 — 2026-04-04T14:00Z
 - **Task**: #36 - Favorite places library

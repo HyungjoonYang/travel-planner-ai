@@ -308,3 +308,15 @@ class FavoritePlaceOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- PlanActivity ---
+
+class PlanActivityOut(BaseModel):
+    id: int
+    travel_plan_id: int
+    action: str
+    detail: str
+    timestamp: datetime
+
+    model_config = {"from_attributes": True}

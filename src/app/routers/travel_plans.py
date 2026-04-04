@@ -11,10 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.ai import GeminiService
 from app.database import get_db
-from app.models import DayItinerary, Expense, Place, PlanComment, PlanSnapshot, TravelPlan
+from app.models import DayItinerary, Expense, Place, PlanActivity, PlanComment, PlanSnapshot, TravelPlan
 from app.schemas import (
     CommentCreate, CommentOut,
-    PaginatedPlans, PlanSnapshotOut, PlanSnapshotSummary,
+    PaginatedPlans, PlanActivityOut, PlanSnapshotOut, PlanSnapshotSummary,
     RefineRequest, ShareOut, SnapshotCreateRequest,
     TopPlaceOut,
     TravelPlanCreate, TravelPlanOut, TravelPlanUpdate,
@@ -27,6 +27,12 @@ router = APIRouter(prefix="/travel-plans", tags=["travel-plans"])
 def create_travel_plan(payload: TravelPlanCreate, db: Session = Depends(get_db)):
     plan = TravelPlan(**payload.model_dump())
     db.add(plan)
+    db.flush()
+    db.add(PlanActivity(
+        travel_plan_id=plan.id,
+        action="created",
+        detail=f"Plan created: {plan.destination} ({plan.start_date} – {plan.end_date}), budget={plan.budget}",
+    ))
     db.commit()
     db.refresh(plan)
     return plan
@@ -100,8 +106,15 @@ def update_travel_plan(
     plan = db.get(TravelPlan, plan_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="Travel plan not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changed = payload.model_dump(exclude_unset=True)
+    for field, value in changed.items():
         setattr(plan, field, value)
+    changed_fields = ", ".join(f"{k}={v}" for k, v in changed.items())
+    db.add(PlanActivity(
+        travel_plan_id=plan_id,
+        action="updated",
+        detail=f"Fields updated: {changed_fields}",
+    ))
     db.commit()
     db.refresh(plan)
     return plan
@@ -112,8 +125,28 @@ def delete_travel_plan(plan_id: int, db: Session = Depends(get_db)):
     plan = db.get(TravelPlan, plan_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="Travel plan not found")
+    db.add(PlanActivity(
+        travel_plan_id=plan_id,
+        action="deleted",
+        detail=f"Plan deleted: {plan.destination}",
+    ))
+    db.flush()
     db.delete(plan)
     db.commit()
+
+
+@router.get("/{plan_id}/activity", response_model=list[PlanActivityOut])
+def get_plan_activity(plan_id: int, db: Session = Depends(get_db)):
+    """Return the activity log for a travel plan, oldest event first."""
+    plan = db.get(TravelPlan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Travel plan not found")
+    return (
+        db.query(PlanActivity)
+        .filter(PlanActivity.travel_plan_id == plan_id)
+        .order_by(PlanActivity.timestamp.asc(), PlanActivity.id.asc())
+        .all()
+    )
 
 
 @router.post("/{plan_id}/duplicate", response_model=TravelPlanOut, status_code=status.HTTP_201_CREATED)
