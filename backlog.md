@@ -12,13 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #48 - Secretary save_plan handler: persist plan to DB [feature]
-  - ref: markdowns/feat-chat-dashboard.md (Stage 4 — 저장)
-  - depends: #46
-  - files: src/app/chat.py, src/app/schemas.py, tests/test_chat.py
-  - done: `_handle_save_plan` creates TravelPlan DB record; plan_saved event includes plan_id; test_plan_save_persists_to_db + test_plan_saved_event_includes_plan_id pass
-  - gh: #24
-
 - [ ] #49 - E2E Playwright tests for chat page [test]
   - ref: markdowns/feat-chat-dashboard.md (Test Cases — e2e/chat.spec.ts)
   - depends: #45
@@ -105,6 +98,7 @@ _(없음)_
 - [x] #45 - Agent panel compact/expanded toggle + mobile responsive layout [feature] — 2026-04-04
 - [x] #46 - SSE reconnect with exponential backoff + session state restore on reconnect [feature] — 2026-04-04
 - [x] #47 - modify_day intent handler: update a day's places via chat [feature] — 2026-04-04
+- [x] #48 - Secretary save_plan handler: persist plan to DB [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -116,5 +110,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 46 done, 5 ready
+- Total tasks: 47 done, 4 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
