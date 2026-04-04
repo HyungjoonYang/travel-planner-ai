@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T51:00Z (Monitor)
-Run count: 87
+Last run: 2026-04-04T52:00Z (Evolve Run #81)
+Run count: 88
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 56
+Tasks completed: 57
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #58 Chat frontend: calendar_exported SSE event handler
+Next planned: #59 Chat: delete_plan intent handler
 
 ## LTES Snapshot
 
-- Latency: ~19930ms (pytest 1232 tests in 19.93s)
-- Traffic: 34 commits/24h
-- Errors: 0 test failures (1232/1232 pass), error_rate=0.0%
-- Saturation: 5 tasks ready
+- Latency: ~0ms (pytest 1235 tests)
+- Traffic: 35 commits/24h
+- Errors: 0 test failures (1235/1235 pass), error_rate=0.0%
+- Saturation: 4 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #58 Chat frontend: calendar_exported SSE event handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #81 — 2026-04-04T52:00Z
+- **Task**: #58 - Chat frontend: `calendar_exported` SSE event handler — show export confirmation
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1235/1235 passed (+3 new: TestCalendarExportedEventShape, tests/test_chat_dashboard.py)
+- **Files changed**: src/app/static/chat.js (+55/-0), tests/test_chat_dashboard.py (+3 new tests)
+- **Builder note**: Added calendar_exported case in chat.js SSE dispatcher. Renders a success chat bubble: '✅ Google Calendar 내보내기 완료 — {destination}: {count}개 이벤트 추가됨'. TestCalendarExportedEventShape class with 3 tests verifying events_created, destination, and plan_id fields in the backend SSE event.
+- **LTES**: L=0ms T=1 commit E=0.0% S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor — 2026-04-04T51:00Z
 - **Task**: health check

@@ -429,3 +429,80 @@ class TestPlansListEventShape:
         events = self._get_plans_list_events([])
         assert len(events) == 1
         assert events[0]["data"]["plans"] == []
+
+
+# ---------------------------------------------------------------------------
+# calendar_exported event shape (Task #58 — handleCalendarExported in chat.js)
+# ---------------------------------------------------------------------------
+
+def _make_fake_calendar_export_result():
+    from app.calendar_service import CalendarExportResult, CalendarEventResult
+    from datetime import date as date_type
+
+    return CalendarExportResult(
+        plan_id=1,
+        destination="도쿄",
+        events_created=3,
+        events=[
+            CalendarEventResult(
+                day_itinerary_id=1,
+                event_date=date_type(2026, 5, 1),
+                event_id="evt_1",
+                event_link="https://calendar.google.com/event?eid=evt_1",
+            ),
+            CalendarEventResult(
+                day_itinerary_id=2,
+                event_date=date_type(2026, 5, 2),
+                event_id="evt_2",
+                event_link="https://calendar.google.com/event?eid=evt_2",
+            ),
+            CalendarEventResult(
+                day_itinerary_id=3,
+                event_date=date_type(2026, 5, 3),
+                event_id="evt_3",
+                event_link="https://calendar.google.com/event?eid=evt_3",
+            ),
+        ],
+    )
+
+
+class TestCalendarExportedEventShape:
+    """calendar_exported SSE event data must include events_created and destination
+    so the frontend can render the success confirmation bubble with event count."""
+
+    def _get_calendar_exported_data(self):
+        from app.chat import Intent
+        svc = _make_svc()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+        mock_db = MagicMock()
+        mock_db.get.return_value = MagicMock()
+
+        with patch("app.chat.CalendarService") as mock_cs_class:
+            mock_cs_class.return_value.export_plan.return_value = _make_fake_calendar_export_result()
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="export_calendar", access_token="fake-token", raw_message="캘린더에 내보내줘"
+            )):
+                events = _collect_db(svc, session.session_id, "캘린더에 내보내줘", mock_db)
+
+        exported = [e for e in events if e["type"] == "calendar_exported"]
+        assert len(exported) == 1, "Expected exactly one calendar_exported event"
+        return exported[0]["data"]
+
+    def test_calendar_exported_has_events_created(self):
+        """calendar_exported data must include events_created for the frontend count bubble."""
+        data = self._get_calendar_exported_data()
+        assert "events_created" in data
+        assert data["events_created"] == 3
+
+    def test_calendar_exported_has_destination(self):
+        """calendar_exported data must include destination for the frontend confirmation message."""
+        data = self._get_calendar_exported_data()
+        assert "destination" in data
+        assert data["destination"] == "도쿄"
+
+    def test_calendar_exported_has_plan_id(self):
+        """calendar_exported data must include plan_id to identify which plan was exported."""
+        data = self._get_calendar_exported_data()
+        assert "plan_id" in data
+        assert data["plan_id"] == 1
