@@ -110,7 +110,7 @@ jobs:
 
           # ─── 6. Error budget ───
           if [ -f "observability/error-budget.json" ]; then
-            BUDGET_STATUS=$(python3 -c "import json; print(json.load(open('observability/error-budget.json'))['status'])" 2>/dev/null || echo "UNKNOWN")
+            BUDGET_STATUS=$(python3 -c "import json; d=json.load(open('observability/error-budget.json')); print(d.get('current_period',{}).get('status', d.get('status','UNKNOWN')))" 2>/dev/null || echo "UNKNOWN")
             if [ "$BUDGET_STATUS" = "HEALTHY" ]; then
               check "Error budget" "pass" "HEALTHY"
             elif [ "$BUDGET_STATUS" = "WARNING" ]; then
