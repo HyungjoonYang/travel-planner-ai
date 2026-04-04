@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 from app.cache import search_cache
 from app.database import init_db
 import app.models  # noqa: F401 — registers ORM models with Base.metadata
-from app.routers import ai_plans, calendar, chat, expenses, itineraries, search, travel_plans
+from app.routers import ai_plans, calendar, chat, expenses, favorite_places, itineraries, search, travel_plans
 
 logging.basicConfig(
     level=logging.INFO,
@@ -100,6 +100,7 @@ app.include_router(ai_plans.router)
 app.include_router(search.router)
 app.include_router(calendar.router)
 app.include_router(chat.router)
+app.include_router(favorite_places.router)
 
 
 @app.get("/health")
