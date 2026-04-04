@@ -262,6 +262,8 @@ class ChatSessionOut(BaseModel):
     session_id: str
     created_at: datetime
     expires_at: datetime
+    agent_states: dict = {}
+    last_plan: Optional[dict] = None
 
 
 class AgentStatusEvent(BaseModel):

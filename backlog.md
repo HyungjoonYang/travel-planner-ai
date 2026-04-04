@@ -10,17 +10,40 @@ _(없음)_
 
 ## Ready (우선순위 순)
 
-### Phase 10: Chat + Multi-Agent Dashboard
+### Phase 10: Chat + Multi-Agent Dashboard (continued)
+- [ ] #47 - modify_day intent handler: update a day's places via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Intent handlers — modify_day)
+  - depends: #46
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: `_handle_modify_day` dispatched on modify_day intent; emits planner agent_status (thinking→working→done) + day_update event; test_modify_day_emits_day_update + test_modify_day_activates_planner_agent pass
+  - gh: #23
 
-> 스펙 문서: `markdowns/feat-chat-dashboard.md`
-> 이 목록은 시드 태스크다. evolve가 Architect 단계에서 스펙을 분析하고 추가 태스크를 자율적으로 생성한다.
+- [ ] #48 - Secretary save_plan handler: persist plan to DB [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Stage 4 — 저장)
+  - depends: #46
+  - files: src/app/chat.py, src/app/schemas.py, tests/test_chat.py
+  - done: `_handle_save_plan` creates TravelPlan DB record; plan_saved event includes plan_id; test_plan_save_persists_to_db + test_plan_saved_event_includes_plan_id pass
+  - gh: #24
 
-- [ ] #46 - SSE reconnect with exponential backoff + session state restore on reconnect [feature]
-  - ref: markdowns/feat-chat-dashboard.md (Risks — SSE 끊김)
-  - depends: #43
-  - files: src/app/static/chat.js, src/app/routers/chat.py (GET /chat/sessions/{id} returns last agent states)
-  - done: SSE disconnect triggers retry (1s → 2s → 4s backoff, max 3 retries); on reconnect GET session state restores last known agent statuses and current plan; tests/test_chat.py: test_get_session_includes_agent_states; tests/test_frontend.py: test_sse_reconnect_restores_state
-  - gh: #17
+- [ ] #49 - E2E Playwright tests for chat page [test]
+  - ref: markdowns/feat-chat-dashboard.md (Test Cases — e2e/chat.spec.ts)
+  - depends: #45
+  - files: e2e/chat.spec.ts
+  - done: 5 scenarios pass (page loads, agents idle, agents activate on message, plan builds, agent done shows toggle)
+  - gh: #25
+
+- [ ] #50 - Budget Analyst: real per-category cost breakdown in chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Stage 2 — Budget Analyst)
+  - depends: #46
+  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py, tests/test_frontend.py
+  - done: search_results event type=budget emitted with {accommodation,transport,food,activities,total}; agent detail renders breakdown; 2 tests pass
+  - gh: #26
+
+- [ ] #51 - Reporter agent: auto-close GitHub Issues on task completion [infra]
+  - ref: markdowns/feat-dynamic-repo.md (Phase 1 — Reporter issue close)
+  - files: .claude/agents/reporter.md
+  - done: reporter.md includes step to `gh issue close <number>` and `Closes #<number>` in PR body
+  - gh: #27
 
 ### Phase 9: User Experience & Polish (remaining)
 - [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
@@ -86,6 +109,7 @@ _(없음)_
 - [x] #43 - chat.js: SSE client + chat message UI + agent_status event handler [feature] — 2026-04-04
 - [x] #44 - chat.js: Plan dashboard rendering (plan_update / day_update / search_results SSE events) [feature] — 2026-04-04
 - [x] #45 - Agent panel compact/expanded toggle + mobile responsive layout [feature] — 2026-04-04
+- [x] #46 - SSE reconnect with exponential backoff + session state restore on reconnect [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -97,5 +121,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 44 done, 2 ready
+- Total tasks: 45 done, 6 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

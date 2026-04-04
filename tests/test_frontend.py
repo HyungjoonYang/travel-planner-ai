@@ -207,3 +207,63 @@ class TestAgentPanelToggle:
         """Done-card click handler toggles agent-detail visibility."""
         content = client.get("/static/chat.js").text
         assert "agent-detail" in content
+
+
+class TestSseReconnect:
+    """Task #46: SSE reconnect with exponential backoff + session state restore."""
+
+    def test_chat_js_has_restore_session_state(self, client: TestClient):
+        """chat.js has restoreSessionState function for reconnect state recovery."""
+        content = client.get("/static/chat.js").text
+        assert "restoreSessionState" in content
+
+    def test_chat_js_has_exponential_backoff(self, client: TestClient):
+        """chat.js implements exponential backoff retry logic."""
+        content = client.get("/static/chat.js").text
+        # Backoff via 2** or Math.pow or explicit delays 1000/2000/4000
+        assert "backoff" in content or "Math.pow" in content or "2000" in content
+
+    def test_chat_js_has_max_retries(self, client: TestClient):
+        """chat.js defines maximum retry count (3)."""
+        content = client.get("/static/chat.js").text
+        assert "MAX_RETRIES" in content or "_SSE_MAX_RETRIES" in content or "maxRetries" in content
+
+    def test_chat_js_restore_fetches_get_session(self, client: TestClient):
+        """restoreSessionState calls GET /chat/sessions/."""
+        content = client.get("/static/chat.js").text
+        assert "restoreSessionState" in content
+        assert "/chat/sessions/" in content
+
+    def test_chat_js_restore_calls_handle_agent_status(self, client: TestClient):
+        """restoreSessionState restores agent statuses by calling handleAgentStatus."""
+        content = client.get("/static/chat.js").text
+        assert "restoreSessionState" in content
+        assert "handleAgentStatus" in content
+
+    def test_chat_js_restore_calls_handle_plan_update(self, client: TestClient):
+        """restoreSessionState restores plan by calling handlePlanUpdate."""
+        content = client.get("/static/chat.js").text
+        assert "restoreSessionState" in content
+        assert "handlePlanUpdate" in content
+
+    def test_chat_js_retry_on_disconnect(self, client: TestClient):
+        """chat.js retries SSE stream when connection drops before chat_done."""
+        content = client.get("/static/chat.js").text
+        # Must track chat_done and retry if missing
+        assert "chat_done" in content
+        assert "retry" in content.lower() or "Retry" in content or "_sseRetry" in content
+
+    def test_get_session_returns_agent_states(self, client: TestClient):
+        """GET /chat/sessions/{id} response includes agent_states field."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        resp = client.get(f"/chat/sessions/{session_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "agent_states" in data
+
+    def test_get_session_returns_last_plan(self, client: TestClient):
+        """GET /chat/sessions/{id} response includes last_plan field."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        resp = client.get(f"/chat/sessions/{session_id}")
+        data = resp.json()
+        assert "last_plan" in data

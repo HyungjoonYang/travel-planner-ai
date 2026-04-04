@@ -37,6 +37,8 @@ class ChatSession(BaseModel):
     created_at: datetime
     expires_at: datetime
     history: list[dict] = []
+    agent_states: dict[str, dict] = {}  # last known agent_status per agent
+    last_plan: Optional[dict] = None    # last plan_update payload
 
 
 class ChatService:
@@ -145,22 +147,30 @@ Return a JSON object with these fields:
             yield {"type": "error", "data": {"message": "Session not found or expired"}}
             return
 
+        def _track(event: dict) -> dict:
+            """Update session state and return the event unchanged."""
+            if event["type"] == "agent_status":
+                session.agent_states[event["data"]["agent"]] = event["data"]
+            elif event["type"] == "plan_update":
+                session.last_plan = event["data"]
+            return event
+
         # Coordinator always goes first
-        yield {
+        yield _track({
             "type": "agent_status",
             "data": {"agent": "coordinator", "status": "thinking", "message": "요청 분석 중..."},
-        }
+        })
 
         intent = self.extract_intent(message)
 
-        yield {
+        yield _track({
             "type": "agent_status",
             "data": {
                 "agent": "coordinator",
                 "status": "done",
                 "message": f"{intent.action} 파악",
             },
-        }
+        })
 
         session.history.append({
             "role": "user",
@@ -168,22 +178,22 @@ Return a JSON object with these fields:
             "intent": intent.model_dump(),
         })
 
-        # Dispatch to intent handlers
+        # Dispatch to intent handlers, tracking state as events flow
         if intent.action == "create_plan":
             async for event in self._handle_create_plan(intent):
-                yield event
+                yield _track(event)
         elif intent.action == "search_hotels":
             async for event in self._handle_search_hotels(intent):
-                yield event
+                yield _track(event)
         elif intent.action == "search_flights":
             async for event in self._handle_search_flights(intent):
-                yield event
+                yield _track(event)
         elif intent.action == "search_places":
             async for event in self._handle_search_places(intent):
-                yield event
+                yield _track(event)
         elif intent.action == "save_plan":
             async for event in self._handle_save_plan(intent):
-                yield event
+                yield _track(event)
         else:
             yield {
                 "type": "chat_chunk",
