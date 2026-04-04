@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T32:00Z (Evolve Run #71 — #48 Secretary save_plan handler)
-Run count: 73
+Last run: 2026-04-04T34:00Z (Evolve Run #72 — #49 E2E Playwright tests for chat page)
+Run count: 74
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 47
+Tasks completed: 48
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #49 E2E Playwright tests for chat page
+Next planned: #50 Budget Analyst: real per-category cost breakdown in chat
 
 ## LTES Snapshot
 
-- Latency: ~21810ms (pytest 1179 tests in 21.81s)
-- Traffic: 25 commits/24h
+- Latency: ~21000ms (pytest 1179 tests in 21s)
+- Traffic: 26 commits/24h
 - Errors: 0 test failures (1179/1179 pass), error_rate=0.0%
-- Saturation: 4 tasks ready
+- Saturation: 3 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #49 E2E Playwright tests for chat page
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #72 — 2026-04-04T34:00Z
+- **Task**: #49 - E2E Playwright tests for chat page
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1179/1179 Python tests passed (no regressions); 5 Playwright E2E scenarios added in e2e/chat.spec.ts
+- **Files created**: e2e/chat.spec.ts (265 lines)
+- **Builder note**: 5 scenarios: (1) chat page loads with agent panel, (2) all 7 agents idle on load, (3) coordinator activates on any message (mocked SSE), (4) plan_update populates dashboard with day cards + budget bar (mocked SSE), (5) agent done with result_count shows expand toggle while done without result_count does not. Tests 3-5 use page.route() mocks — deterministic, no live Gemini API key required. package.json/package-lock.json created at repo root for local npx playwright runs.
+- **LTES**: L=21000ms T=1 commit E=0.0% S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #71 — 2026-04-04T32:00Z
 - **Task**: #48 - Secretary save_plan handler: persist plan to DB
