@@ -2,8 +2,10 @@ name: Daily Summary
 
 on:
   schedule:
-    # UTC 21:20 = KST 06:20 — 마지막 evolve(21:00) 완료 후 실행
+    # 매일: UTC 21:20 = KST 06:20 — 야간 evolve 마지막 후
     - cron: '20 21 * * *'
+    # 주말: UTC 11:20 = KST 20:20 — 주말 낮 evolve 마지막 후
+    - cron: '20 11 * * 0,6'
   workflow_dispatch: # 수동 테스트용
 
 jobs:

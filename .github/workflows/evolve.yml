@@ -2,9 +2,12 @@ name: Evolve (Multi-Agent)
 
 on:
   schedule:
-    # KST 22:00~06:00 = UTC 13:00~21:00, 매 30분
+    # 평일+주말: KST 22:00~06:00 = UTC 13:00~21:00, 매 30분
     - cron: '0,30 13-20 * * *'
     - cron: '0 21 * * *'
+    # 주말 추가: KST 12:00~20:00 = UTC 03:00~11:00, 토/일만
+    - cron: '0,30 3-10 * * 0,6'
+    - cron: '0 11 * * 0,6'
   workflow_dispatch: # 수동 트리거
 
 permissions:

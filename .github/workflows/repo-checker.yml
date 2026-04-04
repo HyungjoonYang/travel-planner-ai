@@ -1,0 +1,278 @@
+name: Repo Health Checker
+
+on:
+  schedule:
+    # 매일 UTC 12:00 = KST 21:00 — evolve 시작 직전 점검
+    - cron: '0 12 * * *'
+    # 주말 UTC 02:00 = KST 11:00 — 주말 낮 evolve 시작 직전
+    - cron: '0 2 * * 0,6'
+  workflow_dispatch: # 수동 트리거
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt 2>/dev/null || true
+
+      - name: "🔍 Run all checks"
+        id: checks
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PASS=0
+          FAIL=0
+          WARN=0
+          REPORT=""
+
+          check() {
+            local name="$1"
+            local result="$2"  # pass, fail, warn
+            local detail="$3"
+            if [ "$result" = "pass" ]; then
+              PASS=$((PASS + 1))
+              REPORT="${REPORT}\n✅ ${name}: ${detail}"
+            elif [ "$result" = "warn" ]; then
+              WARN=$((WARN + 1))
+              REPORT="${REPORT}\n⚠️ ${name}: ${detail}"
+            else
+              FAIL=$((FAIL + 1))
+              REPORT="${REPORT}\n❌ ${name}: ${detail}"
+            fi
+          }
+
+          # ─── 1. Core files exist ───
+          MISSING=""
+          for f in CLAUDE.md status.md backlog.md tech-decisions.md requirements.txt render.yaml; do
+            [ ! -f "$f" ] && MISSING="${MISSING} ${f}"
+          done
+          if [ -z "$MISSING" ]; then
+            check "Core files" "pass" "All present"
+          else
+            check "Core files" "fail" "Missing:${MISSING}"
+          fi
+
+          # ─── 2. Agent definitions ───
+          MISSING_AGENTS=""
+          for a in coordinator architect builder qa reporter; do
+            [ ! -f ".claude/agents/${a}.md" ] && MISSING_AGENTS="${MISSING_AGENTS} ${a}"
+          done
+          if [ -z "$MISSING_AGENTS" ]; then
+            check "Agent definitions" "pass" "All 5 agents defined"
+          else
+            check "Agent definitions" "fail" "Missing:${MISSING_AGENTS}"
+          fi
+
+          # ─── 3. Workflows exist ───
+          MISSING_WF=""
+          for w in evolve.yml ci.yml daily-summary.yml repo-checker.yml; do
+            [ ! -f ".github/workflows/${w}" ] && MISSING_WF="${MISSING_WF} ${w}"
+          done
+          if [ -z "$MISSING_WF" ]; then
+            check "Workflows" "pass" "All workflow files present"
+          else
+            check "Workflows" "fail" "Missing:${MISSING_WF}"
+          fi
+
+          # ─── 4. Tests pass ───
+          TEST_OUTPUT=$(python -m pytest tests/ -q --tb=no 2>&1)
+          TEST_EXIT=$?
+          TEST_SUMMARY=$(echo "$TEST_OUTPUT" | tail -1)
+          if [ $TEST_EXIT -eq 0 ]; then
+            check "Tests" "pass" "${TEST_SUMMARY}"
+          else
+            FAILED_COUNT=$(echo "$TEST_OUTPUT" | grep -oP '\d+ failed' || echo "unknown")
+            check "Tests" "fail" "${FAILED_COUNT} — ${TEST_SUMMARY}"
+          fi
+
+          # ─── 5. Lint clean ───
+          LINT_OUTPUT=$(python -m ruff check src/ tests/ 2>&1)
+          LINT_EXIT=$?
+          if [ $LINT_EXIT -eq 0 ]; then
+            check "Lint (ruff)" "pass" "All checks passed"
+          else
+            LINT_COUNT=$(echo "$LINT_OUTPUT" | grep -c "^" || echo "?")
+            check "Lint (ruff)" "fail" "${LINT_COUNT} issues found"
+          fi
+
+          # ─── 6. Error budget ───
+          if [ -f "observability/error-budget.json" ]; then
+            BUDGET_STATUS=$(python3 -c "import json; print(json.load(open('observability/error-budget.json'))['status'])" 2>/dev/null || echo "UNKNOWN")
+            if [ "$BUDGET_STATUS" = "HEALTHY" ]; then
+              check "Error budget" "pass" "HEALTHY"
+            elif [ "$BUDGET_STATUS" = "WARNING" ]; then
+              check "Error budget" "warn" "WARNING — approaching limit"
+            else
+              check "Error budget" "fail" "${BUDGET_STATUS}"
+            fi
+          else
+            check "Error budget" "warn" "error-budget.json not found"
+          fi
+
+          # ─── 7. GitHub Labels ───
+          REQUIRED_LABELS="feature bug improvement evolve evolve-needs-review blocked"
+          EXISTING_LABELS=$(gh label list --json name --jq '.[].name' 2>/dev/null | tr '\n' ' ')
+          MISSING_LABELS=""
+          for label in $REQUIRED_LABELS; do
+            echo "$EXISTING_LABELS" | grep -qw "$label" || MISSING_LABELS="${MISSING_LABELS} ${label}"
+          done
+          if [ -z "$MISSING_LABELS" ]; then
+            check "GitHub Labels" "pass" "All required labels exist"
+          else
+            check "GitHub Labels" "fail" "Missing:${MISSING_LABELS}"
+          fi
+
+          # ─── 8. Active Milestone ───
+          MILESTONE_COUNT=$(gh api repos/{owner}/{repo}/milestones --jq '[.[] | select(.state=="open")] | length' 2>/dev/null || echo "0")
+          if [ "$MILESTONE_COUNT" -gt 0 ]; then
+            MILESTONE_NAME=$(gh api repos/{owner}/{repo}/milestones --jq '[.[] | select(.state=="open")][0].title' 2>/dev/null)
+            check "Milestones" "pass" "${MILESTONE_COUNT} active (${MILESTONE_NAME})"
+          else
+            check "Milestones" "warn" "No active milestones"
+          fi
+
+          # ─── 9. Backlog-Issue sync ───
+          # Check that gh: #N references in backlog.md point to existing issues
+          BACKLOG_ISSUES=$(grep -oP 'gh: #\K\d+' backlog.md 2>/dev/null || echo "")
+          SYNC_OK=true
+          SYNC_DETAIL=""
+          for issue_num in $BACKLOG_ISSUES; do
+            STATE=$(gh issue view "$issue_num" --json state --jq '.state' 2>/dev/null || echo "NOT_FOUND")
+            if [ "$STATE" = "NOT_FOUND" ]; then
+              SYNC_OK=false
+              SYNC_DETAIL="${SYNC_DETAIL} #${issue_num}(missing)"
+            fi
+          done
+          if [ -z "$BACKLOG_ISSUES" ]; then
+            check "Backlog-Issue sync" "warn" "No issues linked in backlog.md"
+          elif [ "$SYNC_OK" = true ]; then
+            ISSUE_COUNT=$(echo "$BACKLOG_ISSUES" | wc -w | tr -d ' ')
+            check "Backlog-Issue sync" "pass" "${ISSUE_COUNT} issues linked, all valid"
+          else
+            check "Backlog-Issue sync" "fail" "Broken refs:${SYNC_DETAIL}"
+          fi
+
+          # ─── 10. Stale evolve branches ───
+          EVOLVE_BRANCHES=$(git ls-remote --heads origin 2>/dev/null | grep "evolve/" | wc -l | tr -d ' ')
+          if [ "$EVOLVE_BRANCHES" -le 3 ]; then
+            check "Stale branches" "pass" "${EVOLVE_BRANCHES} evolve branches"
+          elif [ "$EVOLVE_BRANCHES" -le 7 ]; then
+            check "Stale branches" "warn" "${EVOLVE_BRANCHES} evolve branches (consider cleanup)"
+          else
+            check "Stale branches" "fail" "${EVOLVE_BRANCHES} evolve branches — cleanup needed"
+          fi
+
+          # ─── 11. Recent evolve activity ───
+          LAST_EVOLVE=$(gh run list --workflow=evolve.yml --limit=1 --json createdAt --jq '.[0].createdAt' 2>/dev/null || echo "")
+          if [ -n "$LAST_EVOLVE" ]; then
+            HOURS_AGO=$(python3 -c "
+          from datetime import datetime, timezone
+          last = datetime.fromisoformat('${LAST_EVOLVE}'.replace('Z','+00:00'))
+          now = datetime.now(timezone.utc)
+          print(int((now - last).total_seconds() / 3600))
+          " 2>/dev/null || echo "999")
+            if [ "$HOURS_AGO" -le 24 ]; then
+              check "Evolve activity" "pass" "Last run ${HOURS_AGO}h ago"
+            elif [ "$HOURS_AGO" -le 48 ]; then
+              check "Evolve activity" "warn" "Last run ${HOURS_AGO}h ago"
+            else
+              check "Evolve activity" "fail" "Last run ${HOURS_AGO}h ago — may be stalled"
+            fi
+          else
+            check "Evolve activity" "warn" "No evolve runs found"
+          fi
+
+          # ─── 12. Secrets health (indirect check) ───
+          # Can't read secrets, but can check if gh CLI works (means GH_PAT is valid)
+          GH_CHECK=$(gh api repos/{owner}/{repo} --jq '.name' 2>/dev/null || echo "FAIL")
+          if [ "$GH_CHECK" != "FAIL" ]; then
+            check "GH_PAT token" "pass" "API access OK"
+          else
+            check "GH_PAT token" "fail" "API access failed — token may be expired"
+          fi
+
+          # ─── Summary ───
+          TOTAL=$((PASS + FAIL + WARN))
+          echo ""
+          echo "═══════════════════════════════════"
+          echo "  Repo Health: ${PASS}/${TOTAL} pass, ${WARN} warn, ${FAIL} fail"
+          echo "═══════════════════════════════════"
+          echo -e "$REPORT"
+
+          # Save for Slack
+          echo "pass_count=${PASS}" >> "$GITHUB_OUTPUT"
+          echo "fail_count=${FAIL}" >> "$GITHUB_OUTPUT"
+          echo "warn_count=${WARN}" >> "$GITHUB_OUTPUT"
+          echo "total=${TOTAL}" >> "$GITHUB_OUTPUT"
+
+          REPORT_ESCAPED=$(echo -e "$REPORT" | sed 's/"/\\"/g' | tr '\n' '|' | sed 's/|/\\n/g')
+          echo "report=${REPORT_ESCAPED}" >> "$GITHUB_OUTPUT"
+
+          # Exit code: fail if any critical check failed
+          if [ $FAIL -gt 0 ]; then
+            echo "status=FAIL" >> "$GITHUB_OUTPUT"
+          elif [ $WARN -gt 0 ]; then
+            echo "status=WARN" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=PASS" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then exit 0; fi
+
+          STATUS="${{ steps.checks.outputs.status }}"
+          PASS="${{ steps.checks.outputs.pass_count }}"
+          FAIL="${{ steps.checks.outputs.fail_count }}"
+          WARN="${{ steps.checks.outputs.warn_count }}"
+          TOTAL="${{ steps.checks.outputs.total }}"
+          REPORT="${{ steps.checks.outputs.report }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          case "$STATUS" in
+            PASS) EMOJI="🟢"; TITLE="*Repo Health Check — All Clear*" ;;
+            WARN) EMOJI="🟡"; TITLE="*Repo Health Check — Warnings*" ;;
+            *)    EMOJI="🔴"; TITLE="*Repo Health Check — Issues Found*" ;;
+          esac
+
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d "$(cat <<EOF
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "${EMOJI} ${TITLE}\n*Score:* ${PASS}/${TOTAL} pass | ${WARN} warn | ${FAIL} fail\n\n${REPORT}"
+                }
+              },
+              {
+                "type": "context",
+                "elements": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "<${RUN_URL}|View Details>"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          )"
