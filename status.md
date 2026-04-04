@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T36:00Z (Evolve Run #73 — #50 Budget Analyst cost breakdown)
-Run count: 76
+Last run: 2026-04-04T38:00Z (Evolve Run #74 — #51 Reporter agent: auto-close GitHub Issues)
+Run count: 77
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 49
+Tasks completed: 50
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #51 Reporter agent: auto-close GitHub Issues on task completion
+Next planned: #52 Chat Secretary: export_calendar intent handler
 
 ## LTES Snapshot
 
-- Latency: ~19060ms (pytest 1181 tests in 19.06s)
-- Traffic: 26 commits/24h
+- Latency: ~18840ms (pytest 1181 tests in 18.84s)
+- Traffic: 28 commits/24h
 - Errors: 0 test failures (1181/1181 pass), error_rate=0.0%
-- Saturation: 2 tasks ready
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #51 Reporter agent: auto-close GitHub Issues on task completion
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #74 — 2026-04-04T38:00Z
+- **Task**: #51 - Reporter agent: auto-close GitHub Issues on task completion
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1181/1181 passed (no change — infra task, no source code changes)
+- **Files changed**: .claude/agents/reporter.md (+12/-3)
+- **Builder note**: Updated reporter.md section 7.5 with explicit `gh issue close "$GITHUB_ISSUE"` command when QA passes. The `Closes #<issue>` in PR body via ISSUE_REF variable was already present. Both done criteria confirmed: (1) explicit gh issue close step, (2) Closes #N in PR body.
+- **LTES**: L=18840ms T=1 commit E=0.0% S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #73 — 2026-04-04T36:00Z
 - **Task**: #50 - Budget Analyst: real per-category cost breakdown in chat

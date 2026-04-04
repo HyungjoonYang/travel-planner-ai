@@ -136,8 +136,18 @@ git checkout main
 ```
 
 ### 7.5 GitHub Issue 업데이트
-- **QA pass**: Issue가 있으면 PR의 `Closes #N`으로 자동 close됨 (별도 작업 불필요)
-- **QA fail**: Issue에 실패 코멘트 추가
+- **QA pass**: Issue가 있으면 명시적으로 close하고, PR body의 `Closes #N`으로도 머지 시 자동 close됨
+```bash
+if [ -n "$GITHUB_ISSUE" ]; then
+  gh issue close "$GITHUB_ISSUE" --comment "✅ **Completed** (Run #<N>)
+
+이 태스크는 QA를 통과하여 PR에서 구현되었습니다.
+- **Tests**: <passed>/<total> passed
+
+🤖 Auto-closed by Reporter Agent"
+fi
+```
+- **QA fail**: Issue에 실패 코멘트 추가 (close하지 않음)
 ```bash
 gh issue comment <issue-number> --body "🧪 **QA Failed** (Run #<N>)
 

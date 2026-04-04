@@ -11,12 +11,35 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
+- [ ] #52 - Chat Secretary: export_calendar intent handler [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Secretary role: 저장, 캘린더 내보내기)
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: `export_calendar` intent extracted; Secretary agent emits thinking→working→done; calls calendar service; emits chat_chunk with confirmation
+  - gh: #33
 
-- [ ] #51 - Reporter agent: auto-close GitHub Issues on task completion [infra]
-  - ref: markdowns/feat-dynamic-repo.md (Phase 1 — Reporter issue close)
+- [ ] #53 - Chat conversation context: pass last 10 messages to Gemini [improvement]
+  - ref: markdowns/feat-chat-dashboard.md (ChatService architecture)
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: ChatSession stores message_history (max 10 turns); history passed to Gemini calls; follow-up messages infer prior context correctly
+  - gh: #34
+
+- [ ] #56 - Chat: list_plans intent handler — show saved plans in chat [feature]
+  - ref: CLAUDE.md (User Story #2: plan CRUD)
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: `list_plans` intent extracted; `_handle_list_plans()` queries DB; emits chat_chunk with formatted plan list; secretary agent status events emitted
+  - gh: #37
+
+- [ ] #54 - Coordinator agent: gh issue comment on task assignment [infra]
+  - ref: markdowns/feat-dynamic-repo.md (Coordinator Agent 변경)
+  - files: .claude/agents/coordinator.md
+  - done: coordinator.md includes `gh issue comment` step after handoff.json write; skips gracefully if no gh issue
+  - gh: #35
+
+- [ ] #55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures [infra]
+  - ref: markdowns/feat-dynamic-repo.md (Error / Incident section)
   - files: .claude/agents/reporter.md
-  - done: reporter.md includes step to `gh issue close <number>` and `Closes #<number>` in PR body
-  - gh: #27
+  - done: reporter.md checks qa-result.json failure count; creates `bug,blocked` Issue on ≥3 failures with failure details; skips if open bug already exists
+  - gh: #36
 
 ### Phase 9: User Experience & Polish (remaining)
 - [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
@@ -87,6 +110,7 @@ _(없음)_
 - [x] #48 - Secretary save_plan handler: persist plan to DB [feature] — 2026-04-04
 - [x] #49 - E2E Playwright tests for chat page [test] — 2026-04-04
 - [x] #50 - Budget Analyst: real per-category cost breakdown in chat [feature] — 2026-04-04
+- [x] #51 - Reporter agent: auto-close GitHub Issues on task completion [infra] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -98,5 +122,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 49 done, 2 ready
+- Total tasks: 50 done, 6 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
