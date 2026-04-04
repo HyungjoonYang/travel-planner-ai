@@ -250,3 +250,22 @@ class CommentOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- Chat ---
+
+class ChatMessageRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000)
+
+
+class ChatSessionOut(BaseModel):
+    session_id: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class AgentStatusEvent(BaseModel):
+    agent: str
+    status: str  # idle | thinking | working | done | error
+    message: str
+    result_count: Optional[int] = None
