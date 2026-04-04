@@ -29,6 +29,15 @@ def _collect(service, session_id, message):
     return asyncio.run(_run())
 
 
+def _collect_db(service, session_id, message, db):
+    async def _run():
+        events = []
+        async for e in service.process_message(session_id, message, db=db):
+            events.append(e)
+        return events
+    return asyncio.run(_run())
+
+
 def _make_svc(gemini=None, web=None, hotel=None, flight=None):
     return ChatService(
         api_key="",
@@ -336,3 +345,87 @@ class TestAgentStatusResultCount:
         )
         assert "result_count" in done["data"]
         assert done["data"]["result_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# plans_list event shape (Task #57 — handlePlansList in chat.js)
+# ---------------------------------------------------------------------------
+
+def _make_mock_plan(plan_id, destination, start, end, budget, status="draft"):
+    """Create a MagicMock that mimics a TravelPlan ORM row."""
+    p = MagicMock()
+    p.id = plan_id
+    p.destination = destination
+    p.start_date.isoformat.return_value = start
+    p.end_date.isoformat.return_value = end
+    p.budget = budget
+    p.status = status
+    return p
+
+
+class TestPlansListEventShape:
+    """plans_list SSE event must carry plan cards with dest/dates/budget for the frontend."""
+
+    def _get_plans_list_events(self, mock_plans):
+        mock_db = MagicMock()
+        mock_db.query.return_value.order_by.return_value.all.return_value = mock_plans
+        svc = _make_svc()
+        session = svc.create_session()
+        intent = Intent(action="list_plans", raw_message="내 여행 계획 목록")
+        with patch.object(svc, "extract_intent", return_value=intent):
+            events = _collect_db(svc, session.session_id, "내 여행 계획 목록", mock_db)
+        return [e for e in events if e["type"] == "plans_list"]
+
+    def test_plans_list_event_emitted_with_one_plan(self):
+        """Backend emits exactly one plans_list event when db has plans."""
+        plans = [_make_mock_plan(1, "도쿄", "2026-05-01", "2026-05-04", 2000000.0)]
+        events = self._get_plans_list_events(plans)
+        assert len(events) == 1
+
+    def test_plans_list_has_plans_array(self):
+        """plans_list data must contain a 'plans' list."""
+        plans = [_make_mock_plan(1, "도쿄", "2026-05-01", "2026-05-04", 2000000.0)]
+        events = self._get_plans_list_events(plans)
+        assert "plans" in events[0]["data"]
+        assert isinstance(events[0]["data"]["plans"], list)
+
+    def test_plans_list_plan_count_matches_db(self):
+        """Number of plan entries must match the number of DB rows returned."""
+        plans = [
+            _make_mock_plan(1, "도쿄", "2026-05-01", "2026-05-04", 2000000.0),
+            _make_mock_plan(2, "파리", "2026-06-10", "2026-06-17", 3000000.0),
+        ]
+        events = self._get_plans_list_events(plans)
+        assert len(events[0]["data"]["plans"]) == 2
+
+    def test_plans_list_plan_has_destination(self):
+        """Each plan entry must include the destination field."""
+        plans = [_make_mock_plan(1, "바르셀로나", "2026-07-01", "2026-07-07", 1500000.0)]
+        events = self._get_plans_list_events(plans)
+        plan = events[0]["data"]["plans"][0]
+        assert "destination" in plan
+        assert plan["destination"] == "바르셀로나"
+
+    def test_plans_list_plan_has_dates(self):
+        """Each plan entry must include start_date and end_date."""
+        plans = [_make_mock_plan(1, "도쿄", "2026-05-01", "2026-05-04", 2000000.0)]
+        events = self._get_plans_list_events(plans)
+        plan = events[0]["data"]["plans"][0]
+        assert "start_date" in plan
+        assert "end_date" in plan
+        assert plan["start_date"] == "2026-05-01"
+        assert plan["end_date"] == "2026-05-04"
+
+    def test_plans_list_plan_has_budget(self):
+        """Each plan entry must include the budget field."""
+        plans = [_make_mock_plan(1, "도쿄", "2026-05-01", "2026-05-04", 2000000.0)]
+        events = self._get_plans_list_events(plans)
+        plan = events[0]["data"]["plans"][0]
+        assert "budget" in plan
+        assert plan["budget"] == 2000000.0
+
+    def test_plans_list_empty_when_no_plans(self):
+        """plans_list event is still emitted with an empty list when db has no plans."""
+        events = self._get_plans_list_events([])
+        assert len(events) == 1
+        assert events[0]["data"]["plans"] == []

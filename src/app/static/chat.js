@@ -227,6 +227,9 @@ function handleSseEvent(event) {
     case 'search_results':
       if (event.data) handleSearchResults(event.data);
       break;
+    case 'plans_list':
+      if (event.data) handlePlansList(event.data);
+      break;
     case 'plan_saved':
       appendAiBubble('✅ ' + ((event.data && event.data.message) || '저장 완료'));
       break;
@@ -516,4 +519,74 @@ function handleSearchResults(data) {
                       data.type === 'flights' ? '✈️ Flights' : '📍 Places';
     planPanel.innerHTML = `<div class="section-title">${typeLabel}</div>${itemsHtml}`;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Saved plans list — renders plan cards; click to load as active plan
+// ---------------------------------------------------------------------------
+
+function handlePlansList(data) {
+  const panel = document.getElementById('plan-panel');
+  if (!panel) return;
+  const plans = data.plans || [];
+  if (!plans.length) {
+    panel.innerHTML = '<div class="section-title">📋 Saved Plans</div><div class="meta">저장된 여행 계획이 없습니다.</div>';
+    return;
+  }
+  let html = '<div class="section-title">📋 Saved Plans</div>';
+  for (const plan of plans) {
+    const dest   = escHtml(plan.destination || '');
+    const dates  = (plan.start_date && plan.end_date)
+      ? `${escHtml(plan.start_date)} → ${escHtml(plan.end_date)}` : '';
+    const budget = plan.budget ? `$${Math.round(plan.budget).toLocaleString()}` : '';
+    const status = plan.status ? escHtml(plan.status) : '';
+    html += `<div class="card plan-saved-card" data-plan-id="${escHtml(String(plan.id ?? ''))}"
+        style="cursor:pointer;margin-bottom:.5rem" role="button" tabindex="0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${dest}</strong>
+        ${budget ? `<span class="price-tag">${budget}</span>` : ''}
+      </div>
+      ${dates  ? `<div class="meta">${dates}</div>`  : ''}
+      ${status ? `<div class="meta">${status}</div>` : ''}
+    </div>`;
+  }
+  panel.innerHTML = html;
+
+  // Attach click + keyboard handlers
+  panel.querySelectorAll('.plan-saved-card').forEach(card => {
+    const planId = card.dataset.planId;
+    const plan = plans.find(p => String(p.id) === planId);
+    if (!plan) return;
+    const activate = () => _activateSavedPlan(plan, card);
+    card.addEventListener('click', activate);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') activate(); });
+  });
+}
+
+function _activateSavedPlan(plan, cardEl) {
+  // Highlight the selected card
+  document.querySelectorAll('.plan-saved-card').forEach(c => c.classList.remove('plan-card-active'));
+  if (cardEl) cardEl.classList.add('plan-card-active');
+
+  _currentPlanBudget = plan.budget || 0;
+
+  // Render plan overview in the plan-panel
+  const panel = document.getElementById('plan-panel');
+  if (!panel) return;
+  const dest  = plan.destination ? escHtml(plan.destination) : '';
+  const dates = (plan.start_date && plan.end_date)
+    ? `${escHtml(plan.start_date)} → ${escHtml(plan.end_date)}` : '';
+  let html = `<div class="section-title">✈️ Travel Plan</div>`;
+  if (dest || dates) {
+    html += `<div class="plan-overview">
+      ${dest  ? `<strong class="plan-dest">${dest}</strong>` : ''}
+      ${dates ? `<span class="meta">${dates}</span>` : ''}
+    </div>`;
+  }
+  if (_currentPlanBudget > 0) {
+    html += `<div class="plan-budget">${_budgetBarHtml(0, _currentPlanBudget)}</div>`;
+  }
+  const planLabel = plan.id != null ? ` #${plan.id}` : '';
+  html += `<div class="meta" style="margin-top:.5rem">저장된 계획${escHtml(String(planLabel))} — 일정을 생성하려면 "일정 만들어줘"라고 입력하세요.</div>`;
+  panel.innerHTML = html;
 }

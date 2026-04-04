@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T48:00Z (Evolve Run #79)
-Run count: 85
+Last run: 2026-04-04T50:00Z (Evolve Run #80)
+Run count: 86
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 55
+Tasks completed: 56
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #57 Chat frontend: plans_list SSE event handler
+Next planned: #58 Chat frontend: calendar_exported SSE event handler
 
 ## LTES Snapshot
 
-- Latency: ~18300ms (pytest 1225 tests in 18.30s)
-- Traffic: 32 commits/24h
-- Errors: 0 test failures (1225/1225 pass), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Latency: ~22310ms (pytest 1232 tests in 22.31s)
+- Traffic: 33 commits/24h
+- Errors: 0 test failures (1232/1232 pass), error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #57 Chat frontend: plans_list SSE event handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #80 — 2026-04-04T50:00Z
+- **Task**: #57 - Chat frontend: plans_list SSE event handler — render saved plan cards in dashboard
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1232/1232 passed (+7 new: TestPlansListEventShape, tests/test_chat_dashboard.py)
+- **Files changed**: src/app/static/chat.js (+97/-0), tests/test_chat_dashboard.py (+_collect_db helper + 7 new tests)
+- **Builder note**: Added handlePlansList() to chat.js — dispatched from plans_list SSE event (chat.js:230-231). Renders plan cards in plan-panel with destination/dates/budget (chat.js:538-551). Clicking a card calls _activateSavedPlan() which highlights card and loads plan overview as active plan (chat.js:560-591). 7 new tests cover event dispatch, plans array structure, field presence, and empty-list edge case.
+- **LTES**: L=22310ms T=1 commit E=0.0% S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #79 — 2026-04-04T48:00Z
 - **Task**: #55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures
