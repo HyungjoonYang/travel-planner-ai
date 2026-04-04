@@ -84,3 +84,68 @@ class TestChatPageStructure:
 
         # Agent data-agent attributes present (for SSE handler)
         assert 'data-agent=' in content or "data-agent" in content
+
+
+class TestChatJs:
+    """Task #43: chat.js SSE client + message UI + agent_status handler."""
+
+    def test_chat_js_served(self, client: TestClient):
+        resp = client.get("/static/chat.js")
+        assert resp.status_code == 200
+
+    def test_chat_js_content_type(self, client: TestClient):
+        resp = client.get("/static/chat.js")
+        ct = resp.headers.get("content-type", "")
+        assert "javascript" in ct or "text/" in ct
+
+    def test_chat_js_has_init_chat_session(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "initChatSession" in content
+
+    def test_chat_js_has_send_chat_message(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "sendChatMessage" in content
+
+    def test_chat_js_has_sse_stream_reader(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "streamSseResponse" in content
+
+    def test_chat_js_has_handle_sse_event(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "handleSseEvent" in content
+
+    def test_chat_js_handles_agent_status_event(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "agent_status" in content
+
+    def test_chat_js_handles_chat_chunk_event(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "chat_chunk" in content
+
+    def test_chat_js_handles_chat_done_event(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "chat_done" in content
+
+    def test_chat_js_handles_plan_update_event(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "plan_update" in content
+
+    def test_chat_js_has_reset_agent_cards(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "resetAgentCards" in content
+
+    def test_chat_js_has_append_ai_bubble(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "appendAiBubble" in content
+
+    def test_chat_js_posts_to_chat_sessions(self, client: TestClient):
+        content = client.get("/static/chat.js").text
+        assert "/chat/sessions" in content
+
+    def test_index_html_loads_chat_js(self, client: TestClient):
+        content = client.get("/").text
+        assert "chat.js" in content
+
+    def test_index_html_calls_init_chat_session(self, client: TestClient):
+        content = client.get("/").text
+        assert "initChatSession" in content

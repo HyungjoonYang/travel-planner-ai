@@ -725,6 +725,7 @@ function renderChat(app) {
       </div>
     </div>
   </div>`;
+  if (typeof initChatSession === 'function') initChatSession();
 }
 
 function handleAgentStatus(data) {
@@ -752,5 +753,6 @@ function sendChatMessage() {
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 navigate('plans');
 </script>
+<script src="/static/chat.js"></script>
 </body>
 </html>

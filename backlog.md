@@ -15,13 +15,6 @@ _(없음)_
 > 스펙 문서: `markdowns/feat-chat-dashboard.md`
 > 이 목록은 시드 태스크다. evolve가 Architect 단계에서 스펙을 분석하고 추가 태스크를 자율적으로 생성한다.
 
-- [ ] #43 - chat.js: SSE client + chat message UI + agent_status event handler [feature]
-  - ref: markdowns/feat-chat-dashboard.md (Frontend: Agent Panel 렌더링)
-  - depends: #42
-  - files: src/app/static/chat.js (new), src/app/static/index.html (+script tag), src/app/main.py (StaticFiles or route for chat.js)
-  - done: POST /chat/sessions creates session; SSE stream connects to /chat/sessions/{id}/messages; user messages display as bubbles; chat_chunk events stream AI text; agent cards animate on agent_status events (class swap + message text update); tests/test_frontend.py extended
-  - gh: #14
-
 - [ ] #44 - chat.js: Plan dashboard rendering (plan_update / day_update / search_results SSE events) [feature]
   - ref: markdowns/feat-chat-dashboard.md (UX 시나리오 2단계)
   - depends: #43
@@ -104,6 +97,7 @@ _(없음)_
 - [x] #40 - Chat SSE 스트리밍 엔드포인트 (POST /chat/sessions, SSE messages, GET/DELETE) [feature] — 2026-04-04
 - [x] #41 - ChatService intent 핸들러 연결 (create_plan → GeminiService, search → SearchService) [feature] — 2026-04-04
 - [x] #42 - Chat page HTML/CSS: nav tab + 35/65 split-pane + 7 agent cards (idle state) in index.html [feature] — 2026-04-04
+- [x] #43 - chat.js: SSE client + chat message UI + agent_status event handler [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -115,5 +109,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 41 done, 5 ready
+- Total tasks: 42 done, 4 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
