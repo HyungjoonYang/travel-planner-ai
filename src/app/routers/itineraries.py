@@ -8,6 +8,7 @@ from app.schemas import (
     DayItineraryCreate,
     DayItineraryOut,
     DayItineraryUpdate,
+    DayStats,
     PlaceCreate,
     PlaceOut,
     PlaceReorderRequest,
@@ -97,6 +98,24 @@ def delete_day(plan_id: int, day_id: int, db: Session = Depends(get_db)):
     day = _get_day_or_404(plan_id, day_id, db)
     db.delete(day)
     db.commit()
+
+
+@router.get("/{day_id}/stats", response_model=DayStats)
+def get_day_stats(plan_id: int, day_id: int, db: Session = Depends(get_db)):
+    """Return place count, total estimated cost, and category breakdown for a day."""
+    day = _get_day_or_404(plan_id, day_id, db)
+    by_category: dict[str, float] = {}
+    total = 0.0
+    for place in day.places:
+        cat = place.category or ""
+        by_category[cat] = by_category.get(cat, 0.0) + place.estimated_cost
+        total += place.estimated_cost
+    return DayStats(
+        day_id=day_id,
+        place_count=len(day.places),
+        total_estimated_cost=total,
+        by_category=by_category,
+    )
 
 
 # ---------------------------------------------------------------------------

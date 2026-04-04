@@ -269,3 +269,12 @@ class AgentStatusEvent(BaseModel):
     status: str  # idle | thinking | working | done | error
     message: str
     result_count: Optional[int] = None
+
+
+# --- DayStats ---
+
+class DayStats(BaseModel):
+    day_id: int
+    place_count: int
+    total_estimated_cost: float
+    by_category: dict[str, float]

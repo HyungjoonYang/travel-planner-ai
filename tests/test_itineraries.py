@@ -478,6 +478,80 @@ class TestDeletePlace:
 # Integration — plan-level view reflects manual changes
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# DayStats — GET /plans/{id}/itineraries/{day_id}/stats
+# ---------------------------------------------------------------------------
+
+class TestDayStats:
+    def test_returns_200(self, client):
+        plan_id = _create_plan(client)
+        day = _add_day(client, plan_id)
+        r = client.get(f"/plans/{plan_id}/itineraries/{day['id']}/stats")
+        assert r.status_code == 200
+
+    def test_empty_day_zero_cost(self, client):
+        plan_id = _create_plan(client)
+        day = _add_day(client, plan_id)
+        r = client.get(f"/plans/{plan_id}/itineraries/{day['id']}/stats")
+        data = r.json()
+        assert data["place_count"] == 0
+        assert data["total_estimated_cost"] == 0.0
+        assert data["by_category"] == {}
+
+    def test_place_count(self, client):
+        plan_id = _create_plan(client)
+        day = _add_day(client, plan_id)
+        _add_place(client, plan_id, day["id"])
+        _add_place(client, plan_id, day["id"], {**PLACE_PAYLOAD, "name": "Louvre"})
+        r = client.get(f"/plans/{plan_id}/itineraries/{day['id']}/stats")
+        assert r.json()["place_count"] == 2
+
+    def test_total_estimated_cost(self, client):
+        plan_id = _create_plan(client)
+        day = _add_day(client, plan_id)
+        _add_place(client, plan_id, day["id"], {**PLACE_PAYLOAD, "estimated_cost": 30.0})
+        _add_place(client, plan_id, day["id"], {**PLACE_PAYLOAD, "name": "Louvre", "estimated_cost": 20.0})
+        r = client.get(f"/plans/{plan_id}/itineraries/{day['id']}/stats")
+        assert r.json()["total_estimated_cost"] == 50.0
+
+    def test_category_breakdown(self, client):
+        plan_id = _create_plan(client)
+        day = _add_day(client, plan_id)
+        _add_place(client, plan_id, day["id"], {**PLACE_PAYLOAD, "category": "sightseeing", "estimated_cost": 25.0})
+        _add_place(client, plan_id, day["id"], {**PLACE_PAYLOAD, "name": "Café de Flore", "category": "food", "estimated_cost": 40.0})
+        _add_place(client, plan_id, day["id"], {**PLACE_PAYLOAD, "name": "Louvre", "category": "sightseeing", "estimated_cost": 15.0})
+        r = client.get(f"/plans/{plan_id}/itineraries/{day['id']}/stats")
+        data = r.json()
+        assert data["by_category"]["sightseeing"] == 40.0
+        assert data["by_category"]["food"] == 40.0
+
+    def test_response_has_day_id(self, client):
+        plan_id = _create_plan(client)
+        day = _add_day(client, plan_id)
+        r = client.get(f"/plans/{plan_id}/itineraries/{day['id']}/stats")
+        assert r.json()["day_id"] == day["id"]
+
+    def test_404_missing_day(self, client):
+        plan_id = _create_plan(client)
+        r = client.get(f"/plans/{plan_id}/itineraries/9999/stats")
+        assert r.status_code == 404
+
+    def test_404_wrong_plan(self, client):
+        plan_id = _create_plan(client)
+        day = _add_day(client, plan_id)
+        other = _create_plan(client)
+        r = client.get(f"/plans/{other}/itineraries/{day['id']}/stats")
+        assert r.status_code == 404
+
+    def test_404_missing_plan(self, client):
+        r = client.get("/plans/9999/itineraries/1/stats")
+        assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Integration — plan-level view reflects manual changes
+# ---------------------------------------------------------------------------
+
 class TestPlanReflectsManualEdits:
     def test_plan_detail_shows_new_day(self, client):
         plan_id = _create_plan(client)
