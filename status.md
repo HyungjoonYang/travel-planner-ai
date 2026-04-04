@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T10:00Z (Evolve #62 — Task #35)
-Run count: 62
+Last run: 2026-04-04T14:00Z (Evolve #63 — Task #36)
+Run count: 63
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 38
+Tasks completed: 39
 Current focus: Phase 9 remaining tasks + Phase 10
-Next planned: #36 Favorite places library
+Next planned: #37 Plan activity log
 
 ## LTES Snapshot
 
-- Latency: ~16840ms (total run; pytest 1063 tests in 16.84s)
+- Latency: ~17830ms (total run; pytest 1090 tests in 17.83s)
 - Traffic: 1 commit this run
-- Errors: 0 test failures (1063/1063 pass), error_rate=0.0%
-- Saturation: 3 tasks ready
+- Errors: 0 test failures (1090/1090 pass), error_rate=0.0%
+- Saturation: 2 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #36 Favorite places library
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #63 — 2026-04-04T14:00Z
+- **Task**: #36 - Favorite places library
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1090/1090 passed (+27 new, tests/test_favorite_places.py)
+- **Files changed**: src/app/models.py, src/app/schemas.py, src/app/main.py (+modified); src/app/routers/favorite_places.py, tests/test_favorite_places.py (+created, 170 lines)
+- **Builder note**: Added FavoritePlace model (global, not per-plan). 5 endpoints: POST /favorite-places, POST /favorite-places/copy-from-itinerary, GET /favorite-places, GET /favorite-places/{id}, DELETE /favorite-places/{id}. copy-from-itinerary copies name/category/address/estimated_cost/ai_reason from Place with optional notes override.
+- **LTES**: L=17830ms T=1 commit E=0.0% S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #62 — 2026-04-04T10:00Z
 - **Task**: #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats`)

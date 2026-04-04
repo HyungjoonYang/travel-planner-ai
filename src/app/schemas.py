@@ -278,3 +278,33 @@ class DayStats(BaseModel):
     place_count: int
     total_estimated_cost: float
     by_category: dict[str, float]
+
+
+# --- FavoritePlace ---
+
+class FavoritePlaceCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    category: str = ""
+    address: str = ""
+    estimated_cost: float = Field(default=0.0, ge=0)
+    ai_reason: str = ""
+    notes: str = ""
+
+
+class FavoritePlaceCopyRequest(BaseModel):
+    """Copy a place from an itinerary into favorites, with optional overrides."""
+    place_id: int
+    notes: str = ""
+
+
+class FavoritePlaceOut(BaseModel):
+    id: int
+    name: str
+    category: str
+    address: str
+    estimated_cost: float
+    ai_reason: str
+    notes: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

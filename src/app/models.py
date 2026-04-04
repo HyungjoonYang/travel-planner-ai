@@ -109,6 +109,19 @@ class PlanComment(Base):
     travel_plan: Mapped["TravelPlan"] = relationship("TravelPlan", back_populates="comments")
 
 
+class FavoritePlace(Base):
+    __tablename__ = "favorite_places"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str] = mapped_column(String(100), default="")
+    address: Mapped[str] = mapped_column(Text, default="")
+    estimated_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    ai_reason: Mapped[str] = mapped_column(Text, default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class Expense(Base):
     __tablename__ = "expenses"
 
