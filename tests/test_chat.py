@@ -2022,3 +2022,199 @@ class TestDeletePlan:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #60: view_plan intent handler — load saved plan into dashboard
+# ---------------------------------------------------------------------------
+
+class TestViewPlan:
+    """_handle_view_plan must fetch a plan by ID or destination and emit plan_update."""
+
+    def test_view_plan_by_id_emits_plan_update(self):
+        """view_plan with a valid plan_id must emit a plan_update event with the plan data."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="파리",
+                start_date=date(2026, 7, 1),
+                end_date=date(2026, 7, 5),
+                budget=3000000.0,
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+            plan_id = plan.id
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="view_plan", plan_id=plan_id, raw_message="파리 계획 보여줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "파리 계획 보여줘", db)
+
+            plan_update_events = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_update_events) == 1
+            data = plan_update_events[0]["data"]
+            assert data["id"] == plan_id
+            assert data["destination"] == "파리"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_view_plan_by_destination_substring_emits_plan_update(self):
+        """view_plan without a plan_id must fall back to destination substring search."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="바르셀로나",
+                start_date=date(2026, 8, 10),
+                end_date=date(2026, 8, 15),
+                budget=4000000.0,
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="view_plan", destination="바르셀로나", raw_message="바르셀로나 계획 보여줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "바르셀로나 계획 보여줘", db)
+
+            plan_update_events = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_update_events) == 1
+            assert plan_update_events[0]["data"]["destination"] == "바르셀로나"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_view_plan_no_db_emits_error(self):
+        """view_plan without a DB session must emit an error agent_status."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="view_plan", plan_id=1, raw_message="계획 보여줘"
+        )):
+            events = _collect_events(svc, session.session_id, "계획 보여줘")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_view_plan_not_found_emits_error(self):
+        """view_plan for a non-existent plan must emit an error agent_status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="view_plan", plan_id=9999, raw_message="계획 보여줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 보여줘", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_view_plan_sets_session_state(self):
+        """view_plan must update session.last_plan and session.last_saved_plan_id."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="로마",
+                start_date=date(2026, 9, 1),
+                end_date=date(2026, 9, 6),
+                budget=2500000.0,
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+            plan_id = plan.id
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="view_plan", plan_id=plan_id, raw_message="로마 계획 보여줘"
+            )):
+                _collect_events_with_db(svc, session.session_id, "로마 계획 보여줘", db)
+
+            assert session.last_saved_plan_id == plan_id
+            assert session.last_plan is not None
+            assert session.last_plan["destination"] == "로마"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_view_plan_secretary_done_status(self):
+        """view_plan must emit a secretary done agent_status event on success."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="암스테르담",
+                start_date=date(2026, 10, 1),
+                end_date=date(2026, 10, 4),
+                budget=1800000.0,
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+            plan_id = plan.id
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="view_plan", plan_id=plan_id, raw_message="계획 보여줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 보여줘", db)
+
+            secretary_done = next(
+                (
+                    e for e in events
+                    if e["type"] == "agent_status"
+                    and e["data"]["agent"] == "secretary"
+                    and e["data"]["status"] == "done"
+                ),
+                None,
+            )
+            assert secretary_done is not None
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)

@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T54:00Z (Evolve Run #82)
-Run count: 89
+Last run: 2026-04-04T56:00Z (Evolve Run #83)
+Run count: 90
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 58
+Tasks completed: 59
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #60 Chat: view_plan intent handler
+Next planned: #61 Reporter: weekly Discussion summary
 
 ## LTES Snapshot
 
-- Latency: ~18300ms (pytest 1241 tests)
-- Traffic: 36 commits/24h
-- Errors: 0 test failures (1241/1241 pass), error_rate=0.0%
-- Saturation: 3 tasks ready
+- Latency: ~19470ms (pytest 1247 tests)
+- Traffic: 37 commits/24h
+- Errors: 0 test failures (1247/1247 pass), error_rate=0.0%
+- Saturation: 2 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #60 Chat: view_plan intent handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #83 — 2026-04-04T56:00Z
+- **Task**: #60 - Chat: `view_plan` intent handler — load saved plan into dashboard by name/ID
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1247/1247 passed (+6 new: TestViewPlan class, tests/test_chat.py)
+- **Files changed**: src/app/chat.py (+160/-2), tests/test_chat.py (+6 tests)
+- **Builder note**: Implemented _handle_view_plan: fetches TravelPlan from DB by exact plan_id (db.get) or destination substring (ilike). Emits plan_update with plan metadata + empty days list, sets session.last_plan and session.last_saved_plan_id, emits secretary done. 6 tests: by_id, by_destination_substring, no_db, not_found, session_state, secretary_done.
+- **LTES**: L=19470ms T=1 commit E=0.0% S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor — 2026-04-04T55:00Z
 - **Task**: health check
