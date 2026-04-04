@@ -15,9 +15,41 @@ _(없음)_
 > 스펙 문서: `markdowns/feat-chat-dashboard.md`
 > 이 목록은 시드 태스크다. evolve가 Architect 단계에서 스펙을 분석하고 추가 태스크를 자율적으로 생성한다.
 
+- [ ] #42 - Chat page HTML/CSS: nav tab + 35/65 split-pane + 7 agent cards (idle state) in index.html [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/static/index.html
+  - done: "Chat" nav link added; page renders 35% chat column + 65% dashboard column; 7 agent cards visible in idle state with correct icons/names; agent-status CSS classes (idle/thinking/working/done/error) with pulse/spin animations defined; tests/test_frontend.py: test_chat_page_structure
+  - gh: #13
+
+- [ ] #43 - chat.js: SSE client + chat message UI + agent_status event handler [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Frontend: Agent Panel 렌더링)
+  - depends: #42
+  - files: src/app/static/chat.js (new), src/app/static/index.html (+script tag), src/app/main.py (StaticFiles or route for chat.js)
+  - done: POST /chat/sessions creates session; SSE stream connects to /chat/sessions/{id}/messages; user messages display as bubbles; chat_chunk events stream AI text; agent cards animate on agent_status events (class swap + message text update); tests/test_frontend.py extended
+  - gh: #14
+
+- [ ] #44 - chat.js: Plan dashboard rendering (plan_update / day_update / search_results SSE events) [feature]
+  - ref: markdowns/feat-chat-dashboard.md (UX 시나리오 2단계)
+  - depends: #43
+  - files: src/app/static/chat.js, src/app/static/index.html
+  - done: plan_update renders plan overview (dest, dates, budget bar); day_update renders/updates individual Day cards with place list and costs; search_results for places/hotels/flights append to agent detail panel (expandable); budget % bar updates in real time
+  - gh: #15
+
+- [ ] #45 - Agent panel compact/expanded toggle + mobile responsive layout [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Dashboard Layout 최종, Phase 3 Polish)
+  - depends: #43
+  - files: src/app/static/index.html (CSS), src/app/static/chat.js
+  - done: agent panel collapses to one compact row when all agents are idle; auto-expands when any agent becomes active; clicking a done-state agent card shows result detail (place/hotel/flight list); viewport ≤768px stacks chat above dashboard; tests/test_frontend.py updated
+  - gh: #16
+
+- [ ] #46 - SSE reconnect with exponential backoff + session state restore on reconnect [feature]
+  - ref: markdowns/feat-chat-dashboard.md (Risks — SSE 끊김)
+  - depends: #43
+  - files: src/app/static/chat.js, src/app/routers/chat.py (GET /chat/sessions/{id} returns last agent states)
+  - done: SSE disconnect triggers retry (1s → 2s → 4s backoff, max 3 retries); on reconnect GET session state restores last known agent statuses and current plan; tests/test_chat.py: test_get_session_includes_agent_states; tests/test_frontend.py: test_sse_reconnect_restores_state
+  - gh: #17
+
 ### Phase 9: User Experience & Polish (remaining)
-- [ ] #37 - Plan activity log (`PlanActivity` model; record create/update/delete events on plans with timestamp+action+detail; `GET /travel-plans/{id}/activity`) [feature]
-  - gh: #7
 - [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
   - gh: #8
 
@@ -81,11 +113,12 @@ _(없음)_
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
 - [x] #36 - Favorite places library (`POST /favorite-places`, `POST /favorite-places/copy-from-itinerary`, `GET /favorite-places`, `GET /favorite-places/{id}`, `DELETE /favorite-places/{id}`; global; copy-from-itinerary support) [feature] — 2026-04-04
+- [x] #37 - Plan activity log (`PlanActivity` model; record create/update/delete events on plans with timestamp+action+detail; `GET /travel-plans/{id}/activity`) [feature] — 2026-04-04
 
 ---
 
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 39 done, 2 ready
+- Total tasks: 40 done, 6 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
