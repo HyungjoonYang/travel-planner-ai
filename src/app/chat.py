@@ -257,8 +257,13 @@ Return a JSON object with these fields:
                 },
             }
 
-            # Emit full plan then per-day updates
-            yield {"type": "plan_update", "data": result.model_dump()}
+            # Emit full plan (with overview fields) then per-day updates
+            plan_data = result.model_dump()
+            plan_data["destination"] = dest
+            plan_data["start_date"] = start.isoformat()
+            plan_data["end_date"] = end.isoformat()
+            plan_data["budget"] = budget
+            yield {"type": "plan_update", "data": plan_data}
             for day in result.days:
                 yield {"type": "day_update", "data": day.model_dump()}
 
