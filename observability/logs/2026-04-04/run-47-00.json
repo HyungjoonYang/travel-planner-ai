@@ -1,0 +1,22 @@
+{
+  "trace": {
+    "run_id": "monitor-2026-04-04-4700",
+    "timestamp": "2026-04-04T47:00Z",
+    "phase": "Phase 10",
+    "health": "GREEN",
+    "task": "monitor"
+  },
+  "spans": [
+    {
+      "agent": "monitor",
+      "status": "completed",
+      "detail": "1215/1215 tests passed in 20.45s; error budget HEALTHY; backlog 2 tasks remaining"
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 20450},
+    "traffic": {"commits_24h": 32},
+    "errors": {"test_failures": 0, "error_rate": 0.0},
+    "saturation": {"backlog_remaining": 2}
+  }
+}
