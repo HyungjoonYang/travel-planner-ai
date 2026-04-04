@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #54 - Coordinator agent: gh issue comment on task assignment [infra]
-  - ref: markdowns/feat-dynamic-repo.md (Coordinator Agent 변경)
-  - files: .claude/agents/coordinator.md
-  - done: coordinator.md includes `gh issue comment` step after handoff.json write; skips gracefully if no gh issue
-  - gh: #35
-
 - [ ] #55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures [infra]
   - ref: markdowns/feat-dynamic-repo.md (Error / Incident section)
   - files: .claude/agents/reporter.md
@@ -97,6 +91,7 @@ _(없음)_
 - [x] #52 - Chat Secretary: export_calendar intent handler [feature] — 2026-04-04
 - [x] #53 - Chat conversation context: pass last 10 messages to Gemini [improvement] — 2026-04-04
 - [x] #56 - Chat: list_plans intent handler — show saved plans in chat [feature] — 2026-04-04
+- [x] #54 - Coordinator agent: gh issue comment on task assignment [infra] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -108,5 +103,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 53 done, 3 ready
+- Total tasks: 54 done, 2 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
