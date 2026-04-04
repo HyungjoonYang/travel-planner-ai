@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 79,
-    "successful_runs": 74,
+    "total_runs": 80,
+    "successful_runs": 75,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -98,6 +98,7 @@
     {"run_id": "2026-04-04-3600", "task": "#50 - Budget Analyst: real per-category cost breakdown in chat", "result": "success", "tests_passed": 1181, "tests_total": 1181},
     {"run_id": "2026-04-04-3800", "task": "#51 - Reporter agent: auto-close GitHub Issues on task completion", "result": "success", "tests_passed": 1181, "tests_total": 1181},
     {"run_id": "monitor-2026-04-04-3900", "task": "monitor", "result": "success", "tests_passed": 1181, "tests_total": 1181},
-    {"run_id": "2026-04-04-4000", "task": "#52 - Chat Secretary: export_calendar intent handler", "result": "success", "tests_passed": 1192, "tests_total": 1192}
+    {"run_id": "2026-04-04-4000", "task": "#52 - Chat Secretary: export_calendar intent handler", "result": "success", "tests_passed": 1192, "tests_total": 1192},
+    {"run_id": "2026-04-04-4200", "task": "#53 - Chat conversation context: pass last 10 messages to Gemini", "result": "success", "tests_passed": 1205, "tests_total": 1205}
   ]
 }

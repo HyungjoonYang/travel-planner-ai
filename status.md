@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T40:00Z (Evolve Run #75 — #52 Chat Secretary: export_calendar intent handler)
-Run count: 79
+Last run: 2026-04-04T42:00Z (Evolve Run #76 — #53 Chat conversation context: pass last 10 messages to Gemini)
+Run count: 80
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 51
+Tasks completed: 52
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #53 Chat conversation context: pass last 10 messages to Gemini
+Next planned: #56 Chat: list_plans intent handler
 
 ## LTES Snapshot
 
-- Latency: ~19950ms (pytest 1192 tests in 19.95s)
-- Traffic: 28 commits/24h
-- Errors: 0 test failures (1192/1192 pass), error_rate=0.0%
-- Saturation: 5 tasks ready
+- Latency: ~19980ms (pytest 1205 tests in 19.98s)
+- Traffic: 29 commits/24h
+- Errors: 0 test failures (1205/1205 pass), error_rate=0.0%
+- Saturation: 4 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #53 Chat conversation context: pass last 10 messages to Gemini
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #76 — 2026-04-04T42:00Z
+- **Task**: #53 - Chat conversation context: pass last 10 messages to Gemini
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1205/1205 passed (+13 new: TestConversationContext class, tests/test_chat.py:1441+)
+- **Files changed**: src/app/chat.py (+130/-18), src/app/schemas.py, src/app/routers/chat.py, tests/test_chat.py (+13 tests)
+- **Builder note**: Added message_history (list[dict]) to ChatSession for per-turn conversation context. _MAX_HISTORY_TURNS=10, cap enforced at 20 entries. extract_intent accepts optional history param and injects 'Previous conversation' section into Gemini prompt so follow-up messages resolve destination/dates/day_number from prior context. process_message passes snapshot of message_history; user/assistant turns appended after each exchange. ChatSessionOut schema and GET/POST session endpoints expose message_history.
+- **LTES**: L=19980ms T=1 commit E=0.0% S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #75 — 2026-04-04T40:00Z
 - **Task**: #52 - Chat Secretary: export_calendar intent handler

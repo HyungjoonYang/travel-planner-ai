@@ -264,6 +264,7 @@ class ChatSessionOut(BaseModel):
     expires_at: datetime
     agent_states: dict = {}
     last_plan: Optional[dict] = None
+    message_history: list[dict] = []
 
 
 class AgentStatusEvent(BaseModel):
