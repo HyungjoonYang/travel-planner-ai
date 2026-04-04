@@ -1,8 +1,10 @@
-"""Tests for Task #39: ChatService 기본 구조.
+"""Tests for ChatService: 기본 구조 (Task #39) + 서비스 연결 (Task #41).
 
 Done criteria:
 - ChatService가 메시지를 받아 intent JSON을 반환
 - 세션 생성/조회/만료 동작
+- intent에 따라 GeminiService / Search 서비스 호출
+- plan_update, day_update, search_results 이벤트 emit
 - 테스트 통과
 """
 
@@ -11,7 +13,11 @@ import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+from app.ai import AIItineraryResult, AIDayItinerary, AIPlace
 from app.chat import ChatService, Intent, SESSION_TTL_SECONDS
+from app.flight_search import FlightSearchResult, FlightResult
+from app.hotel_search import HotelSearchResult, HotelResult
+from app.web_search import DestinationSearchResult, PlaceSearchResult
 
 
 # ---------------------------------------------------------------------------
@@ -392,3 +398,372 @@ class TestChatSessionEndpoints:
 
         agent_events = [e for e in events if e["type"] == "agent_status"]
         assert agent_events[0]["data"]["agent"] == "coordinator"
+
+
+# ---------------------------------------------------------------------------
+# Task #41: Service handler integration
+# ---------------------------------------------------------------------------
+
+def _make_fake_itinerary() -> AIItineraryResult:
+    return AIItineraryResult(
+        days=[
+            AIDayItinerary(
+                date="2026-05-01",
+                notes="Day 1",
+                places=[
+                    AIPlace(name="Senso-ji", category="sightseeing", estimated_cost=0.0),
+                    AIPlace(name="Ramen Ichiran", category="food", estimated_cost=15.0),
+                ],
+            ),
+            AIDayItinerary(
+                date="2026-05-02",
+                notes="Day 2",
+                places=[
+                    AIPlace(name="Shibuya Crossing", category="sightseeing", estimated_cost=0.0),
+                ],
+            ),
+        ],
+        total_estimated_cost=500.0,
+    )
+
+
+def _make_fake_hotel_result() -> HotelSearchResult:
+    return HotelSearchResult(
+        destination="도쿄",
+        hotels=[
+            HotelResult(name="Hotel A", price_range="$100/night", rating="4.5"),
+            HotelResult(name="Hotel B", price_range="$80/night", rating="4.0"),
+        ],
+    )
+
+
+def _make_fake_flight_result() -> FlightSearchResult:
+    return FlightSearchResult(
+        departure_city="Seoul",
+        arrival_city="도쿄",
+        flights=[
+            FlightResult(airline="Korean Air", price="$300"),
+        ],
+    )
+
+
+def _make_fake_places_result() -> DestinationSearchResult:
+    return DestinationSearchResult(
+        destination="도쿄",
+        query="도쿄 food",
+        places=[
+            PlaceSearchResult(name="Tsukiji Market", category="food"),
+            PlaceSearchResult(name="Harajuku", category="sightseeing"),
+            PlaceSearchResult(name="Akihabara", category="shopping"),
+        ],
+    )
+
+
+class TestServiceHandlerIntegration:
+    """Verify that intent handlers call real services and emit correct events."""
+
+    def _make_service_with_mocks(self, gemini=None, web=None, hotel=None, flight=None):
+        return ChatService(
+            api_key="",
+            ttl_seconds=SESSION_TTL_SECONDS,
+            gemini_service=gemini or MagicMock(),
+            web_search_service=web or MagicMock(),
+            hotel_search_service=hotel or MagicMock(),
+            flight_search_service=flight or MagicMock(),
+        )
+
+    # --- create_plan → GeminiService ---
+
+    def test_create_plan_calls_gemini_generate_itinerary(self):
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄",
+            start_date="2026-05-01", end_date="2026-05-02", raw_message="도쿄"
+        )):
+            _collect_events(svc, session.session_id, "도쿄")
+
+        mock_gemini.generate_itinerary.assert_called_once()
+        call_kwargs = mock_gemini.generate_itinerary.call_args
+        assert call_kwargs[0][0] == "도쿄"  # destination
+
+    def test_create_plan_emits_plan_update_event(self):
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        plan_events = [e for e in events if e["type"] == "plan_update"]
+        assert len(plan_events) == 1
+        assert "days" in plan_events[0]["data"]
+
+    def test_create_plan_emits_day_update_per_day(self):
+        mock_gemini = MagicMock()
+        itinerary = _make_fake_itinerary()
+        mock_gemini.generate_itinerary.return_value = itinerary
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        day_events = [e for e in events if e["type"] == "day_update"]
+        assert len(day_events) == len(itinerary.days)
+
+    def test_create_plan_place_scout_done_has_result_count(self):
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        scout_done = next(
+            (e for e in events
+             if e["type"] == "agent_status"
+             and e["data"]["agent"] == "place_scout"
+             and e["data"]["status"] == "done"),
+            None,
+        )
+        assert scout_done is not None
+        assert "result_count" in scout_done["data"]
+        assert scout_done["data"]["result_count"] == 3  # 2 + 1 places
+
+    def test_create_plan_gemini_error_emits_planner_error_status(self):
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.side_effect = RuntimeError("Gemini unavailable")
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+        assert error_events[0]["data"]["agent"] == "planner"
+
+    def test_create_plan_with_default_dates_when_missing(self):
+        """When start/end dates are absent, handler should still call Gemini."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄",
+            start_date=None, end_date=None, raw_message="도쿄"
+        )):
+            _collect_events(svc, session.session_id, "도쿄")
+
+        mock_gemini.generate_itinerary.assert_called_once()
+
+    # --- search_places → WebSearchService ---
+
+    def test_search_places_calls_web_search_service(self):
+        mock_web = MagicMock()
+        mock_web.search_places.return_value = _make_fake_places_result()
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_places", destination="도쿄", interests="food", raw_message="도쿄 맛집"
+        )):
+            _collect_events(svc, session.session_id, "도쿄 맛집")
+
+        mock_web.search_places.assert_called_once()
+        args = mock_web.search_places.call_args[0]
+        assert args[0] == "도쿄"
+
+    def test_search_places_emits_search_results_event(self):
+        mock_web = MagicMock()
+        mock_web.search_places.return_value = _make_fake_places_result()
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_places", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        results_events = [e for e in events if e["type"] == "search_results"]
+        assert len(results_events) == 1
+        assert results_events[0]["data"]["type"] == "places"
+
+    def test_search_places_place_scout_done_has_result_count(self):
+        mock_web = MagicMock()
+        mock_web.search_places.return_value = _make_fake_places_result()
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_places", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        scout_done = next(
+            (e for e in events
+             if e["type"] == "agent_status"
+             and e["data"]["agent"] == "place_scout"
+             and e["data"]["status"] == "done"),
+            None,
+        )
+        assert scout_done is not None
+        assert scout_done["data"]["result_count"] == 3
+
+    # --- search_hotels → HotelSearchService ---
+
+    def test_search_hotels_calls_hotel_search_service(self):
+        mock_hotel = MagicMock()
+        mock_hotel.search_hotels.return_value = _make_fake_hotel_result()
+        svc = self._make_service_with_mocks(hotel=mock_hotel)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_hotels", destination="도쿄", raw_message="도쿄 호텔"
+        )):
+            _collect_events(svc, session.session_id, "도쿄 호텔")
+
+        mock_hotel.search_hotels.assert_called_once()
+        args = mock_hotel.search_hotels.call_args[0]
+        assert args[0] == "도쿄"
+
+    def test_search_hotels_emits_search_results_event(self):
+        mock_hotel = MagicMock()
+        mock_hotel.search_hotels.return_value = _make_fake_hotel_result()
+        svc = self._make_service_with_mocks(hotel=mock_hotel)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_hotels", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        results_events = [e for e in events if e["type"] == "search_results"]
+        assert len(results_events) == 1
+        assert results_events[0]["data"]["type"] == "hotels"
+
+    def test_search_hotels_hotel_finder_done_has_result_count(self):
+        mock_hotel = MagicMock()
+        mock_hotel.search_hotels.return_value = _make_fake_hotel_result()
+        svc = self._make_service_with_mocks(hotel=mock_hotel)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_hotels", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        finder_done = next(
+            (e for e in events
+             if e["type"] == "agent_status"
+             and e["data"]["agent"] == "hotel_finder"
+             and e["data"]["status"] == "done"),
+            None,
+        )
+        assert finder_done is not None
+        assert finder_done["data"]["result_count"] == 2
+
+    def test_search_hotels_error_emits_hotel_finder_error_status(self):
+        mock_hotel = MagicMock()
+        mock_hotel.search_hotels.side_effect = RuntimeError("hotel search failed")
+        svc = self._make_service_with_mocks(hotel=mock_hotel)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_hotels", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert any(e["data"]["agent"] == "hotel_finder" for e in error_events)
+
+    # --- search_flights → FlightSearchService ---
+
+    def test_search_flights_calls_flight_search_service(self):
+        mock_flight = MagicMock()
+        mock_flight.search_flights.return_value = _make_fake_flight_result()
+        svc = self._make_service_with_mocks(flight=mock_flight)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_flights", destination="도쿄", raw_message="도쿄 항공"
+        )):
+            _collect_events(svc, session.session_id, "도쿄 항공")
+
+        mock_flight.search_flights.assert_called_once()
+        args = mock_flight.search_flights.call_args[0]
+        assert args[1] == "도쿄"  # arrival_city
+
+    def test_search_flights_emits_search_results_event(self):
+        mock_flight = MagicMock()
+        mock_flight.search_flights.return_value = _make_fake_flight_result()
+        svc = self._make_service_with_mocks(flight=mock_flight)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_flights", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        results_events = [e for e in events if e["type"] == "search_results"]
+        assert len(results_events) == 1
+        assert results_events[0]["data"]["type"] == "flights"
+
+    def test_search_flights_flight_finder_done_has_result_count(self):
+        mock_flight = MagicMock()
+        mock_flight.search_flights.return_value = _make_fake_flight_result()
+        svc = self._make_service_with_mocks(flight=mock_flight)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_flights", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        finder_done = next(
+            (e for e in events
+             if e["type"] == "agent_status"
+             and e["data"]["agent"] == "flight_finder"
+             and e["data"]["status"] == "done"),
+            None,
+        )
+        assert finder_done is not None
+        assert finder_done["data"]["result_count"] == 1
+
+    def test_search_flights_error_emits_flight_finder_error_status(self):
+        mock_flight = MagicMock()
+        mock_flight.search_flights.side_effect = RuntimeError("flight search failed")
+        svc = self._make_service_with_mocks(flight=mock_flight)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="search_flights", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert any(e["data"]["agent"] == "flight_finder" for e in error_events)

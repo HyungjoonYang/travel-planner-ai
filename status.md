@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T00:00Z (Evolve #60 — Task #40)
-Run count: 60
+Last run: 2026-04-04T06:20Z (Evolve #61 — Task #41)
+Run count: 61
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 36
+Tasks completed: 37
 Current focus: Chat + Multi-Agent Dashboard (Phase 10)
-Next planned: #41 - ChatService intent 핸들러 연결
+Next planned: #42 or remaining Phase 9 tasks
 
 ## LTES Snapshot
 
-- Latency: ~15690ms (total run; pytest 1037 tests in 15.69s)
+- Latency: ~16080ms (total run; pytest 1054 tests in 16.08s)
 - Traffic: 1 commit this run
-- Errors: 0 test failures (1037/1037 pass), error_rate=0.0%
-- Saturation: 5 tasks ready
+- Errors: 0 test failures (1054/1054 pass), error_rate=0.0%
+- Saturation: 4 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #41 - ChatService intent 핸들러 연결
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #61 — 2026-04-04T06:20Z
+- **Task**: #41 - ChatService intent 핸들러 연결 (create_plan → GeminiService, search → SearchService)
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1054/1054 passed (+17 new)
+- **Files changed**: src/app/chat.py (+197/-52), tests/test_chat.py
+- **Builder note**: Intent handlers now call real services via asyncio.to_thread. create_plan→GeminiService.generate_itinerary, search_places→WebSearchService, search_hotels→HotelSearchService, search_flights→FlightSearchService. Services injectable for testability.
+- **LTES**: L=16080ms T=1 commit E=0.0% S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #60 — 2026-04-04T00:00Z
 - **Task**: #40 - Chat SSE 스트리밍 엔드포인트
