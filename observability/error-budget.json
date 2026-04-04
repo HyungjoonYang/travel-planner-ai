@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 89,
-    "successful_runs": 84,
+    "total_runs": 90,
+    "successful_runs": 85,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -639,6 +639,13 @@
     {
       "run_id": "2026-04-04-5400",
       "task": "#59 - Chat: delete_plan intent handler — delete a saved plan via chat",
+      "result": "success",
+      "tests_passed": 1241,
+      "tests_total": 1241
+    },
+    {
+      "run_id": "monitor-2026-04-04-5500",
+      "task": "monitor",
       "result": "success",
       "tests_passed": 1241,
       "tests_total": 1241
