@@ -16,9 +16,6 @@ _(없음)_
 > 이 목록은 시드 태스크다. evolve가 Architect 단계에서 스펙을 분석하고 추가 태스크를 자율적으로 생성한다.
 
 ### Phase 9: User Experience & Polish (remaining)
-
-- [ ] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature]
-  - gh: #5
 - [ ] #36 - Favorite places library (`POST /favorite-places`, `GET /favorite-places`, `DELETE /favorite-places/{id}`; global across plans; copy a place from itinerary to favorites) [feature]
   - gh: #6
 - [ ] #37 - Plan activity log (`PlanActivity` model; record create/update/delete events on plans with timestamp+action+detail; `GET /travel-plans/{id}/activity`) [feature]
@@ -83,10 +80,13 @@ _(없음)_
 - [x] #40 - Chat SSE 스트리밍 엔드포인트 (POST /chat/sessions, SSE messages, GET/DELETE) [feature] — 2026-04-04
 - [x] #41 - ChatService intent 핸들러 연결 (create_plan → GeminiService, search → SearchService) [feature] — 2026-04-04
 
+### Phase 9: User Experience & Polish (remaining, completed)
+- [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
+
 ---
 
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 37 done, 4 ready
+- Total tasks: 38 done, 3 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
