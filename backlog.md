@@ -11,12 +11,35 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
+- [ ] #57 - Chat frontend: `plans_list` SSE event handler — render saved plan cards in dashboard [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/static/chat.js, tests/test_chat_dashboard.py
+  - done: `plans_list` event dispatched to `handlePlansList`; plan cards rendered in plan-panel with dest/dates/budget; clicking a card loads it as active plan; ≥2 tests added
+  - gh: #43
 
-- [ ] #55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures [infra]
-  - ref: markdowns/feat-dynamic-repo.md (Error / Incident section)
+- [ ] #58 - Chat frontend: `calendar_exported` SSE event handler — show export confirmation [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/static/chat.js, tests/test_chat_dashboard.py
+  - done: `calendar_exported` event shows success chat bubble with event count; ≥2 tests added
+  - gh: #44
+
+- [ ] #59 - Chat: `delete_plan` intent handler — delete a saved plan via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
+  - done: `delete_plan` intent routes to handler; deletes from DB; emits `plan_deleted`; frontend clears plan-panel; ≥3 tests added
+  - gh: #45
+
+- [ ] #60 - Chat: `view_plan` intent handler — load saved plan into dashboard by name/ID [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: `view_plan` intent fetches plan from DB by ID or dest substring; emits `plan_update`; secretary done status; ≥3 tests added
+  - gh: #46
+
+- [ ] #61 - Reporter: weekly Discussion summary — auto-post Phase progress as GitHub Discussion [infra]
+  - ref: markdowns/feat-dynamic-repo.md (§4 Discussions)
   - files: .claude/agents/reporter.md
-  - done: reporter.md checks qa-result.json failure count; creates `bug,blocked` Issue on ≥3 failures with failure details; skips if open bug already exists
-  - gh: #36
+  - done: reporter.md posts Discussion on Monday or Phase change; title `[Weekly] Phase N 진행 현황`; body has tasks done, test count, PR links; API errors skipped silently
+  - gh: #47
 
 ### Phase 9: User Experience & Polish (remaining)
 - [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
@@ -92,6 +115,7 @@ _(없음)_
 - [x] #53 - Chat conversation context: pass last 10 messages to Gemini [improvement] — 2026-04-04
 - [x] #56 - Chat: list_plans intent handler — show saved plans in chat [feature] — 2026-04-04
 - [x] #54 - Coordinator agent: gh issue comment on task assignment [infra] — 2026-04-04
+- [x] #55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures [infra] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -103,5 +127,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 54 done, 2 ready
+- Total tasks: 55 done, 6 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

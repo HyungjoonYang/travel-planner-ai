@@ -1,0 +1,49 @@
+{
+  "trace": {
+    "run_id": "2026-04-04-4800",
+    "timestamp": "2026-04-04T48:00Z",
+    "phase": "Phase 10",
+    "health": "GREEN",
+    "task": "#55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures",
+    "agents": {
+      "coordinator": "completed",
+      "architect": "completed",
+      "builder": "completed",
+      "qa": "pass",
+      "reporter": "running"
+    }
+  },
+  "spans": [
+    {
+      "agent": "coordinator",
+      "status": "completed",
+      "detail": "Selected task #55 (infra). needs_architect=true. Health GREEN, 1215/1215 tests."
+    },
+    {
+      "agent": "architect",
+      "status": "completed",
+      "detail": "Planned reporter.md section 7.6 with consecutive_qa_failures tracking logic."
+    },
+    {
+      "agent": "builder",
+      "status": "completed",
+      "detail": "Added section 7.6 to reporter.md, added consecutive_qa_failures field to error-budget.json, created tests/test_agent_specs.py (+10 tests). 1225/1225 pass."
+    },
+    {
+      "agent": "qa",
+      "status": "pass",
+      "detail": "1225/1225 passed in 18.30s. all_tests_pass ✓, new_tests_exist ✓, lint_clean ✓, done_criteria_met ✓, no_regressions ✓, no_secrets_leaked ✓"
+    },
+    {
+      "agent": "reporter",
+      "status": "running",
+      "detail": "Writing logs, updating status.md/backlog.md/error-budget.json, creating PR."
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 18300},
+    "traffic": {"commits": 1, "lines_added": 79, "lines_removed": 0, "files_changed": 3},
+    "errors": {"test_failures": 0, "fix_attempts": 0},
+    "saturation": {"backlog_remaining": 6}
+  }
+}
