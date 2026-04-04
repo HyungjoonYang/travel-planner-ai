@@ -15,13 +15,6 @@ _(없음)_
 > 스펙 문서: `markdowns/feat-chat-dashboard.md`
 > 이 목록은 시드 태스크다. evolve가 Architect 단계에서 스펙을 분석하고 추가 태스크를 자율적으로 생성한다.
 
-- [ ] #40 - Chat SSE 스트리밍 엔드포인트 [feature]
-  - ref: markdowns/feat-chat-dashboard.md "Phase 1"
-  - depends: #39
-  - files: src/app/routers/chat.py (new), src/app/main.py (modify)
-  - done: POST /chat/sessions, POST /chat/sessions/{id}/messages (SSE), GET/DELETE 세션. 테스트 통과.
-  - gh: #3
-
 - [ ] #41 - ChatService intent 핸들러 연결 (create_plan → GeminiService, search → SearchService) [feature]
   - ref: markdowns/feat-chat-dashboard.md "Phase 1"
   - depends: #39
@@ -94,11 +87,12 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard
 - [x] #39 - ChatService 기본 구조 (ConversationState, intent 추출, 세션 관리) [feature] — 2026-04-03
+- [x] #40 - Chat SSE 스트리밍 엔드포인트 (POST /chat/sessions, SSE messages, GET/DELETE) [feature] — 2026-04-04
 
 ---
 
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 35 done, 6 ready
+- Total tasks: 36 done, 5 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

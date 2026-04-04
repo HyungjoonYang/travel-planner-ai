@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 59,
-    "successful_runs": 55,
+    "total_runs": 60,
+    "successful_runs": 56,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -78,6 +78,7 @@
     {"run_id": "monitor-2026-04-03-1828", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
     {"run_id": "monitor-2026-04-03-1929", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
     {"run_id": "monitor-2026-04-03-2026", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "2026-04-03-2100", "task": "#39 - ChatService 기본 구조", "result": "success", "tests_passed": 1037, "tests_total": 1037}
+    {"run_id": "2026-04-03-2100", "task": "#39 - ChatService 기본 구조", "result": "success", "tests_passed": 1037, "tests_total": 1037},
+    {"run_id": "2026-04-04-0000", "task": "#40 - Chat SSE 스트리밍 엔드포인트", "result": "success", "tests_passed": 1037, "tests_total": 1037}
   ]
 }
