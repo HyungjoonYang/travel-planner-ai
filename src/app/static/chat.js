@@ -179,15 +179,44 @@ function handleSseEvent(event) {
 function resetAgentCards() {
   document.querySelectorAll('[data-agent]').forEach(el => {
     el.className = 'agent-card agent-idle';
+    el.style.cursor = '';
+    el.onclick = null;
     const msgEl = el.querySelector('.agent-message');
     if (msgEl) msgEl.textContent = '대기 중';
     const spinner = el.querySelector('.agent-spinner');
     if (spinner) spinner.style.display = 'none';
+    const toggleEl = el.querySelector('.agent-toggle');
+    if (toggleEl) { toggleEl.style.display = 'none'; toggleEl.textContent = '▾'; }
+    const detail = el.querySelector('.agent-detail');
+    if (detail) detail.style.display = 'none';
   });
+  checkAgentPanelState();
+}
+
+// ---------------------------------------------------------------------------
+// Agent panel compact/expanded toggle
+// ---------------------------------------------------------------------------
+
+// Collapses to one compact row when all agents are idle;
+// auto-expands when any agent becomes active.
+function checkAgentPanelState() {
+  const cards = document.querySelectorAll('[data-agent]');
+  const allIdle = Array.from(cards).every(c => c.classList.contains('agent-idle'));
+  const compactRow = document.getElementById('agent-panel-compact-row');
+  const cardsContainer = document.getElementById('agent-cards');
+  if (!compactRow || !cardsContainer) return;
+  if (allIdle) {
+    compactRow.style.display = 'flex';
+    cardsContainer.style.display = 'none';
+  } else {
+    compactRow.style.display = 'none';
+    cardsContainer.style.display = 'block';
+  }
 }
 
 // handleAgentStatus is also defined in index.html; this version is loaded
-// later so it takes precedence. It also manages the expandable result toggle.
+// later so it takes precedence. It also manages the expandable result toggle,
+// done-card click-to-reveal, and compact/expanded panel state.
 function handleAgentStatus(data) {
   const el = document.querySelector(`[data-agent="${data.agent}"]`);
   if (!el) return;
@@ -207,6 +236,23 @@ function handleAgentStatus(data) {
       toggleEl.style.display = 'none';
     }
   }
+
+  // Done-state cards: clicking the card reveals/hides the agent-detail panel
+  if (data.status === 'done') {
+    el.style.cursor = 'pointer';
+    el.onclick = function() {
+      const detail = el.querySelector('.agent-detail');
+      if (!detail) return;
+      const isHidden = detail.style.display === 'none' || !detail.style.display;
+      detail.style.display = isHidden ? 'block' : 'none';
+      if (toggleEl) toggleEl.textContent = isHidden ? '▴' : '▾';
+    };
+  } else {
+    el.style.cursor = '';
+    el.onclick = null;
+  }
+
+  checkAgentPanelState();
 }
 
 // ---------------------------------------------------------------------------

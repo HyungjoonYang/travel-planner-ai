@@ -13,14 +13,7 @@ _(없음)_
 ### Phase 10: Chat + Multi-Agent Dashboard
 
 > 스펙 문서: `markdowns/feat-chat-dashboard.md`
-> 이 목록은 시드 태스크다. evolve가 Architect 단계에서 스펙을 분석하고 추가 태스크를 자율적으로 생성한다.
-
-- [ ] #45 - Agent panel compact/expanded toggle + mobile responsive layout [feature]
-  - ref: markdowns/feat-chat-dashboard.md (Dashboard Layout 최종, Phase 3 Polish)
-  - depends: #43
-  - files: src/app/static/index.html (CSS), src/app/static/chat.js
-  - done: agent panel collapses to one compact row when all agents are idle; auto-expands when any agent becomes active; clicking a done-state agent card shows result detail (place/hotel/flight list); viewport ≤768px stacks chat above dashboard; tests/test_frontend.py updated
-  - gh: #16
+> 이 목록은 시드 태스크다. evolve가 Architect 단계에서 스펙을 분析하고 추가 태스크를 자율적으로 생성한다.
 
 - [ ] #46 - SSE reconnect with exponential backoff + session state restore on reconnect [feature]
   - ref: markdowns/feat-chat-dashboard.md (Risks — SSE 끊김)
@@ -92,6 +85,7 @@ _(없음)_
 - [x] #42 - Chat page HTML/CSS: nav tab + 35/65 split-pane + 7 agent cards (idle state) in index.html [feature] — 2026-04-04
 - [x] #43 - chat.js: SSE client + chat message UI + agent_status event handler [feature] — 2026-04-04
 - [x] #44 - chat.js: Plan dashboard rendering (plan_update / day_update / search_results SSE events) [feature] — 2026-04-04
+- [x] #45 - Agent panel compact/expanded toggle + mobile responsive layout [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -103,5 +97,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 43 done, 3 ready
+- Total tasks: 44 done, 2 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

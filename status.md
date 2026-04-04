@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T24:00Z (Evolve #67 — Task #44)
-Run count: 67
+Last run: 2026-04-04T26:00Z (Evolve #68 — Task #45)
+Run count: 68
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 43
+Tasks completed: 44
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #45 Agent panel compact/expanded toggle + mobile responsive layout
+Next planned: #46 SSE reconnect with exponential backoff + session state restore
 
 ## LTES Snapshot
 
-- Latency: ~19460ms (total run; pytest 1143 tests in 19.46s)
+- Latency: ~18490ms (total run; pytest 1153 tests in 18.49s)
 - Traffic: 1 commit this run
-- Errors: 0 test failures (1143/1143 pass), error_rate=0.0%
-- Saturation: 3 tasks ready
+- Errors: 0 test failures (1153/1153 pass), error_rate=0.0%
+- Saturation: 2 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #45 Agent panel compact/expanded toggle + mobile responsive layout
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #68 — 2026-04-04T26:00Z
+- **Task**: #45 - Agent panel compact/expanded toggle + mobile responsive layout
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1153/1153 passed (+10 new, tests/test_frontend.py::TestAgentPanelToggle)
+- **Files changed**: src/app/static/index.html, src/app/static/chat.js, tests/test_frontend.py
+- **Builder note**: (1) agent-panel-compact-row element added — collapses panel to single compact row when all agents idle; (2) checkAgentPanelState() called in handleAgentStatus to auto-expand panel when any agent becomes active; (3) done-state agent cards get el.onclick to toggle agent-detail visibility on click; (4) @media (max-width: 768px) applies flex-direction:column to .chat-layout stacking chat above dashboard on mobile; 10 new tests in TestAgentPanelToggle class.
+- **LTES**: L=18490ms T=1 commit E=0.0% S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #67 — 2026-04-04T24:00Z
 - **Task**: #44 - chat.js: Plan dashboard rendering (plan_update / day_update / search_results SSE events)
