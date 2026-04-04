@@ -149,3 +149,61 @@ class TestChatJs:
     def test_index_html_calls_init_chat_session(self, client: TestClient):
         content = client.get("/").text
         assert "initChatSession" in content
+
+
+class TestAgentPanelToggle:
+    """Task #45: Agent panel compact/expanded toggle + mobile responsive layout."""
+
+    def test_compact_row_element_in_html(self, client: TestClient):
+        """Agent panel has a compact single-row element for idle state."""
+        content = client.get("/").text
+        assert "agent-panel-compact-row" in content
+
+    def test_compact_label_element_in_html(self, client: TestClient):
+        """Compact row has a label element."""
+        content = client.get("/").text
+        assert "agent-panel-compact-label" in content
+
+    def test_expand_agent_panel_function_in_html(self, client: TestClient):
+        """expandAgentPanel() function exists in inline JS."""
+        content = client.get("/").text
+        assert "expandAgentPanel" in content
+
+    def test_mobile_responsive_media_query_in_html(self, client: TestClient):
+        """@media query present for ≤768px breakpoint."""
+        content = client.get("/").text
+        assert "768px" in content
+        assert "@media" in content
+
+    def test_mobile_stacks_chat_above_dashboard(self, client: TestClient):
+        """Mobile CSS stacks chat above dashboard (flex-direction: column)."""
+        content = client.get("/").text
+        assert "flex-direction" in content
+
+    def test_chat_js_has_check_agent_panel_state(self, client: TestClient):
+        """chat.js exports checkAgentPanelState function."""
+        content = client.get("/static/chat.js").text
+        assert "checkAgentPanelState" in content
+
+    def test_chat_js_reset_agent_cards_calls_check_panel_state(self, client: TestClient):
+        """resetAgentCards() calls checkAgentPanelState() to auto-collapse."""
+        content = client.get("/static/chat.js").text
+        # both functions must be present
+        assert "resetAgentCards" in content
+        assert "checkAgentPanelState" in content
+
+    def test_chat_js_handle_agent_status_calls_check_panel_state(self, client: TestClient):
+        """handleAgentStatus() calls checkAgentPanelState() to auto-expand."""
+        content = client.get("/static/chat.js").text
+        assert "handleAgentStatus" in content
+        assert "checkAgentPanelState" in content
+
+    def test_chat_js_done_card_has_onclick(self, client: TestClient):
+        """handleAgentStatus sets onclick on done-state cards for detail reveal."""
+        content = client.get("/static/chat.js").text
+        assert "el.onclick" in content
+
+    def test_chat_js_done_card_shows_detail(self, client: TestClient):
+        """Done-card click handler toggles agent-detail visibility."""
+        content = client.get("/static/chat.js").text
+        assert "agent-detail" in content

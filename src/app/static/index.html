@@ -111,6 +111,17 @@
   .plan-budget { margin-bottom: .75rem; }
   .budget-row { display: flex; justify-content: space-between; }
   .day-card { margin-bottom: .75rem; }
+  /* ── Compact agent panel (all-idle collapsed row) ────────────────────────── */
+  #agent-panel-compact-row { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem;
+    cursor: pointer; border-radius: 4px; color: var(--muted); font-size: .875rem; }
+  #agent-panel-compact-row:hover { background: var(--bg); }
+  #agent-panel-compact-row .compact-expand-hint { margin-left: auto; font-size: .8rem; }
+  /* ── Mobile responsive: viewport ≤ 768px stacks chat above dashboard ─────── */
+  @media (max-width: 768px) {
+    .chat-layout { flex-direction: column; height: auto; overflow: visible; }
+    .chat-col { flex: none; height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
+    .dashboard-col { flex: none; }
+  }
 </style>
 </head>
 <body>
@@ -727,7 +738,12 @@ function renderChat(app) {
     <div class="dashboard-col">
       <div class="card" id="agent-panel">
         <div class="section-title">🏢 Team Activity</div>
-        <div id="agent-cards">${agentCardsHtml}</div>
+        <div id="agent-panel-compact-row" onclick="expandAgentPanel()">
+          <span>🏢</span>
+          <span id="agent-panel-compact-label">Team · 전원 대기 중</span>
+          <span class="compact-expand-hint">▾ 펼치기</span>
+        </div>
+        <div id="agent-cards" style="display:none">${agentCardsHtml}</div>
       </div>
       <div class="card" id="plan-panel">
         <div class="section-title">✈️ Travel Plan</div>
@@ -746,6 +762,15 @@ function toggleAgentDetail(toggleEl) {
   const isHidden = detail.style.display === 'none' || !detail.style.display;
   detail.style.display = isHidden ? 'block' : 'none';
   toggleEl.textContent = isHidden ? '▴' : '▾';
+}
+
+// Manually expand the agent panel (user clicked compact row).
+// Panel stays expanded until resetAgentCards() is called on next message.
+function expandAgentPanel() {
+  const compactRow = document.getElementById('agent-panel-compact-row');
+  const cardsContainer = document.getElementById('agent-cards');
+  if (compactRow) compactRow.style.display = 'none';
+  if (cardsContainer) cardsContainer.style.display = 'block';
 }
 
 function handleAgentStatus(data) {
