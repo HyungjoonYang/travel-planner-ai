@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 91,
-    "successful_runs": 86,
+    "total_runs": 92,
+    "successful_runs": 87,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -653,10 +653,10 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-04-5600",
-    "task": "#60 - Chat: view_plan intent handler — load saved plan into dashboard by name/ID",
+    "run_id": "2026-04-04-5800",
+    "task": "#61 - Reporter: weekly Discussion summary — auto-post Phase progress as GitHub Discussion",
     "result": "success",
-    "tests_passed": 1247,
-    "tests_total": 1247
+    "tests_passed": 1256,
+    "tests_total": 1256
   }
 }

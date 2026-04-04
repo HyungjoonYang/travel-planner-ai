@@ -70,3 +70,73 @@ class TestReporterIncidentAutoIssue:
         assert "gh issue list" in content, (
             "reporter.md must use gh issue list to check for existing open bug issues"
         )
+
+
+class TestReporterWeeklyDiscussion:
+    """Task #61: reporter.md must include weekly Discussion summary instructions."""
+
+    def _content(self) -> str:
+        return REPORTER_MD.read_text()
+
+    def test_reporter_posts_discussion_on_monday_or_phase_change(self):
+        content = self._content()
+        assert ("monday" in content.lower() or "월요일" in content) and (
+            "phase" in content.lower() or "phase change" in content.lower()
+        ), "reporter.md must trigger Discussion post on Monday or Phase change"
+
+    def test_reporter_discussion_title_format(self):
+        content = self._content()
+        assert "[Weekly]" in content, (
+            "reporter.md must specify Discussion title format containing '[Weekly]'"
+        )
+
+    def test_reporter_discussion_title_includes_phase(self):
+        content = self._content()
+        assert "진행 현황" in content, (
+            "reporter.md Discussion title must include '진행 현황'"
+        )
+
+    def test_reporter_discussion_body_includes_tasks_done(self):
+        content = self._content()
+        assert "task" in content.lower() or "태스크" in content, (
+            "reporter.md Discussion body must mention completed tasks"
+        )
+
+    def test_reporter_discussion_body_includes_test_count(self):
+        content = self._content()
+        # Check that the Weekly section mentions test count
+        weekly_idx = content.find("[Weekly]")
+        section = content[weekly_idx:weekly_idx + 2000] if weekly_idx != -1 else ""
+        assert "test" in section.lower() or "테스트" in section, (
+            "reporter.md Discussion body must include test count"
+        )
+
+    def test_reporter_discussion_body_includes_pr_links(self):
+        content = self._content()
+        weekly_idx = content.find("[Weekly]")
+        section = content[weekly_idx:weekly_idx + 2000] if weekly_idx != -1 else ""
+        assert "pr" in section.lower() or "pull request" in section.lower(), (
+            "reporter.md Discussion body must include PR links"
+        )
+
+    def test_reporter_discussion_uses_gh_api(self):
+        content = self._content()
+        assert "gh api" in content or "discussions" in content.lower(), (
+            "reporter.md must use gh api for Discussion creation"
+        )
+
+    def test_reporter_discussion_skips_on_api_error(self):
+        content = self._content()
+        assert (
+            "silent" in content.lower()
+            or "skip" in content.lower()
+            or "2>/dev/null" in content
+            or "|| true" in content
+            or "ignore" in content.lower()
+        ), "reporter.md must silently skip Discussion post on API error"
+
+    def test_reporter_discussion_category_retrospectives(self):
+        content = self._content()
+        assert "retrospective" in content.lower() or "Retrospectives" in content, (
+            "reporter.md Discussion must use 'Retrospectives' category"
+        )
