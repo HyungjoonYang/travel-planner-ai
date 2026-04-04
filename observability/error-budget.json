@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 74,
-    "successful_runs": 69,
+    "total_runs": 75,
+    "successful_runs": 70,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -93,6 +93,7 @@
     {"run_id": "2026-04-04-3000", "task": "#47 - modify_day intent handler: update a day's places via chat", "result": "success", "tests_passed": 1177, "tests_total": 1177},
     {"run_id": "monitor-2026-04-04-3100", "task": "monitor", "result": "success", "tests_passed": 1177, "tests_total": 1177},
     {"run_id": "2026-04-04-3200", "task": "#48 - Secretary save_plan handler: persist plan to DB", "result": "success", "tests_passed": 1179, "tests_total": 1179},
-    {"run_id": "2026-04-04-3400", "task": "#49 - E2E Playwright tests for chat page", "result": "success", "tests_passed": 1179, "tests_total": 1179}
+    {"run_id": "2026-04-04-3400", "task": "#49 - E2E Playwright tests for chat page", "result": "success", "tests_passed": 1179, "tests_total": 1179},
+    {"run_id": "monitor-2026-04-04-3500", "task": "monitor", "result": "success", "tests_passed": 1179, "tests_total": 1179}
   ]
 }
