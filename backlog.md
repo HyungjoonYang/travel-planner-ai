@@ -12,13 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #49 - E2E Playwright tests for chat page [test]
-  - ref: markdowns/feat-chat-dashboard.md (Test Cases — e2e/chat.spec.ts)
-  - depends: #45
-  - files: e2e/chat.spec.ts
-  - done: 5 scenarios pass (page loads, agents idle, agents activate on message, plan builds, agent done shows toggle)
-  - gh: #25
-
 - [ ] #50 - Budget Analyst: real per-category cost breakdown in chat [feature]
   - ref: markdowns/feat-chat-dashboard.md (Stage 2 — Budget Analyst)
   - depends: #46
@@ -99,6 +92,7 @@ _(없음)_
 - [x] #46 - SSE reconnect with exponential backoff + session state restore on reconnect [feature] — 2026-04-04
 - [x] #47 - modify_day intent handler: update a day's places via chat [feature] — 2026-04-04
 - [x] #48 - Secretary save_plan handler: persist plan to DB [feature] — 2026-04-04
+- [x] #49 - E2E Playwright tests for chat page [test] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -110,5 +104,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 47 done, 4 ready
+- Total tasks: 48 done, 3 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

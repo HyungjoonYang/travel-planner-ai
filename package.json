@@ -1,0 +1,29 @@
+{
+  "name": "travel-planner-ai",
+  "version": "1.0.0",
+  "description": "> A self-evolving AI travel planner — built entirely by autonomous AI agents.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HyungjoonYang/travel-planner-ai.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/HyungjoonYang/travel-planner-ai/issues"
+  },
+  "homepage": "https://github.com/HyungjoonYang/travel-planner-ai#readme",
+  "dependencies": {
+    "@playwright/test": "1.45"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

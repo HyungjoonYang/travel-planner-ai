@@ -28,8 +28,9 @@ data/*.db
 .DS_Store
 Thumbs.db
 
-# Node (for Claude Code CLI)
+# Node (for Claude Code CLI / Playwright)
 node_modules/
+package-lock.json
 
 # Evolve agent handoff (ephemeral)
 .evolve/
