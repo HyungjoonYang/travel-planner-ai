@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #56 - Chat: list_plans intent handler — show saved plans in chat [feature]
-  - ref: CLAUDE.md (User Story #2: plan CRUD)
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: `list_plans` intent extracted; `_handle_list_plans()` queries DB; emits chat_chunk with formatted plan list; secretary agent status events emitted
-  - gh: #37
-
 - [ ] #54 - Coordinator agent: gh issue comment on task assignment [infra]
   - ref: markdowns/feat-dynamic-repo.md (Coordinator Agent 변경)
   - files: .claude/agents/coordinator.md
@@ -102,6 +96,7 @@ _(없음)_
 - [x] #51 - Reporter agent: auto-close GitHub Issues on task completion [infra] — 2026-04-04
 - [x] #52 - Chat Secretary: export_calendar intent handler [feature] — 2026-04-04
 - [x] #53 - Chat conversation context: pass last 10 messages to Gemini [improvement] — 2026-04-04
+- [x] #56 - Chat: list_plans intent handler — show saved plans in chat [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -113,5 +108,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 52 done, 4 ready
+- Total tasks: 53 done, 3 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

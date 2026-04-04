@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T43:00Z (Monitor — health check)
-Run count: 81
+Last run: 2026-04-04T44:00Z (Evolve Run #77)
+Run count: 82
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 52
+Tasks completed: 53
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #56 Chat: list_plans intent handler
+Next planned: #54 Coordinator agent: gh issue comment on task assignment
 
 ## LTES Snapshot
 
-- Latency: ~19270ms (pytest 1205 tests in 19.27s)
-- Traffic: 30 commits/24h
-- Errors: 0 test failures (1205/1205 pass), error_rate=0.0%
-- Saturation: 4 tasks ready
+- Latency: ~19450ms (pytest 1215 tests in 19.45s)
+- Traffic: 31 commits/24h
+- Errors: 0 test failures (1215/1215 pass), error_rate=0.0%
+- Saturation: 3 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #56 Chat: list_plans intent handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #77 — 2026-04-04T44:00Z
+- **Task**: #56 - Chat: list_plans intent handler — show saved plans in chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1215/1215 passed (+10 new: TestListPlansHandler class, tests/test_chat.py:1441-1706)
+- **Files changed**: src/app/chat.py (+148/-1), tests/test_chat.py (+10 tests)
+- **Builder note**: Added 'list_plans' to Intent.action docstring and extract_intent prompt. Implemented _handle_list_plans(db) that emits secretary working→done agent_status events, queries TravelPlan DB ordered by created_at desc, emits plans_list event with plan summaries (id, destination, start_date, end_date, budget, status), and emits chat_chunk with formatted plan list. Handles empty DB and missing DB gracefully. Handles DB errors by emitting secretary error status.
+- **LTES**: L=19450ms T=1 commit E=0.0% S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor — 2026-04-04T43:00Z
 - **Task**: health check

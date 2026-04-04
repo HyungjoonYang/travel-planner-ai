@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | general
+    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -130,7 +130,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "general"
+- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -235,6 +235,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "export_calendar":
             async for event in self._handle_export_calendar(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "list_plans":
+            async for event in self._handle_list_plans(db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -754,6 +757,83 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"캘린더 내보내기 중 오류가 발생했습니다: {exc}"},
+            }
+
+    async def _handle_list_plans(
+        self,
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "working", "message": "저장된 여행 계획 조회 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if db is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "done", "message": "조회 완료"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "저장된 여행 계획이 없습니다."},
+            }
+            return
+
+        try:
+            from app.models import TravelPlan as TravelPlanModel
+
+            plans = db.query(TravelPlanModel).order_by(TravelPlanModel.created_at.desc()).all()
+
+            plan_count = len(plans)
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "secretary",
+                    "status": "done",
+                    "message": f"{plan_count}개 계획 조회됨",
+                    "result_count": plan_count,
+                },
+            }
+
+            plan_list = [
+                {
+                    "id": p.id,
+                    "destination": p.destination,
+                    "start_date": p.start_date.isoformat() if p.start_date else None,
+                    "end_date": p.end_date.isoformat() if p.end_date else None,
+                    "budget": p.budget,
+                    "status": p.status,
+                }
+                for p in plans
+            ]
+            yield {
+                "type": "plans_list",
+                "data": {"plans": plan_list},
+            }
+
+            if plans:
+                lines = [
+                    f"{i + 1}. {p.destination} ({p.start_date} ~ {p.end_date})"
+                    for i, p in enumerate(plans)
+                ]
+                text = f"저장된 여행 계획 {plan_count}개:\n" + "\n".join(lines)
+            else:
+                text = "저장된 여행 계획이 없습니다."
+
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": text},
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "계획 조회 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"여행 계획 조회 중 오류가 발생했습니다: {exc}"},
             }
 
 

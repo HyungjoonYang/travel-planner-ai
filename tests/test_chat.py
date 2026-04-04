@@ -1438,6 +1438,270 @@ class TestExportCalendar:
 
 
 # ---------------------------------------------------------------------------
+# Task #56: list_plans intent handler
+# ---------------------------------------------------------------------------
+
+class TestListPlans:
+    """_handle_list_plans queries DB and emits secretary agent_status + plans_list + chat_chunk."""
+
+    def _make_service(self):
+        return ChatService(
+            api_key="",
+            ttl_seconds=SESSION_TTL_SECONDS,
+            gemini_service=MagicMock(),
+            web_search_service=MagicMock(),
+            hotel_search_service=MagicMock(),
+            flight_search_service=MagicMock(),
+        )
+
+    def _seed_plans(self, db, plans_data):
+        """Insert TravelPlan rows into test DB."""
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date as date_type
+
+        records = []
+        for p in plans_data:
+            record = TravelPlanModel(
+                destination=p["destination"],
+                start_date=date_type.fromisoformat(p["start_date"]),
+                end_date=date_type.fromisoformat(p["end_date"]),
+                budget=p.get("budget", 1000.0),
+                interests=p.get("interests", ""),
+            )
+            db.add(record)
+            records.append(record)
+        db.commit()
+        return records
+
+    # --- intent recognition ---
+
+    def test_list_plans_intent_dispatches_to_handler(self):
+        """list_plans intent must not fall through to the general handler."""
+        svc = self._make_service()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="list_plans", raw_message="내 여행 목록 보여줘"
+        )):
+            events = _collect_events(svc, session.session_id, "내 여행 목록 보여줘")
+
+        # secretary agent should be activated (not absent like in general handler)
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "secretary" in agent_names
+
+    # --- secretary agent status events ---
+
+    def test_list_plans_emits_secretary_working(self):
+        """list_plans must emit secretary working status."""
+        svc = self._make_service()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="list_plans", raw_message="목록"
+        )):
+            events = _collect_events(svc, session.session_id, "목록")
+
+        secretary_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+        ]
+        assert "working" in secretary_statuses
+
+    def test_list_plans_emits_secretary_done(self):
+        """list_plans must end with secretary done status."""
+        svc = self._make_service()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="list_plans", raw_message="목록"
+        )):
+            events = _collect_events(svc, session.session_id, "목록")
+
+        secretary_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+        ]
+        assert "done" in secretary_statuses
+        assert secretary_statuses.index("working") < secretary_statuses.index("done")
+
+    # --- no DB ---
+
+    def test_list_plans_no_db_emits_chat_chunk(self):
+        """list_plans without db emits chat_chunk with empty message."""
+        svc = self._make_service()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="list_plans", raw_message="목록"
+        )):
+            events = _collect_events(svc, session.session_id, "목록")
+
+        chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chunk_events) >= 1
+
+    # --- with DB ---
+
+    def test_list_plans_with_empty_db_emits_empty_message(self):
+        """When DB has no plans, chat_chunk mentions no saved plans."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = self._make_service()
+            session = svc.create_session()
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_plans", raw_message="목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "목록", db)
+
+            chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chunk_events) >= 1
+            # All chunks concatenated should mention "없습니다"
+            full_text = " ".join(e["data"]["text"] for e in chunk_events)
+            assert "없습니다" in full_text
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_plans_queries_db_and_emits_plans_list(self):
+        """list_plans emits a plans_list event with the saved plans."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = self._make_service()
+            session = svc.create_session()
+            self._seed_plans(db, [
+                {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-04"},
+                {"destination": "파리", "start_date": "2026-06-10", "end_date": "2026-06-15"},
+            ])
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_plans", raw_message="목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "목록", db)
+
+            plans_list_events = [e for e in events if e["type"] == "plans_list"]
+            assert len(plans_list_events) == 1
+            plans = plans_list_events[0]["data"]["plans"]
+            assert len(plans) == 2
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_plans_plan_items_have_required_fields(self):
+        """Each plan in plans_list must have id, destination, start_date, end_date, budget, status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = self._make_service()
+            session = svc.create_session()
+            self._seed_plans(db, [
+                {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-04", "budget": 500.0},
+            ])
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_plans", raw_message="목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "목록", db)
+
+            plans_list_events = [e for e in events if e["type"] == "plans_list"]
+            plan = plans_list_events[0]["data"]["plans"][0]
+            for field in ("id", "destination", "start_date", "end_date", "budget", "status"):
+                assert field in plan, f"Missing field: {field}"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_plans_chat_chunk_contains_destination(self):
+        """The chat_chunk text for list_plans must mention plan destinations."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = self._make_service()
+            session = svc.create_session()
+            self._seed_plans(db, [
+                {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-04"},
+            ])
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_plans", raw_message="목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "목록", db)
+
+            chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+            full_text = " ".join(e["data"]["text"] for e in chunk_events)
+            assert "도쿄" in full_text
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_plans_secretary_done_result_count_matches_plans(self):
+        """secretary done event result_count must equal number of plans returned."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = self._make_service()
+            session = svc.create_session()
+            self._seed_plans(db, [
+                {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-04"},
+                {"destination": "파리", "start_date": "2026-06-10", "end_date": "2026-06-15"},
+                {"destination": "뉴욕", "start_date": "2026-07-01", "end_date": "2026-07-07"},
+            ])
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_plans", raw_message="목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "목록", db)
+
+            secretary_done = next(
+                (e for e in events
+                 if e["type"] == "agent_status"
+                 and e["data"]["agent"] == "secretary"
+                 and e["data"]["status"] == "done"),
+                None,
+            )
+            assert secretary_done is not None
+            assert "result_count" in secretary_done["data"]
+            assert secretary_done["data"]["result_count"] == 3
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_plans_db_error_emits_secretary_error(self):
+        """When DB query raises, secretary emits error status."""
+        svc = self._make_service()
+        session = svc.create_session()
+
+        mock_db = MagicMock()
+        mock_db.query.side_effect = RuntimeError("DB unavailable")
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="list_plans", raw_message="목록"
+        )):
+            events = _collect_events_with_db(svc, session.session_id, "목록", mock_db)
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status"
+            and e["data"]["agent"] == "secretary"
+            and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+
+# ---------------------------------------------------------------------------
 # Task #53: Conversation context — message_history (max 10 turns) passed to Gemini
 # ---------------------------------------------------------------------------
 

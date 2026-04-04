@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 81,
-    "successful_runs": 76,
+    "total_runs": 82,
+    "successful_runs": 77,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -100,6 +100,7 @@
     {"run_id": "monitor-2026-04-04-3900", "task": "monitor", "result": "success", "tests_passed": 1181, "tests_total": 1181},
     {"run_id": "2026-04-04-4000", "task": "#52 - Chat Secretary: export_calendar intent handler", "result": "success", "tests_passed": 1192, "tests_total": 1192},
     {"run_id": "2026-04-04-4200", "task": "#53 - Chat conversation context: pass last 10 messages to Gemini", "result": "success", "tests_passed": 1205, "tests_total": 1205},
-    {"run_id": "monitor-2026-04-04-4300", "task": "monitor", "result": "success", "tests_passed": 1205, "tests_total": 1205}
+    {"run_id": "monitor-2026-04-04-4300", "task": "monitor", "result": "success", "tests_passed": 1205, "tests_total": 1205},
+    {"run_id": "2026-04-04-4400", "task": "#56 - Chat: list_plans intent handler — show saved plans in chat", "result": "success", "tests_passed": 1215, "tests_total": 1215}
   ]
 }
