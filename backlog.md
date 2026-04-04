@@ -12,13 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #50 - Budget Analyst: real per-category cost breakdown in chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md (Stage 2 — Budget Analyst)
-  - depends: #46
-  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py, tests/test_frontend.py
-  - done: search_results event type=budget emitted with {accommodation,transport,food,activities,total}; agent detail renders breakdown; 2 tests pass
-  - gh: #26
-
 - [ ] #51 - Reporter agent: auto-close GitHub Issues on task completion [infra]
   - ref: markdowns/feat-dynamic-repo.md (Phase 1 — Reporter issue close)
   - files: .claude/agents/reporter.md
@@ -93,6 +86,7 @@ _(없음)_
 - [x] #47 - modify_day intent handler: update a day's places via chat [feature] — 2026-04-04
 - [x] #48 - Secretary save_plan handler: persist plan to DB [feature] — 2026-04-04
 - [x] #49 - E2E Playwright tests for chat page [test] — 2026-04-04
+- [x] #50 - Budget Analyst: real per-category cost breakdown in chat [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -104,5 +98,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 48 done, 3 ready
+- Total tasks: 49 done, 2 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

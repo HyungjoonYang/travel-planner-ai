@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T35:00Z (Monitor — health check)
-Run count: 75
+Last run: 2026-04-04T36:00Z (Evolve Run #73 — #50 Budget Analyst cost breakdown)
+Run count: 76
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 48
+Tasks completed: 49
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #50 Budget Analyst: real per-category cost breakdown in chat
+Next planned: #51 Reporter agent: auto-close GitHub Issues on task completion
 
 ## LTES Snapshot
 
-- Latency: ~21150ms (pytest 1179 tests in 21.15s)
-- Traffic: 25 commits/24h
-- Errors: 0 test failures (1179/1179 pass), error_rate=0.0%
-- Saturation: 3 tasks ready
+- Latency: ~19060ms (pytest 1181 tests in 19.06s)
+- Traffic: 26 commits/24h
+- Errors: 0 test failures (1181/1181 pass), error_rate=0.0%
+- Saturation: 2 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #50 Budget Analyst: real per-category cost breakdown in chat
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #73 — 2026-04-04T36:00Z
+- **Task**: #50 - Budget Analyst: real per-category cost breakdown in chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1181/1181 passed (+2 new: test_budget_breakdown_event_emitted, test_budget_breakdown_has_required_keys)
+- **Files changed**: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
+- **Builder note**: Added _compute_budget_breakdown() static method that categorizes place costs into food/activities/accommodation/transport/total. _handle_create_plan now emits search_results {type:budget, results:{accommodation,transport,food,activities,total}} after plan generation. budget_analyst agent status gets result_count. chat.js handleSearchResults extended to render budget breakdown table in budget_analyst agent detail panel.
+- **LTES**: L=19060ms T=1 commit E=0.0% S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor — 2026-04-04T35:00Z
 - **Task**: health check

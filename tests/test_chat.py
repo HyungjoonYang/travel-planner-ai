@@ -1106,3 +1106,59 @@ class TestSavePlanPersistence:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #50: Budget Analyst — per-category cost breakdown
+# ---------------------------------------------------------------------------
+
+class TestBudgetBreakdown:
+    """create_plan must emit search_results type=budget with per-category costs."""
+
+    def _make_service_with_gemini(self, gemini_mock):
+        return ChatService(
+            api_key="",
+            ttl_seconds=SESSION_TTL_SECONDS,
+            gemini_service=gemini_mock,
+            web_search_service=MagicMock(),
+            hotel_search_service=MagicMock(),
+            flight_search_service=MagicMock(),
+        )
+
+    def test_create_plan_emits_budget_search_results(self):
+        """create_plan must emit a search_results event with type=budget."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        budget_events = [
+            e for e in events
+            if e["type"] == "search_results" and e["data"].get("type") == "budget"
+        ]
+        assert len(budget_events) == 1
+
+    def test_budget_breakdown_has_required_keys(self):
+        """The budget search_results event must include accommodation, transport, food, activities, total."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄", raw_message="도쿄"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄")
+
+        budget_event = next(
+            e for e in events
+            if e["type"] == "search_results" and e["data"].get("type") == "budget"
+        )
+        breakdown = budget_event["data"]["results"]
+        for key in ("accommodation", "transport", "food", "activities", "total"):
+            assert key in breakdown, f"Missing key: {key}"
