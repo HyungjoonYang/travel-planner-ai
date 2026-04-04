@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from app.ai import AIItineraryResult
 
 SESSION_TTL_SECONDS = 1800  # 30 minutes
+_MAX_HISTORY_TURNS = 10     # max conversation turns kept in message_history
 
 _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
@@ -44,6 +45,7 @@ class ChatSession(BaseModel):
     created_at: datetime
     expires_at: datetime
     history: list[dict] = []
+    message_history: list[dict] = []   # last N turns for Gemini context (role/content pairs)
     agent_states: dict[str, dict] = {}  # last known agent_status per agent
     last_plan: Optional[dict] = None    # last plan_update payload
     last_saved_plan_id: Optional[int] = None  # DB plan_id after save_plan
@@ -101,26 +103,39 @@ class ChatService:
     # Intent extraction
     # ------------------------------------------------------------------
 
-    def extract_intent(self, message: str) -> Intent:
+    def extract_intent(self, message: str, history: Optional[list[dict]] = None) -> Intent:
         """Extract structured intent from user message via Gemini API.
 
         Falls back to action='general' if API key is missing or call fails.
+        Accepts optional ``history`` (list of {role, content} dicts) to provide
+        conversation context so follow-up messages can resolve references like
+        "3일차" or "그 목적지" from prior turns.
         """
         if not self._api_key:
             return Intent(action="general", raw_message=message)
 
         try:
-            prompt = f"""You are a travel planner AI assistant. Analyze the user message and extract their intent.
+            # Build conversation context section from the last N turns
+            context_section = ""
+            if history:
+                recent = history[-(_MAX_HISTORY_TURNS * 2):]
+                lines = [
+                    f"{entry.get('role', 'user').capitalize()}: {entry.get('content', '')}"
+                    for entry in recent
+                ]
+                context_section = "\n\nPrevious conversation:\n" + "\n".join(lines) + "\n"
 
+            prompt = f"""You are a travel planner AI assistant. Analyze the user message and extract their intent.
+{context_section}
 User message: "{message}"
 
 Return a JSON object with these fields:
 - action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "general"
-- destination: destination city/country if mentioned, else null
-- start_date: start date in YYYY-MM-DD if mentioned, else null
-- end_date: end date in YYYY-MM-DD if mentioned, else null
-- budget: budget as a number if mentioned, else null
-- interests: comma-separated interests if mentioned, else null
+- destination: destination city/country if mentioned or inferred from conversation context, else null
+- start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
+- end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
+- budget: budget as a number if mentioned or inferred from context, else null
+- interests: comma-separated interests if mentioned or inferred from context, else null
 - day_number: specific day number if modifying a day, else null
 - query: search query string if searching, else null
 - raw_message: the exact original message"""
@@ -170,7 +185,7 @@ Return a JSON object with these fields:
             "data": {"agent": "coordinator", "status": "thinking", "message": "요청 분석 중..."},
         })
 
-        intent = self.extract_intent(message)
+        intent = self.extract_intent(message, history=list(session.message_history))
 
         yield _track({
             "type": "agent_status",
@@ -187,33 +202,54 @@ Return a JSON object with these fields:
             "intent": intent.model_dump(),
         })
 
+        # Add user message to conversation history for future context
+        session.message_history.append({"role": "user", "content": message})
+
+        # Collect assistant response chunks to store in message_history
+        assistant_chunks: list[str] = []
+
+        def _track_and_collect(event: dict) -> dict:
+            """Track state and collect chat_chunk text for message_history."""
+            if event["type"] == "chat_chunk":
+                assistant_chunks.append(event["data"].get("text", ""))
+            return _track(event)
+
         # Dispatch to intent handlers, tracking state as events flow
         if intent.action == "create_plan":
             async for event in self._handle_create_plan(intent):
-                yield _track(event)
+                yield _track_and_collect(event)
         elif intent.action == "search_hotels":
             async for event in self._handle_search_hotels(intent):
-                yield _track(event)
+                yield _track_and_collect(event)
         elif intent.action == "search_flights":
             async for event in self._handle_search_flights(intent):
-                yield _track(event)
+                yield _track_and_collect(event)
         elif intent.action == "search_places":
             async for event in self._handle_search_places(intent):
-                yield _track(event)
+                yield _track_and_collect(event)
         elif intent.action == "modify_day":
             async for event in self._handle_modify_day(intent, session):
-                yield _track(event)
+                yield _track_and_collect(event)
         elif intent.action == "save_plan":
             async for event in self._handle_save_plan(intent, session, db):
-                yield _track(event)
+                yield _track_and_collect(event)
         elif intent.action == "export_calendar":
             async for event in self._handle_export_calendar(intent, session, db):
-                yield _track(event)
+                yield _track_and_collect(event)
         else:
+            _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
+            assistant_chunks.append(_fallback_text)
             yield {
                 "type": "chat_chunk",
-                "data": {"text": "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."},
+                "data": {"text": _fallback_text},
             }
+
+        # Append assistant response to message_history and cap at _MAX_HISTORY_TURNS
+        if assistant_chunks:
+            session.message_history.append({"role": "assistant", "content": " ".join(assistant_chunks)})
+        max_entries = _MAX_HISTORY_TURNS * 2
+        if len(session.message_history) > max_entries:
+            session.message_history = session.message_history[-max_entries:]
 
         yield {"type": "chat_done", "data": {}}
 

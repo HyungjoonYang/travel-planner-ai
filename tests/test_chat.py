@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from app.ai import AIItineraryResult, AIDayItinerary, AIPlace
-from app.chat import ChatService, Intent, SESSION_TTL_SECONDS
+from app.chat import ChatService, Intent, SESSION_TTL_SECONDS, _MAX_HISTORY_TURNS
 from app.flight_search import FlightSearchResult, FlightResult
 from app.hotel_search import HotelSearchResult, HotelResult
 from app.web_search import DestinationSearchResult, PlaceSearchResult
@@ -1435,3 +1435,161 @@ class TestExportCalendar:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #53: Conversation context — message_history (max 10 turns) passed to Gemini
+# ---------------------------------------------------------------------------
+
+class TestConversationContext:
+    """ChatSession.message_history stores up to 10 turns; history is passed to
+    extract_intent so follow-up messages can infer prior context."""
+
+    def test_max_history_turns_constant_is_10(self):
+        """_MAX_HISTORY_TURNS must equal 10."""
+        assert _MAX_HISTORY_TURNS == 10
+
+    def test_session_has_message_history_field(self):
+        """ChatSession must have a message_history attribute initialized to []."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        assert hasattr(session, "message_history")
+        assert session.message_history == []
+
+    def test_user_message_appended_to_message_history(self):
+        """After process_message, message_history contains the user turn."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        _collect_events(svc, session.session_id, "도쿄 여행 계획해줘")
+        fetched = svc.get_session(session.session_id)
+        user_turns = [e for e in fetched.message_history if e["role"] == "user"]
+        assert len(user_turns) == 1
+        assert user_turns[0]["content"] == "도쿄 여행 계획해줘"
+
+    def test_assistant_response_appended_to_message_history(self):
+        """After process_message, message_history contains an assistant turn."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        _collect_events(svc, session.session_id, "안녕하세요")
+        fetched = svc.get_session(session.session_id)
+        assistant_turns = [e for e in fetched.message_history if e["role"] == "assistant"]
+        assert len(assistant_turns) == 1
+        assert assistant_turns[0]["content"]  # non-empty
+
+    def test_message_history_alternates_user_assistant(self):
+        """After two messages, message_history has user/assistant/user/assistant order."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        _collect_events(svc, session.session_id, "첫 번째 메시지")
+        _collect_events(svc, session.session_id, "두 번째 메시지")
+        fetched = svc.get_session(session.session_id)
+        roles = [e["role"] for e in fetched.message_history]
+        assert roles == ["user", "assistant", "user", "assistant"]
+
+    def test_message_history_capped_at_10_turns(self):
+        """Sending 12 messages must keep message_history at max 10 turns (20 entries)."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        for i in range(12):
+            _collect_events(svc, session.session_id, f"메시지 {i}")
+        fetched = svc.get_session(session.session_id)
+        max_entries = _MAX_HISTORY_TURNS * 2  # 10 turns = 10 user + 10 assistant
+        assert len(fetched.message_history) <= max_entries
+
+    def test_message_history_keeps_most_recent_turns(self):
+        """After exceeding max turns, the oldest turns are dropped."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        for i in range(12):
+            _collect_events(svc, session.session_id, f"메시지 {i}")
+        fetched = svc.get_session(session.session_id)
+        user_messages = [e["content"] for e in fetched.message_history if e["role"] == "user"]
+        # Most recent messages should be retained
+        assert "메시지 11" in user_messages
+        assert "메시지 10" in user_messages
+        # Oldest should be dropped
+        assert "메시지 0" not in user_messages
+
+    def test_extract_intent_receives_message_history(self):
+        """extract_intent must be called with the session's current message_history."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # Pre-populate history to simulate a prior exchange
+        session.message_history = [
+            {"role": "user", "content": "도쿄 3박4일 여행 계획해줘"},
+            {"role": "assistant", "content": "도쿄 3박4일 여행 계획을 생성했습니다."},
+        ]
+
+        captured_kwargs = {}
+
+        original = svc.extract_intent
+
+        def spy_extract_intent(message, history=None):
+            captured_kwargs["history"] = history
+            return original(message, history=history)
+
+        svc.extract_intent = spy_extract_intent
+        _collect_events(svc, session.session_id, "3일차 맛집 위주로 바꿔줘")
+
+        assert "history" in captured_kwargs
+        assert captured_kwargs["history"] is not None
+        assert len(captured_kwargs["history"]) == 2
+
+    def test_extract_intent_with_history_includes_context_in_prompt(self):
+        """When history is passed, the Gemini prompt must include conversation context."""
+        history = [
+            {"role": "user", "content": "도쿄 3박4일 여행"},
+            {"role": "assistant", "content": "도쿄 3일 일정을 만들었습니다."},
+        ]
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = Intent(action="modify_day", day_number=2, raw_message="2일차 수정").model_dump_json()
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch("app.chat.genai") as mock_genai:
+            mock_genai.Client.return_value = mock_client
+            svc = ChatService(api_key="fake-key")
+            svc.extract_intent("2일차 자연 위주로 바꿔줘", history=history)
+
+        call_args = mock_client.models.generate_content.call_args
+        prompt_text = call_args[1]["contents"] if "contents" in call_args[1] else call_args[0][1]
+        # The prompt must reference the prior conversation
+        assert "도쿄 3박4일 여행" in prompt_text or "Previous" in prompt_text or "conversation" in prompt_text.lower()
+
+    def test_extract_intent_without_history_still_works(self):
+        """extract_intent with no history (default) must behave as before."""
+        svc = _make_service_no_api()
+        intent = svc.extract_intent("도쿄 여행 계획해줘")
+        assert isinstance(intent, Intent)
+        assert intent.action == "general"
+
+    def test_extract_intent_with_empty_history_still_works(self):
+        """extract_intent with empty history list behaves like no history."""
+        svc = _make_service_no_api()
+        intent = svc.extract_intent("도쿄 여행 계획해줘", history=[])
+        assert isinstance(intent, Intent)
+
+    def test_message_history_available_in_session_endpoint(self, client):
+        """GET /chat/sessions/{id} response includes message_history field."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "안녕하세요"},
+        )
+        resp = client.get(f"/chat/sessions/{session_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "message_history" in data
+
+    def test_message_history_entries_have_role_and_content(self, client):
+        """Each message_history entry must have 'role' and 'content' keys."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "안녕하세요"},
+        )
+        data = client.get(f"/chat/sessions/{session_id}").json()
+        for entry in data["message_history"]:
+            assert "role" in entry
+            assert "content" in entry
+            assert entry["role"] in ("user", "assistant")

@@ -24,6 +24,7 @@ def create_session():
         expires_at=session.expires_at,
         agent_states=session.agent_states,
         last_plan=session.last_plan,
+        message_history=session.message_history,
     )
 
 
@@ -39,6 +40,7 @@ def get_session(session_id: str):
         expires_at=session.expires_at,
         agent_states=session.agent_states,
         last_plan=session.last_plan,
+        message_history=session.message_history,
     )
 
 

@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #53 - Chat conversation context: pass last 10 messages to Gemini [improvement]
-  - ref: markdowns/feat-chat-dashboard.md (ChatService architecture)
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: ChatSession stores message_history (max 10 turns); history passed to Gemini calls; follow-up messages infer prior context correctly
-  - gh: #34
-
 - [ ] #56 - Chat: list_plans intent handler — show saved plans in chat [feature]
   - ref: CLAUDE.md (User Story #2: plan CRUD)
   - files: src/app/chat.py, tests/test_chat.py
@@ -107,6 +101,7 @@ _(없음)_
 - [x] #50 - Budget Analyst: real per-category cost breakdown in chat [feature] — 2026-04-04
 - [x] #51 - Reporter agent: auto-close GitHub Issues on task completion [infra] — 2026-04-04
 - [x] #52 - Chat Secretary: export_calendar intent handler [feature] — 2026-04-04
+- [x] #53 - Chat conversation context: pass last 10 messages to Gemini [improvement] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -118,5 +113,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 51 done, 5 ready
+- Total tasks: 52 done, 4 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
