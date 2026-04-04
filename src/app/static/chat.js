@@ -11,6 +11,14 @@ let currentStreamBubble = null;
 let _currentPlanBudget = 0;
 
 // ---------------------------------------------------------------------------
+// SSE reconnect — exponential backoff configuration
+// ---------------------------------------------------------------------------
+
+const _SSE_MAX_RETRIES = 3;
+const _SSE_RETRY_BASE_MS = 1000; // 1s → 2s → 4s
+let _sseRetryCount = 0;
+
+// ---------------------------------------------------------------------------
 // Session management
 // ---------------------------------------------------------------------------
 
@@ -26,6 +34,31 @@ async function initChatSession() {
   } catch (e) {
     console.error('[chat] session init failed:', e);
     chatSessionId = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Session state restore — called after SSE reconnect
+// ---------------------------------------------------------------------------
+
+async function restoreSessionState() {
+  if (!chatSessionId) return;
+  try {
+    const res = await fetch(`/chat/sessions/${chatSessionId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    // Restore last known agent statuses
+    if (data.agent_states && typeof data.agent_states === 'object') {
+      for (const state of Object.values(data.agent_states)) {
+        handleAgentStatus(state);
+      }
+    }
+    // Restore last plan
+    if (data.last_plan) {
+      handlePlanUpdate(data.last_plan);
+    }
+  } catch (e) {
+    console.warn('[chat] restoreSessionState failed:', e);
   }
 }
 
@@ -60,49 +93,78 @@ async function sendChatMessage() {
     return;
   }
 
-  // Reset agent cards to idle
+  // Reset agent cards to idle and reconnect counter
   resetAgentCards();
+  _sseRetryCount = 0;
 
   // Create empty AI bubble — text is appended by chat_chunk events
   currentStreamBubble = appendAiBubble('');
 
-  try {
-    const res = await fetch(`/chat/sessions/${chatSessionId}/messages`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: msg}),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      if (currentStreamBubble) {
-        currentStreamBubble.textContent = `오류: ${err.detail || res.status}`;
-      }
-      currentStreamBubble = null;
-      input.disabled = false;
-      return;
-    }
-
-    await streamSseResponse(res.body);
-  } catch (e) {
-    if (currentStreamBubble) {
-      currentStreamBubble.textContent = `연결 오류: ${e.message}`;
-    }
-    currentStreamBubble = null;
-  }
+  await _sendMessageWithRetry(msg);
 
   input.disabled = false;
   if (input.focus) input.focus();
+}
+
+// Internal: POST message + stream SSE, retrying on disconnect with exponential backoff.
+async function _sendMessageWithRetry(msg) {
+  while (_sseRetryCount <= _SSE_MAX_RETRIES) {
+    // On retries (not the first attempt), restore session state before re-sending
+    if (_sseRetryCount > 0) {
+      const backoffMs = _SSE_RETRY_BASE_MS * Math.pow(2, _sseRetryCount - 1);
+      await new Promise(r => setTimeout(r, backoffMs));
+      await restoreSessionState();
+    }
+
+    let chatDoneReceived = false;
+    try {
+      const res = await fetch(`/chat/sessions/${chatSessionId}/messages`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: msg}),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (currentStreamBubble) {
+          currentStreamBubble.textContent = `오류: ${err.detail || res.status}`;
+        }
+        currentStreamBubble = null;
+        return; // HTTP error — don't retry (session may be gone)
+      }
+
+      chatDoneReceived = await streamSseResponse(res.body);
+    } catch (e) {
+      // Network/stream error — will retry if under limit
+      console.warn(`[chat] SSE error (attempt ${_sseRetryCount + 1}):`, e);
+    }
+
+    if (chatDoneReceived) {
+      return; // Stream completed normally
+    }
+
+    _sseRetryCount++;
+    if (_sseRetryCount > _SSE_MAX_RETRIES) {
+      if (currentStreamBubble) {
+        currentStreamBubble.textContent = '연결이 끊겼습니다. 페이지를 새로고침 후 다시 시도해주세요.';
+      }
+      currentStreamBubble = null;
+      return;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
 // SSE stream reader
 // ---------------------------------------------------------------------------
 
+// Returns true if the stream completed with a chat_done event (normal end),
+// or false if the connection dropped before chat_done (triggers retry).
 async function streamSseResponse(body) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
+  let chatDoneReceived = false;
 
   try {
     while (true) {
@@ -114,18 +176,26 @@ async function streamSseResponse(body) {
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           try {
-            handleSseEvent(JSON.parse(line.slice(6)));
+            const event = JSON.parse(line.slice(6));
+            if (event && event.type === 'chat_done') chatDoneReceived = true;
+            handleSseEvent(event);
           } catch (_) { /* ignore malformed JSON */ }
         }
       }
     }
     // Flush remaining buffer
     if (buf.startsWith('data: ')) {
-      try { handleSseEvent(JSON.parse(buf.slice(6))); } catch (_) {}
+      try {
+        const event = JSON.parse(buf.slice(6));
+        if (event && event.type === 'chat_done') chatDoneReceived = true;
+        handleSseEvent(event);
+      } catch (_) {}
     }
   } finally {
     reader.releaseLock();
   }
+
+  return chatDoneReceived;
 }
 
 // ---------------------------------------------------------------------------

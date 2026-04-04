@@ -20,12 +20,14 @@ def create_session():
         session_id=session.session_id,
         created_at=session.created_at,
         expires_at=session.expires_at,
+        agent_states=session.agent_states,
+        last_plan=session.last_plan,
     )
 
 
 @router.get("/sessions/{session_id}", response_model=ChatSessionOut)
 def get_session(session_id: str):
-    """Retrieve an existing chat session."""
+    """Retrieve an existing chat session, including last known agent states and plan."""
     session = chat_service.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found or expired")
@@ -33,6 +35,8 @@ def get_session(session_id: str):
         session_id=session.session_id,
         created_at=session.created_at,
         expires_at=session.expires_at,
+        agent_states=session.agent_states,
+        last_plan=session.last_plan,
     )
 
 

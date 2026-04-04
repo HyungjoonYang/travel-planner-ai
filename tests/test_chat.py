@@ -767,3 +767,96 @@ class TestServiceHandlerIntegration:
             if e["type"] == "agent_status" and e["data"]["status"] == "error"
         ]
         assert any(e["data"]["agent"] == "flight_finder" for e in error_events)
+
+
+# ---------------------------------------------------------------------------
+# Task #46: Session state persistence — agent_states + last_plan
+# ---------------------------------------------------------------------------
+
+class TestGetSessionIncludesAgentStates:
+    """GET /chat/sessions/{id} should include agent_states accumulated during processing."""
+
+    def test_get_session_includes_agent_states_key(self, client):
+        """After sending a message, GET session response has agent_states dict."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "안녕하세요"},
+        )
+        resp = client.get(f"/chat/sessions/{session_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "agent_states" in data
+
+    def test_get_session_agent_states_is_dict(self, client):
+        """agent_states is a dict keyed by agent name."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "안녕하세요"},
+        )
+        resp = client.get(f"/chat/sessions/{session_id}")
+        assert isinstance(resp.json()["agent_states"], dict)
+
+    def test_get_session_coordinator_state_stored(self, client):
+        """After a message, coordinator agent state is stored in session."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "안녕하세요"},
+        )
+        data = client.get(f"/chat/sessions/{session_id}").json()
+        assert "coordinator" in data["agent_states"]
+
+    def test_get_session_coordinator_state_is_done(self, client):
+        """Coordinator ends in 'done' state after normal processing."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "안녕하세요"},
+        )
+        data = client.get(f"/chat/sessions/{session_id}").json()
+        assert data["agent_states"]["coordinator"]["status"] == "done"
+
+    def test_get_session_includes_last_plan_key(self, client):
+        """GET session response has last_plan field (None before any plan is created)."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        resp = client.get(f"/chat/sessions/{session_id}")
+        assert "last_plan" in resp.json()
+
+    def test_session_stores_agent_states_via_service(self):
+        """ChatSession.agent_states is updated after process_message completes."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        _collect_events(svc, session.session_id, "안녕")
+        fetched = svc.get_session(session.session_id)
+        assert hasattr(fetched, "agent_states")
+        assert "coordinator" in fetched.agent_states
+
+    def test_session_agent_states_tracks_latest_status(self):
+        """agent_states stores the last emitted status (done overwrites thinking)."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        _collect_events(svc, session.session_id, "hello")
+        fetched = svc.get_session(session.session_id)
+        assert fetched.agent_states["coordinator"]["status"] == "done"
+
+    def test_session_stores_last_plan_on_create_plan(self):
+        """last_plan is populated after a create_plan intent."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = ChatService(
+            api_key="",
+            gemini_service=mock_gemini,
+            web_search_service=MagicMock(),
+            hotel_search_service=MagicMock(),
+            flight_search_service=MagicMock(),
+        )
+        session = svc.create_session()
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="create_plan", destination="도쿄", raw_message="도쿄"
+        )):
+            _collect_events(svc, session.session_id, "도쿄")
+        fetched = svc.get_session(session.session_id)
+        assert fetched.last_plan is not None
+        assert "days" in fetched.last_plan
