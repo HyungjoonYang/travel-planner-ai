@@ -230,6 +230,13 @@ function handleSseEvent(event) {
     case 'plans_list':
       if (event.data) handlePlansList(event.data);
       break;
+    case 'calendar_exported':
+      if (event.data) {
+        const count = event.data.events_created != null ? event.data.events_created : 0;
+        const dest = event.data.destination ? ` — ${event.data.destination}` : '';
+        appendAiBubble(`✅ Google Calendar 내보내기 완료${dest}: ${count}개 이벤트 추가됨`);
+      }
+      break;
     case 'plan_saved':
       appendAiBubble('✅ ' + ((event.data && event.data.message) || '저장 완료'));
       break;

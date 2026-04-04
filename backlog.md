@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #58 - Chat frontend: `calendar_exported` SSE event handler — show export confirmation [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/static/chat.js, tests/test_chat_dashboard.py
-  - done: `calendar_exported` event shows success chat bubble with event count; ≥2 tests added
-  - gh: #44
-
 - [ ] #59 - Chat: `delete_plan` intent handler — delete a saved plan via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
@@ -112,6 +106,7 @@ _(없음)_
 - [x] #54 - Coordinator agent: gh issue comment on task assignment [infra] — 2026-04-04
 - [x] #55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures [infra] — 2026-04-04
 - [x] #57 - Chat frontend: plans_list SSE event handler — render saved plan cards in dashboard [feature] — 2026-04-04
+- [x] #58 - Chat frontend: `calendar_exported` SSE event handler — show export confirmation [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -123,5 +118,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 56 done, 5 ready
+- Total tasks: 57 done, 4 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
