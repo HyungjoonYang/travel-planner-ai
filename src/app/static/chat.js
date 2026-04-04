@@ -7,6 +7,9 @@
 let chatSessionId = null;
 let currentStreamBubble = null;
 
+// Current plan state for real-time budget bar updates
+let _currentPlanBudget = 0;
+
 // ---------------------------------------------------------------------------
 // Session management
 // ---------------------------------------------------------------------------
@@ -183,8 +186,8 @@ function resetAgentCards() {
   });
 }
 
-// handleAgentStatus is also defined in index.html; this version is identical
-// but loaded later so it takes precedence.
+// handleAgentStatus is also defined in index.html; this version is loaded
+// later so it takes precedence. It also manages the expandable result toggle.
 function handleAgentStatus(data) {
   const el = document.querySelector(`[data-agent="${data.agent}"]`);
   if (!el) return;
@@ -193,6 +196,17 @@ function handleAgentStatus(data) {
   if (msgEl) msgEl.textContent = data.message || '';
   const spinner = el.querySelector('.agent-spinner');
   if (spinner) spinner.style.display = data.status === 'working' ? 'inline-block' : 'none';
+
+  // Show expand toggle when agent has results
+  const toggleEl = el.querySelector('.agent-toggle');
+  if (toggleEl) {
+    if (data.status === 'done' && data.result_count) {
+      toggleEl.style.display = 'inline';
+      toggleEl.textContent = '▾';
+    } else {
+      toggleEl.style.display = 'none';
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -214,70 +228,160 @@ function appendAiBubble(text) {
 // Dashboard panel renderers
 // ---------------------------------------------------------------------------
 
+function _budgetBarHtml(spent, budget) {
+  if (!budget) return '';
+  const pct = Math.min(100, (spent / budget) * 100).toFixed(1);
+  const barColor = pct >= 90 ? '#dc3545' : pct >= 70 ? '#ffc107' : '#198754';
+  return `<div class="budget-row">
+    <span class="meta">예상 비용: <strong>$${Math.round(spent).toLocaleString()}</strong></span>
+    <span class="meta">예산: $${Math.round(budget).toLocaleString()}</span>
+  </div>
+  <div class="progress-bar-bg" style="margin:.4rem 0 .2rem">
+    <div class="progress-bar" id="plan-budget-bar" style="width:${pct}%;background:${barColor}"></div>
+  </div>
+  <div class="meta">${pct}% 사용</div>`;
+}
+
 function handlePlanUpdate(data) {
   const panel = document.getElementById('plan-panel');
   if (!panel || !data.days || !data.days.length) return;
-  let html = `<div class="section-title">✈️ Travel Plan</div>
-    <div class="meta">${data.days.length}일 일정 · 예산 $${(data.total_estimated_cost || 0).toLocaleString()}</div>`;
-  for (const day of data.days) {
-    const places = (day.places || []).map(p =>
-      `<div class="place-item">
-        <span>${escHtml(p.name)}</span>
-        ${p.estimated_cost ? `<span class="price-tag">$${p.estimated_cost}</span>` : ''}
-      </div>`
-    ).join('');
-    html += `<div class="card" id="day-${escHtml(day.date)}">
-      <strong>${escHtml(day.date)}</strong>
-      ${day.notes ? `<div class="meta">${escHtml(day.notes)}</div>` : ''}
-      <div class="day-places">${places}</div>
+
+  _currentPlanBudget = data.budget || 0;
+  const cost = data.total_estimated_cost || 0;
+
+  let html = `<div class="section-title">✈️ Travel Plan</div>`;
+
+  // Plan overview: destination + dates
+  if (data.destination || data.start_date) {
+    const dest = data.destination ? escHtml(data.destination) : '';
+    const dates = (data.start_date && data.end_date)
+      ? `${escHtml(data.start_date)} → ${escHtml(data.end_date)}`
+      : '';
+    html += `<div class="plan-overview">
+      ${dest ? `<strong class="plan-dest">${dest}</strong>` : ''}
+      ${dates ? `<span class="meta">${dates}</span>` : ''}
     </div>`;
+  }
+
+  // Budget bar
+  if (_currentPlanBudget > 0) {
+    html += `<div class="plan-budget">${_budgetBarHtml(cost, _currentPlanBudget)}</div>`;
+  }
+
+  // Day cards
+  for (const day of data.days) {
+    html += _dayCardHtml(day);
   }
   panel.innerHTML = html;
 }
 
+function _dayCardHtml(day) {
+  const places = (day.places || []).map(p => _placeItemHtml(p)).join('');
+  const dayCost = (day.places || []).reduce((s, p) => s + (p.estimated_cost || 0), 0);
+  return `<div class="card day-card" id="day-${escHtml(day.date)}">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>${escHtml(day.date)}</strong>
+      ${dayCost > 0 ? `<span class="price-tag">$${dayCost.toLocaleString()}</span>` : ''}
+    </div>
+    ${day.notes ? `<div class="meta">${escHtml(day.notes)}</div>` : ''}
+    <div class="day-places">${places || '<div class="meta">장소 없음</div>'}</div>
+  </div>`;
+}
+
+function _placeItemHtml(p) {
+  return `<div class="place-item">
+    <div>
+      <span>${escHtml(p.name)}</span>
+      ${p.category ? `<span class="meta" style="margin-left:.4rem">(${escHtml(p.category)})</span>` : ''}
+    </div>
+    ${p.estimated_cost ? `<span class="price-tag">$${p.estimated_cost}</span>` : ''}
+  </div>`;
+}
+
 function handleDayUpdate(data) {
-  const dayEl = document.getElementById(`day-${data.date}`);
-  if (!dayEl) return;
+  let dayEl = document.getElementById(`day-${data.date}`);
+  if (!dayEl) {
+    // Day card may not exist yet — create it inside plan-panel
+    const panel = document.getElementById('plan-panel');
+    if (!panel) return;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = _dayCardHtml(data);
+    dayEl = tempDiv.firstElementChild;
+    panel.appendChild(dayEl);
+    return;
+  }
   const placesEl = dayEl.querySelector('.day-places');
   if (placesEl && data.places) {
-    placesEl.innerHTML = data.places.map(p =>
-      `<div class="place-item">
-        <span>${escHtml(p.name)}</span>
-        ${p.estimated_cost ? `<span class="price-tag">$${p.estimated_cost}</span>` : ''}
-      </div>`
-    ).join('');
+    placesEl.innerHTML = data.places.map(p => _placeItemHtml(p)).join('');
+  }
+  // Update day cost
+  const dayCost = (data.places || []).reduce((s, p) => s + (p.estimated_cost || 0), 0);
+  const costEl = dayEl.querySelector('.price-tag');
+  if (dayCost > 0) {
+    if (costEl) {
+      costEl.textContent = `$${dayCost.toLocaleString()}`;
+    }
   }
 }
 
+// ---------------------------------------------------------------------------
+// Search results → agent expandable detail panel
+// ---------------------------------------------------------------------------
+
+const _SEARCH_AGENT = {hotels: 'hotel_finder', flights: 'flight_finder', places: 'place_scout'};
+
 function handleSearchResults(data) {
-  const panel = document.getElementById('plan-panel');
-  if (!panel) return;
-  const typeLabel = data.type === 'hotels' ? '🏨 Hotels' :
-                    data.type === 'flights' ? '✈️ Flights' : '📍 Places';
-  let html = `<div class="section-title">${typeLabel}</div>`;
+  const agentId = _SEARCH_AGENT[data.type];
+  const agentEl = agentId ? document.querySelector(`[data-agent="${agentId}"]`) : null;
   const results = data.results || {};
+
+  let itemsHtml = '';
   if (data.type === 'hotels' && results.hotels) {
-    html += results.hotels.map(h =>
+    itemsHtml = results.hotels.map(h =>
       `<div class="search-result-card">
-        <strong>${escHtml(h.name)}</strong>
-        ${h.price_range ? `<span class="price-tag"> ${escHtml(h.price_range)}</span>` : ''}
-        ${h.rating ? `<div class="meta">⭐ ${escHtml(h.rating)}</div>` : ''}
+        <div style="display:flex;justify-content:space-between">
+          <strong>${escHtml(h.name)}</strong>
+          ${h.price_range ? `<span class="price-tag">${escHtml(h.price_range)}</span>` : ''}
+        </div>
+        ${h.rating ? `<div class="meta">⭐ ${escHtml(String(h.rating))}</div>` : ''}
       </div>`
     ).join('');
   } else if (data.type === 'flights' && results.flights) {
-    html += results.flights.map(f =>
+    itemsHtml = results.flights.map(f =>
       `<div class="search-result-card">
-        <strong>${escHtml(f.airline)}</strong>
-        ${f.price ? `<span class="price-tag"> ${escHtml(f.price)}</span>` : ''}
+        <div style="display:flex;justify-content:space-between">
+          <strong>${escHtml(f.airline)}</strong>
+          ${f.price ? `<span class="price-tag">${escHtml(String(f.price))}</span>` : ''}
+        </div>
       </div>`
     ).join('');
   } else if (data.type === 'places' && results.places) {
-    html += results.places.map(p =>
+    itemsHtml = results.places.map(p =>
       `<div class="search-result-card">
         <strong>${escHtml(p.name)}</strong>
         ${p.category ? `<div class="meta">${escHtml(p.category)}</div>` : ''}
       </div>`
     ).join('');
   }
-  panel.innerHTML = html;
+
+  // Append to agent detail panel (expandable)
+  if (agentEl) {
+    let detailEl = agentEl.querySelector('.agent-detail');
+    if (!detailEl) {
+      detailEl = document.createElement('div');
+      detailEl.className = 'agent-detail';
+      agentEl.appendChild(detailEl);
+    }
+    detailEl.innerHTML = itemsHtml;
+    detailEl.style.display = 'none'; // collapsed by default; toggle on ▾ click
+  }
+
+  // Also show a summary section in plan-panel for search-only requests
+  const planPanel = document.getElementById('plan-panel');
+  const hasDayCards = planPanel && planPanel.querySelector('.day-card');
+  if (planPanel && !hasDayCards) {
+    const typeLabel = data.type === 'hotels' ? '🏨 Hotels' :
+                      data.type === 'flights' ? '✈️ Flights' : '📍 Places';
+    planPanel.innerHTML = `<div class="section-title">${typeLabel}</div>${itemsHtml}`;
+  }
 }
