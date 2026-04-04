@@ -44,3 +44,43 @@ class TestFrontendServing:
     def test_static_index_is_html(self, client: TestClient):
         resp = client.get("/static/index.html")
         assert "text/html" in resp.headers["content-type"]
+
+
+class TestChatPageStructure:
+    """Task #42: Chat page HTML/CSS structure."""
+
+    def test_chat_page_structure(self, client: TestClient):
+        resp = client.get("/")
+        content = resp.content.decode()
+
+        # Nav link present
+        assert "Chat" in content
+
+        # Split-pane CSS classes defined
+        assert "chat-layout" in content
+        assert "chat-col" in content
+        assert "dashboard-col" in content
+
+        # Agent card CSS classes defined
+        assert "agent-card" in content
+        assert "agent-idle" in content
+        assert "agent-thinking" in content
+        assert "agent-working" in content
+        assert "agent-done" in content
+        assert "agent-error" in content
+
+        # Animations defined
+        assert "pulse" in content
+        assert "@keyframes spin" in content
+
+        # All 7 agent definitions present in JS
+        assert "Coordinator" in content
+        assert "Planner" in content
+        assert "Place Scout" in content
+        assert "Hotel Finder" in content
+        assert "Flight Finder" in content
+        assert "Budget Analyst" in content
+        assert "Secretary" in content
+
+        # Agent data-agent attributes present (for SSE handler)
+        assert 'data-agent=' in content or "data-agent" in content

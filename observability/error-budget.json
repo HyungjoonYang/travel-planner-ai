@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 64,
-    "successful_runs": 60,
+    "total_runs": 65,
+    "successful_runs": 61,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -83,6 +83,7 @@
     {"run_id": "2026-04-04-0620", "task": "#41 - ChatService intent 핸들러 연결", "result": "success", "tests_passed": 1054, "tests_total": 1054},
     {"run_id": "2026-04-04-1000", "task": "#35 - Per-day cost summary", "result": "success", "tests_passed": 1063, "tests_total": 1063},
     {"run_id": "2026-04-04-1400", "task": "#36 - Favorite places library", "result": "success", "tests_passed": 1090, "tests_total": 1090},
-    {"run_id": "2026-04-04-1800", "task": "#37 - Plan activity log", "result": "success", "tests_passed": 1102, "tests_total": 1102}
+    {"run_id": "2026-04-04-1800", "task": "#37 - Plan activity log", "result": "success", "tests_passed": 1102, "tests_total": 1102},
+    {"run_id": "2026-04-04-2000", "task": "#42 - Chat page HTML/CSS", "result": "success", "tests_passed": 1103, "tests_total": 1103}
   ]
 }

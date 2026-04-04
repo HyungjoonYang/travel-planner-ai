@@ -78,12 +78,39 @@
   .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
   .search-result-card { border: 1px solid var(--border); border-radius: 4px; padding: .75rem; margin-bottom: .75rem; }
   .price-tag { font-weight: 700; color: var(--success); }
+  /* ── Chat / Dashboard split-pane ────────────────────────────────────────── */
+  .chat-layout { display: flex; height: calc(100vh - 56px); overflow: hidden; }
+  .chat-col { flex: 0 0 35%; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--card); }
+  .dashboard-col { flex: 1; min-width: 0; overflow-y: auto; padding: 1rem; background: var(--bg); }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .5rem; }
+  .chat-bubble { max-width: 85%; padding: .6rem .9rem; border-radius: 12px; font-size: .9rem; line-height: 1.45; word-break: break-word; }
+  .chat-ai { background: #e9ecef; color: var(--text); align-self: flex-start; border-bottom-left-radius: 3px; }
+  .chat-user { background: var(--primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 3px; }
+  .chat-input-bar { display: flex; gap: .5rem; padding: .75rem; border-top: 1px solid var(--border); }
+  .chat-input-bar input { flex: 1; padding: .45rem .7rem; border: 1px solid var(--border); border-radius: 4px; font-size: .9rem; }
+  .chat-input-bar input:focus { outline: none; border-color: var(--primary); }
+  /* ── Agent cards ─────────────────────────────────────────────────────────── */
+  .agent-card { transition: all 0.3s; padding: .5rem .75rem; border-radius: 6px; display: flex; align-items: center; gap: .75rem; margin-bottom: .25rem; }
+  .agent-icon { font-size: 1.2rem; flex-shrink: 0; }
+  .agent-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .agent-name { font-size: .85rem; font-weight: 600; }
+  .agent-message { font-size: .78rem; color: var(--muted); }
+  .agent-spinner { flex-shrink: 0; font-size: 1rem; }
+  .agent-idle { opacity: 0.5; }
+  .agent-thinking { background: #fff8e1; animation: pulse 1.5s infinite; }
+  .agent-working { background: #e3f2fd; }
+  .agent-working .agent-spinner { display: inline-block !important; animation: spin 1s linear infinite; }
+  .agent-done { background: #e8f5e9; opacity: 1; }
+  .agent-error { background: #ffebee; opacity: 1; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 <nav>
   <h1 onclick="navigate('plans')">✈ Travel Planner AI</h1>
   <div class="nav-links">
+    <a onclick="navigate('chat')" data-page="chat">Chat</a>
     <a onclick="navigate('plans')" data-page="plans">Plans</a>
     <a onclick="navigate('search')" data-page="search">Search</a>
     <a onclick="navigate('new-plan')" data-page="new-plan">+ New Plan</a>
@@ -145,6 +172,17 @@ function escHtml(s) {
 // ── Main render ──────────────────────────────────────────────────────────────
 async function render() {
   const app = document.getElementById('app');
+  // Chat page needs full-width, no centering
+  if (currentPage === 'chat') {
+    app.style.maxWidth = '100%';
+    app.style.padding = '0';
+    app.style.margin = '0';
+    renderChat(app);
+    return;
+  }
+  app.style.maxWidth = '';
+  app.style.padding = '';
+  app.style.margin = '';
   app.innerHTML = '<div class="loading">Loading…</div>';
   try {
     if (currentPage === 'plans' || currentPage === '') await renderPlans(app);
@@ -640,6 +678,75 @@ function renderFlightResults(data) {
     </div>`;
   }
   return html;
+}
+
+// ── Chat page ─────────────────────────────────────────────────────────────────
+const AGENTS = [
+  {id: 'coordinator',    icon: '🧠', name: 'Coordinator',    role: '총괄'},
+  {id: 'planner',        icon: '📅', name: 'Planner',        role: '일정 구성'},
+  {id: 'place_scout',    icon: '📍', name: 'Place Scout',    role: '장소 검색'},
+  {id: 'hotel_finder',   icon: '🏨', name: 'Hotel Finder',   role: '숙소 검색'},
+  {id: 'flight_finder',  icon: '✈️', name: 'Flight Finder',  role: '항공편 검색'},
+  {id: 'budget_analyst', icon: '💰', name: 'Budget Analyst', role: '비용 분석'},
+  {id: 'secretary',      icon: '💾', name: 'Secretary',      role: '저장/내보내기'},
+];
+
+function renderChat(app) {
+  const agentCardsHtml = AGENTS.map(a => `
+    <div class="agent-card agent-idle" data-agent="${a.id}">
+      <span class="agent-icon">${a.icon}</span>
+      <div class="agent-info">
+        <span class="agent-name">${escHtml(a.name)}</span>
+        <span class="agent-message">대기 중</span>
+      </div>
+      <span class="agent-spinner" style="display:none">⟳</span>
+    </div>`).join('');
+
+  app.innerHTML = `
+  <div class="chat-layout">
+    <div class="chat-col">
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-bubble chat-ai">안녕하세요! 어떤 여행을 계획하고 계신가요?</div>
+      </div>
+      <div class="chat-input-bar">
+        <input id="chat-input" type="text" placeholder="메시지 입력..."
+          onkeydown="if(event.key==='Enter')sendChatMessage()" />
+        <button class="btn btn-primary" onclick="sendChatMessage()">전송</button>
+      </div>
+    </div>
+    <div class="dashboard-col">
+      <div class="card" id="agent-panel">
+        <div class="section-title">🏢 Team Activity</div>
+        <div id="agent-cards">${agentCardsHtml}</div>
+      </div>
+      <div class="card" id="plan-panel">
+        <div class="section-title">✈️ Travel Plan</div>
+        <div class="empty">아직 계획이 없습니다</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function handleAgentStatus(data) {
+  const el = document.querySelector(`[data-agent="${data.agent}"]`);
+  if (!el) return;
+  el.className = `agent-card agent-${data.status}`;
+  const msgEl = el.querySelector('.agent-message');
+  if (msgEl) msgEl.textContent = data.message || '';
+  const spinner = el.querySelector('.agent-spinner');
+  if (spinner) spinner.style.display = data.status === 'working' ? 'inline-block' : 'none';
+}
+
+function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  if (!input || !input.value.trim()) return;
+  const msg = input.value.trim();
+  input.value = '';
+  const messagesEl = document.getElementById('chat-messages');
+  if (messagesEl) {
+    messagesEl.innerHTML += `<div class="chat-bubble chat-user">${escHtml(msg)}</div>`;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
