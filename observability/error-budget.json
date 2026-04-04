@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 77,
-    "successful_runs": 72,
+    "total_runs": 78,
+    "successful_runs": 73,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -96,6 +96,7 @@
     {"run_id": "2026-04-04-3400", "task": "#49 - E2E Playwright tests for chat page", "result": "success", "tests_passed": 1179, "tests_total": 1179},
     {"run_id": "monitor-2026-04-04-3500", "task": "monitor", "result": "success", "tests_passed": 1179, "tests_total": 1179},
     {"run_id": "2026-04-04-3600", "task": "#50 - Budget Analyst: real per-category cost breakdown in chat", "result": "success", "tests_passed": 1181, "tests_total": 1181},
-    {"run_id": "2026-04-04-3800", "task": "#51 - Reporter agent: auto-close GitHub Issues on task completion", "result": "success", "tests_passed": 1181, "tests_total": 1181}
+    {"run_id": "2026-04-04-3800", "task": "#51 - Reporter agent: auto-close GitHub Issues on task completion", "result": "success", "tests_passed": 1181, "tests_total": 1181},
+    {"run_id": "monitor-2026-04-04-3900", "task": "monitor", "result": "success", "tests_passed": 1181, "tests_total": 1181}
   ]
 }
