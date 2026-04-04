@@ -1,0 +1,195 @@
+name: Daily Summary
+
+on:
+  schedule:
+    # UTC 21:20 = KST 06:20 — 마지막 evolve(21:00) 완료 후 실행
+    - cron: '20 21 * * *'
+  workflow_dispatch: # 수동 테스트용
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Gather daily activity
+        id: gather
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          YESTERDAY=$(date -u -d "yesterday" +%Y-%m-%d 2>/dev/null || date -u -v-1d +%Y-%m-%d)
+
+          # ── Git commits today ──
+          COMMIT_COUNT=$(git log --oneline --since="${TODAY}T00:00:00Z" | wc -l | tr -d ' ')
+          COMMIT_LOG=$(git log --oneline --since="${TODAY}T00:00:00Z" 2>/dev/null || echo "none")
+
+          # ── Evolve runs today (from Actions) ──
+          EVOLVE_RUNS=$(gh run list --workflow=evolve.yml --created=">=${TODAY}" --json conclusion --jq 'length' 2>/dev/null || echo "0")
+          EVOLVE_SUCCESS=$(gh run list --workflow=evolve.yml --created=">=${TODAY}" --json conclusion --jq '[.[] | select(.conclusion=="success")] | length' 2>/dev/null || echo "0")
+
+          # ── PRs created/merged today ──
+          PRS_CREATED=$(gh pr list --state all --json number,title,state,labels,createdAt,mergedAt \
+            --jq "[.[] | select(.createdAt >= \"${TODAY}T00:00:00Z\")] | length" 2>/dev/null || echo "0")
+          PRS_MERGED=$(gh pr list --state merged --json number,title,mergedAt \
+            --jq "[.[] | select(.mergedAt >= \"${TODAY}T00:00:00Z\")] | length" 2>/dev/null || echo "0")
+          PR_DETAILS=$(gh pr list --state all --json number,title,state,createdAt,mergedAt \
+            --jq "[.[] | select(.createdAt >= \"${TODAY}T00:00:00Z\")] | .[] | \"#\(.number) \(.title) [\(.state)]\"" 2>/dev/null || echo "none")
+
+          # ── Issues created/closed today ──
+          ISSUES_CREATED=$(gh issue list --state all --json number,title,state,createdAt,closedAt \
+            --jq "[.[] | select(.createdAt >= \"${TODAY}T00:00:00Z\")] | length" 2>/dev/null || echo "0")
+          ISSUES_CLOSED=$(gh issue list --state closed --json number,title,closedAt \
+            --jq "[.[] | select(.closedAt != null and .closedAt >= \"${TODAY}T00:00:00Z\")] | length" 2>/dev/null || echo "0")
+          ISSUES_OPEN=$(gh issue list --state open --json number --jq 'length' 2>/dev/null || echo "0")
+
+          # ── Test count from status.md ──
+          TESTS=$(grep -oP 'Latency: ~\K[0-9]+' status.md 2>/dev/null || echo "?")
+          TEST_LINE=$(grep -oP '\d+/\d+ pass' status.md 2>/dev/null || grep -oP 'Tests: \K.*' status.md 2>/dev/null || echo "?")
+          HEALTH=$(grep -oP 'Health: \K\w+' status.md 2>/dev/null || echo "UNKNOWN")
+          PHASE=$(grep -oP 'Phase: \K.*' status.md 2>/dev/null || echo "unknown")
+          TASKS_DONE=$(grep -oP 'Tasks completed: \K\d+' status.md 2>/dev/null || echo "?")
+          FOCUS=$(grep -oP 'Current focus: \K.*' status.md 2>/dev/null || echo "unknown")
+
+          # ── Lines changed today ──
+          LINES_ADDED=$(git log --since="${TODAY}T00:00:00Z" --pretty=tformat: --numstat 2>/dev/null | awk '{s+=$1} END {print s+0}')
+          LINES_REMOVED=$(git log --since="${TODAY}T00:00:00Z" --pretty=tformat: --numstat 2>/dev/null | awk '{s+=$2} END {print s+0}')
+          FILES_CHANGED=$(git log --since="${TODAY}T00:00:00Z" --pretty=tformat: --numstat 2>/dev/null | wc -l | tr -d ' ')
+
+          # ── Feature commits (non-monitor, non-merge) ──
+          FEATURE_LOG=$(git log --oneline --since="${TODAY}T00:00:00Z" --grep="feat" --grep="fix" --grep="refactor" --grep="improvement" 2>/dev/null || echo "")
+
+          # Save to file for the summary step
+          cat > /tmp/daily-data.json <<DATEOF
+          {
+            "date": "${TODAY}",
+            "health": "${HEALTH}",
+            "phase": "${PHASE}",
+            "tasks_done": "${TASKS_DONE}",
+            "focus": "${FOCUS}",
+            "evolve_runs": ${EVOLVE_RUNS},
+            "evolve_success": ${EVOLVE_SUCCESS},
+            "commits": ${COMMIT_COUNT},
+            "prs_created": ${PRS_CREATED},
+            "prs_merged": ${PRS_MERGED},
+            "issues_created": ${ISSUES_CREATED},
+            "issues_closed": ${ISSUES_CLOSED},
+            "issues_open": ${ISSUES_OPEN},
+            "lines_added": ${LINES_ADDED},
+            "lines_removed": ${LINES_REMOVED},
+            "files_changed": ${FILES_CHANGED}
+          }
+          DATEOF
+
+          # Store multiline outputs
+          echo "commit_log<<EOFLOG" >> "$GITHUB_OUTPUT"
+          echo "$COMMIT_LOG" >> "$GITHUB_OUTPUT"
+          echo "EOFLOG" >> "$GITHUB_OUTPUT"
+
+          echo "pr_details<<EOFPR" >> "$GITHUB_OUTPUT"
+          echo "$PR_DETAILS" >> "$GITHUB_OUTPUT"
+          echo "EOFPR" >> "$GITHUB_OUTPUT"
+
+          echo "feature_log<<EOFFL" >> "$GITHUB_OUTPUT"
+          echo "$FEATURE_LOG" >> "$GITHUB_OUTPUT"
+          echo "EOFFL" >> "$GITHUB_OUTPUT"
+
+          cat /tmp/daily-data.json | python3 -m json.tool
+
+      - name: Build and send Slack summary
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "No Slack webhook configured, skipping"
+            exit 0
+          fi
+
+          # Read gathered data
+          DATA=$(cat /tmp/daily-data.json)
+          DATE=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['date'])")
+          HEALTH=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['health'])")
+          PHASE=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['phase'])")
+          TASKS_DONE=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['tasks_done'])")
+          FOCUS=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['focus'])")
+          EVOLVE_RUNS=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['evolve_runs'])")
+          EVOLVE_SUCCESS=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['evolve_success'])")
+          COMMITS=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['commits'])")
+          PRS_CREATED=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['prs_created'])")
+          PRS_MERGED=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['prs_merged'])")
+          ISSUES_CREATED=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['issues_created'])")
+          ISSUES_CLOSED=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['issues_closed'])")
+          ISSUES_OPEN=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['issues_open'])")
+          LINES_ADDED=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['lines_added'])")
+          LINES_REMOVED=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['lines_removed'])")
+          FILES_CHANGED=$(echo "$DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['files_changed'])")
+
+          # Health emoji
+          case "$HEALTH" in
+            GREEN) HEALTH_EMOJI="🟢" ;;
+            YELLOW) HEALTH_EMOJI="🟡" ;;
+            RED) HEALTH_EMOJI="🔴" ;;
+            *) HEALTH_EMOJI="⚪" ;;
+          esac
+
+          # Feature commits for highlights
+          FEATURE_LOG="${{ steps.gather.outputs.feature_log }}"
+          HIGHLIGHTS=""
+          if [ -n "$FEATURE_LOG" ] && [ "$FEATURE_LOG" != "" ]; then
+            # Extract meaningful commit messages
+            HIGHLIGHTS=$(echo "$FEATURE_LOG" | head -10 | sed 's/^[a-f0-9]* /• /' | tr '\n' '\\' | sed 's/\\/\\n/g')
+          fi
+
+          # Build PR list
+          PR_DETAILS="${{ steps.gather.outputs.pr_details }}"
+          PR_SECTION=""
+          if [ -n "$PR_DETAILS" ] && [ "$PR_DETAILS" != "none" ] && [ "$PR_DETAILS" != "" ]; then
+            PR_SECTION=$(echo "$PR_DETAILS" | head -5 | sed 's/^/• /' | tr '\n' '\\' | sed 's/\\/\\n/g')
+          fi
+
+          # Compose message sections
+          SUMMARY_TEXT="${HEALTH_EMOJI} *Daily Summary — ${DATE}*"
+          SUMMARY_TEXT="${SUMMARY_TEXT}\n*Phase:* ${PHASE}"
+          SUMMARY_TEXT="${SUMMARY_TEXT}\n*Health:* ${HEALTH} | *Total tasks done:* ${TASKS_DONE}"
+
+          ACTIVITY_TEXT="*📊 오늘의 활동*"
+          ACTIVITY_TEXT="${ACTIVITY_TEXT}\n• Evolve 실행: ${EVOLVE_RUNS}회 (성공 ${EVOLVE_SUCCESS}회)"
+          ACTIVITY_TEXT="${ACTIVITY_TEXT}\n• 커밋: ${COMMITS}개 | +${LINES_ADDED} -${LINES_REMOVED} lines | ${FILES_CHANGED} files"
+          ACTIVITY_TEXT="${ACTIVITY_TEXT}\n• PR: ${PRS_CREATED}개 생성, ${PRS_MERGED}개 머지"
+          ACTIVITY_TEXT="${ACTIVITY_TEXT}\n• Issues: ${ISSUES_CREATED}개 생성, ${ISSUES_CLOSED}개 close (${ISSUES_OPEN}개 open)"
+
+          # Build blocks array
+          BLOCKS="["
+          BLOCKS="${BLOCKS}{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"${SUMMARY_TEXT}\"}},"
+          BLOCKS="${BLOCKS}{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"${ACTIVITY_TEXT}\"}}"
+
+          if [ -n "$HIGHLIGHTS" ] && [ "$HIGHLIGHTS" != "• " ]; then
+            BLOCKS="${BLOCKS},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*✨ 주요 변경사항*\n${HIGHLIGHTS}\"}}"
+          fi
+
+          if [ -n "$PR_SECTION" ] && [ "$PR_SECTION" != "• " ]; then
+            BLOCKS="${BLOCKS},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"*🔀 Pull Requests*\n${PR_SECTION}\"}}"
+          fi
+
+          REPO_URL="https://github.com/${{ github.repository }}"
+          BLOCKS="${BLOCKS},{\"type\":\"context\",\"elements\":[{\"type\":\"mrkdwn\",\"text\":\"<${REPO_URL}/issues|Issues> · <${REPO_URL}/pulls|PRs> · <${REPO_URL}/actions|Actions>\"}]}"
+          BLOCKS="${BLOCKS}]"
+
+          # Send to Slack
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            -d "{\"blocks\": ${BLOCKS}}"
+
+          echo "✅ Daily summary sent to Slack"
