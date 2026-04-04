@@ -1,0 +1,25 @@
+{
+  "trace": {
+    "run_id": "monitor-2026-04-04-4300",
+    "timestamp": "2026-04-04T43:00:00Z",
+    "phase": "Phase 10",
+    "health": "GREEN",
+    "task": "monitor"
+  },
+  "spans": [
+    {
+      "agent": "monitor",
+      "status": "completed",
+      "tests_passed": 1205,
+      "tests_total": 1205,
+      "test_duration_s": 19.27,
+      "health": "GREEN"
+    }
+  ],
+  "ltes": {
+    "latency": {"total_duration_ms": 40047, "pytest_duration_ms": 19270},
+    "traffic": {"commits_24h": 30, "lines_added": 305, "lines_removed": 45, "files_changed": 9},
+    "errors": {"test_failures": 0, "error_rate": 0.0},
+    "saturation": {"backlog_remaining": 4}
+  }
+}
