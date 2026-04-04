@@ -1162,3 +1162,276 @@ class TestBudgetBreakdown:
         breakdown = budget_event["data"]["results"]
         for key in ("accommodation", "transport", "food", "activities", "total"):
             assert key in breakdown, f"Missing key: {key}"
+
+
+# ---------------------------------------------------------------------------
+# Task #52: Secretary export_calendar handler
+# ---------------------------------------------------------------------------
+
+def _make_fake_calendar_result():
+    from app.calendar_service import CalendarExportResult, CalendarEventResult
+    from datetime import date as date_type
+
+    return CalendarExportResult(
+        plan_id=1,
+        destination="도쿄",
+        events_created=2,
+        events=[
+            CalendarEventResult(
+                day_itinerary_id=1,
+                event_date=date_type(2026, 5, 1),
+                event_id="evt1",
+                event_link="https://calendar.google.com/1",
+            ),
+            CalendarEventResult(
+                day_itinerary_id=2,
+                event_date=date_type(2026, 5, 2),
+                event_id="evt2",
+                event_link="https://calendar.google.com/2",
+            ),
+        ],
+    )
+
+
+def _make_mock_db_with_plan():
+    mock_db = MagicMock()
+    mock_db.get.return_value = MagicMock()
+    return mock_db
+
+
+class TestExportCalendar:
+    """Secretary export_calendar handler: thinking→working→done, calls CalendarService."""
+
+    def _make_service(self):
+        return ChatService(
+            api_key="",
+            ttl_seconds=SESSION_TTL_SECONDS,
+            gemini_service=MagicMock(),
+            web_search_service=MagicMock(),
+            hotel_search_service=MagicMock(),
+            flight_search_service=MagicMock(),
+        )
+
+    def test_export_calendar_activates_secretary(self):
+        """export_calendar intent activates the secretary agent."""
+        svc = self._make_service()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+        mock_db = _make_mock_db_with_plan()
+
+        with patch("app.chat.CalendarService") as mock_cs_class:
+            mock_cs_class.return_value.export_plan.return_value = _make_fake_calendar_result()
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="export_calendar", access_token="fake-token", raw_message="캘린더에 내보내줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "캘린더에 내보내줘", mock_db)
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "secretary" in agent_names
+
+    def test_export_calendar_secretary_thinking_then_working_then_done(self):
+        """Secretary emits thinking → working → done for export_calendar."""
+        svc = self._make_service()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+        mock_db = _make_mock_db_with_plan()
+
+        with patch("app.chat.CalendarService") as mock_cs_class:
+            mock_cs_class.return_value.export_plan.return_value = _make_fake_calendar_result()
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="export_calendar", access_token="fake-token", raw_message="캘린더"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "캘린더", mock_db)
+
+        secretary_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+        ]
+        assert "thinking" in secretary_statuses
+        assert "working" in secretary_statuses
+        assert "done" in secretary_statuses
+        assert secretary_statuses.index("thinking") < secretary_statuses.index("working")
+        assert secretary_statuses.index("working") < secretary_statuses.index("done")
+
+    def test_export_calendar_calls_calendar_service(self):
+        """CalendarService.export_plan is called with the plan loaded from DB."""
+        svc = self._make_service()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+        mock_plan = MagicMock()
+        mock_db = MagicMock()
+        mock_db.get.return_value = mock_plan
+
+        with patch("app.chat.CalendarService") as mock_cs_class:
+            mock_cs_instance = MagicMock()
+            mock_cs_instance.export_plan.return_value = _make_fake_calendar_result()
+            mock_cs_class.return_value = mock_cs_instance
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="export_calendar", access_token="fake-token", raw_message="캘린더"
+            )):
+                _collect_events_with_db(svc, session.session_id, "캘린더", mock_db)
+
+        mock_cs_instance.export_plan.assert_called_once_with(mock_plan)
+
+    def test_export_calendar_emits_calendar_exported_event(self):
+        """export_calendar emits a calendar_exported SSE event with event count."""
+        svc = self._make_service()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+        mock_db = _make_mock_db_with_plan()
+
+        with patch("app.chat.CalendarService") as mock_cs_class:
+            mock_cs_class.return_value.export_plan.return_value = _make_fake_calendar_result()
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="export_calendar", access_token="fake-token", raw_message="캘린더"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "캘린더", mock_db)
+
+        exported_events = [e for e in events if e["type"] == "calendar_exported"]
+        assert len(exported_events) == 1
+        assert exported_events[0]["data"]["events_created"] == 2
+
+    def test_export_calendar_emits_chat_chunk_confirmation(self):
+        """export_calendar emits a chat_chunk with confirmation text."""
+        svc = self._make_service()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+        mock_db = _make_mock_db_with_plan()
+
+        with patch("app.chat.CalendarService") as mock_cs_class:
+            mock_cs_class.return_value.export_plan.return_value = _make_fake_calendar_result()
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="export_calendar", access_token="fake-token", raw_message="캘린더"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "캘린더", mock_db)
+
+        chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chunk_events) >= 1
+
+    def test_export_calendar_done_has_result_count(self):
+        """Secretary done event includes result_count matching events_created."""
+        svc = self._make_service()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+        mock_db = _make_mock_db_with_plan()
+
+        with patch("app.chat.CalendarService") as mock_cs_class:
+            mock_cs_class.return_value.export_plan.return_value = _make_fake_calendar_result()
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="export_calendar", access_token="fake-token", raw_message="캘린더"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "캘린더", mock_db)
+
+        secretary_done = next(
+            (e for e in events
+             if e["type"] == "agent_status"
+             and e["data"]["agent"] == "secretary"
+             and e["data"]["status"] == "done"),
+            None,
+        )
+        assert secretary_done is not None
+        assert "result_count" in secretary_done["data"]
+        assert secretary_done["data"]["result_count"] == 2
+
+    def test_export_calendar_no_token_emits_secretary_error(self):
+        """export_calendar without access_token emits secretary error status."""
+        svc = self._make_service()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="export_calendar", access_token=None, raw_message="캘린더"
+        )):
+            events = _collect_events(svc, session.session_id, "캘린더")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status"
+            and e["data"]["agent"] == "secretary"
+            and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_export_calendar_no_saved_plan_emits_secretary_error(self):
+        """export_calendar without a saved plan_id emits secretary error status."""
+        svc = self._make_service()
+        session = svc.create_session()
+        # session.last_saved_plan_id is None by default
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="export_calendar", access_token="fake-token", raw_message="캘린더"
+        )):
+            events = _collect_events(svc, session.session_id, "캘린더")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status"
+            and e["data"]["agent"] == "secretary"
+            and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_export_calendar_calendar_service_failure_emits_error(self):
+        """When CalendarService.export_plan raises, secretary emits error status."""
+        svc = self._make_service()
+        session = svc.create_session()
+        session.last_saved_plan_id = 1
+        mock_db = _make_mock_db_with_plan()
+
+        with patch("app.chat.CalendarService") as mock_cs_class:
+            mock_cs_class.return_value.export_plan.side_effect = RuntimeError("Google API error")
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="export_calendar", access_token="fake-token", raw_message="캘린더"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "캘린더", mock_db)
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status"
+            and e["data"]["agent"] == "secretary"
+            and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_export_calendar_no_token_emits_chat_chunk(self):
+        """export_calendar without token emits a chat_chunk explaining the requirement."""
+        svc = self._make_service()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="export_calendar", access_token=None, raw_message="캘린더"
+        )):
+            events = _collect_events(svc, session.session_id, "캘린더")
+
+        chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chunk_events) >= 1
+
+    def test_save_plan_stores_last_saved_plan_id_in_session(self):
+        """_handle_save_plan must store the DB plan_id in session.last_saved_plan_id."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_plan = {
+                "destination": "도쿄",
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-04",
+                "budget": 2000000.0,
+                "interests": "food",
+            }
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="save_plan", raw_message="저장해줘"
+            )):
+                _collect_events_with_db(svc, session.session_id, "저장해줘", db)
+
+            fetched = svc.get_session(session.session_id)
+            assert fetched.last_saved_plan_id is not None
+            assert isinstance(fetched.last_saved_plan_id, int)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)

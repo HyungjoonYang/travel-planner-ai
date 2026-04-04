@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T38:00Z (Evolve Run #74 — #51 Reporter agent: auto-close GitHub Issues)
-Run count: 77
+Last run: 2026-04-04T40:00Z (Evolve Run #75 — #52 Chat Secretary: export_calendar intent handler)
+Run count: 79
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 50
+Tasks completed: 51
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #52 Chat Secretary: export_calendar intent handler
+Next planned: #53 Chat conversation context: pass last 10 messages to Gemini
 
 ## LTES Snapshot
 
-- Latency: ~20710ms (pytest 1181 tests in 20.71s)
+- Latency: ~19950ms (pytest 1192 tests in 19.95s)
 - Traffic: 28 commits/24h
-- Errors: 0 test failures (1181/1181 pass), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Errors: 0 test failures (1192/1192 pass), error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #52 Chat Secretary: export_calendar intent handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #75 — 2026-04-04T40:00Z
+- **Task**: #52 - Chat Secretary: export_calendar intent handler
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1192/1192 passed (+11 new: TestExportCalendarHandler class, tests/test_chat.py:1203-1410)
+- **Files changed**: src/app/chat.py (+134/-2), tests/test_chat.py (+11 tests)
+- **Builder note**: Implemented export_calendar intent handler for Secretary agent. Added: (1) CalendarService import, (2) access_token field to Intent model, (3) last_saved_plan_id to ChatSession, (4) _handle_export_calendar with thinking→working→done, (5) save_plan stores last_saved_plan_id. Emits calendar_exported SSE event + chat_chunk confirmation. Graceful error paths for missing token or unsaved plan.
+- **LTES**: L=19950ms T=1 commit E=0.0% S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor — 2026-04-04T39:00Z
 - **Task**: health check

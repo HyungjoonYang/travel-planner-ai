@@ -10,6 +10,7 @@ from google.genai import types
 from pydantic import BaseModel
 
 from app.ai import GeminiService
+from app.calendar_service import CalendarService
 from app.config import GEMINI_API_KEY
 from app.flight_search import FlightSearchService
 from app.hotel_search import HotelSearchService
@@ -26,7 +27,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | general
+    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -34,6 +35,7 @@ class Intent(BaseModel):
     interests: Optional[str] = None
     day_number: Optional[int] = None
     query: Optional[str] = None
+    access_token: Optional[str] = None
     raw_message: str = ""
 
 
@@ -44,6 +46,7 @@ class ChatSession(BaseModel):
     history: list[dict] = []
     agent_states: dict[str, dict] = {}  # last known agent_status per agent
     last_plan: Optional[dict] = None    # last plan_update payload
+    last_saved_plan_id: Optional[int] = None  # DB plan_id after save_plan
 
 
 class ChatService:
@@ -202,6 +205,9 @@ Return a JSON object with these fields:
                 yield _track(event)
         elif intent.action == "save_plan":
             async for event in self._handle_save_plan(intent, session, db):
+                yield _track(event)
+        elif intent.action == "export_calendar":
+            async for event in self._handle_export_calendar(intent, session, db):
                 yield _track(event)
         else:
             yield {
@@ -616,6 +622,7 @@ Return a JSON object with these fields:
             db.commit()
             db.refresh(plan_record)
             plan_id = plan_record.id
+            session.last_saved_plan_id = plan_id
 
         yield {
             "type": "agent_status",
@@ -629,6 +636,89 @@ Return a JSON object with these fields:
             "type": "chat_chunk",
             "data": {"text": "여행 계획이 저장되었습니다."},
         }
+
+    async def _handle_export_calendar(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "thinking", "message": "캘린더 내보내기 준비 중..."},
+        }
+        await asyncio.sleep(0)
+
+        access_token = intent.access_token or ""
+        if not access_token:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "Google 인증 토큰이 필요합니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "Google Calendar 내보내기를 위해 Google 계정 연동이 필요합니다."},
+            }
+            return
+
+        plan_id = session.last_saved_plan_id
+        if plan_id is None or db is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "저장된 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "캘린더로 내보내려면 먼저 여행 계획을 저장해주세요."},
+            }
+            return
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "working", "message": "Google Calendar에 내보내는 중..."},
+        }
+
+        try:
+            from app.models import TravelPlan as TravelPlanModel
+
+            plan = db.get(TravelPlanModel, plan_id)
+            if plan is None:
+                raise ValueError(f"Plan {plan_id} not found in DB")
+
+            cal_service = CalendarService(access_token=access_token)
+            result = await asyncio.to_thread(cal_service.export_plan, plan)
+
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "secretary",
+                    "status": "done",
+                    "message": f"{result.events_created}개 이벤트 추가됨",
+                    "result_count": result.events_created,
+                },
+            }
+            yield {
+                "type": "calendar_exported",
+                "data": {
+                    "plan_id": result.plan_id,
+                    "destination": result.destination,
+                    "events_created": result.events_created,
+                },
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"Google Calendar에 {result.events_created}개 일정이 추가되었습니다."},
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "캘린더 내보내기 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"캘린더 내보내기 중 오류가 발생했습니다: {exc}"},
+            }
 
 
 # Module-level singleton used by the chat router
