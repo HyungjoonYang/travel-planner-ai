@@ -240,6 +240,13 @@ function handleSseEvent(event) {
     case 'plan_saved':
       appendAiBubble('✅ ' + ((event.data && event.data.message) || '저장 완료'));
       break;
+    case 'plan_deleted': {
+      const panel = document.getElementById('plan-panel');
+      if (panel) {
+        panel.innerHTML = '<div class="meta">여행 계획이 삭제되었습니다.</div>';
+      }
+      break;
+    }
     case 'error':
       const errMsg = (event.data && event.data.message) || '오류 발생';
       if (currentStreamBubble) {

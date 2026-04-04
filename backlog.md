@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #59 - Chat: `delete_plan` intent handler — delete a saved plan via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
-  - done: `delete_plan` intent routes to handler; deletes from DB; emits `plan_deleted`; frontend clears plan-panel; ≥3 tests added
-  - gh: #45
-
 - [ ] #60 - Chat: `view_plan` intent handler — load saved plan into dashboard by name/ID [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
@@ -107,6 +101,7 @@ _(없음)_
 - [x] #55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures [infra] — 2026-04-04
 - [x] #57 - Chat frontend: plans_list SSE event handler — render saved plan cards in dashboard [feature] — 2026-04-04
 - [x] #58 - Chat frontend: `calendar_exported` SSE event handler — show export confirmation [feature] — 2026-04-04
+- [x] #59 - Chat: `delete_plan` intent handler — delete a saved plan via chat [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -118,5 +113,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 57 done, 4 ready
+- Total tasks: 58 done, 3 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

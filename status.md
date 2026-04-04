@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T52:00Z (Evolve Run #81)
-Run count: 88
+Last run: 2026-04-04T54:00Z (Evolve Run #82)
+Run count: 89
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 57
+Tasks completed: 58
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #59 Chat: delete_plan intent handler
+Next planned: #60 Chat: view_plan intent handler
 
 ## LTES Snapshot
 
-- Latency: ~0ms (pytest 1235 tests)
+- Latency: ~19790ms (pytest 1241 tests)
 - Traffic: 35 commits/24h
-- Errors: 0 test failures (1235/1235 pass), error_rate=0.0%
-- Saturation: 4 tasks ready
+- Errors: 0 test failures (1241/1241 pass), error_rate=0.0%
+- Saturation: 3 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #59 Chat: delete_plan intent handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #82 — 2026-04-04T54:00Z
+- **Task**: #59 - Chat: `delete_plan` intent handler — delete a saved plan via chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1241/1241 passed (+6 new: TestDeletePlanIntent class, tests/test_chat.py:1863+)
+- **Files changed**: src/app/chat.py (+85/-2), src/app/static/chat.js, tests/test_chat.py (+6 tests)
+- **Builder note**: Added delete_plan intent handler: Intent model gains plan_id field; extract_intent prompt updated to include delete_plan action; _handle_delete_plan resolves plan_id from intent.plan_id or session.last_saved_plan_id, deletes TravelPlan from DB, emits plan_deleted SSE event, clears session.last_saved_plan_id if it matches; chat.js handles plan_deleted by clearing plan-panel. 6 new tests: secretary activation, plan_deleted event emission, DB deletion, no-DB error path, nonexistent plan error, session state cleanup.
+- **LTES**: L=19790ms T=1 commit E=0.0% S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #81 — 2026-04-04T52:00Z
 - **Task**: #58 - Chat frontend: `calendar_exported` SSE event handler — show export confirmation

@@ -28,13 +28,14 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | general
+    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     budget: Optional[float] = None
     interests: Optional[str] = None
     day_number: Optional[int] = None
+    plan_id: Optional[int] = None
     query: Optional[str] = None
     access_token: Optional[str] = None
     raw_message: str = ""
@@ -130,13 +131,14 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "general"
+- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
 - budget: budget as a number if mentioned or inferred from context, else null
 - interests: comma-separated interests if mentioned or inferred from context, else null
 - day_number: specific day number if modifying a day, else null
+- plan_id: integer plan ID if deleting a specific plan (e.g. "3번 계획 삭제" → 3), else null
 - query: search query string if searching, else null
 - raw_message: the exact original message"""
 
@@ -238,6 +240,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "list_plans":
             async for event in self._handle_list_plans(db):
+                yield _track_and_collect(event)
+        elif intent.action == "delete_plan":
+            async for event in self._handle_delete_plan(intent, session, db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -834,6 +839,79 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"여행 계획 조회 중 오류가 발생했습니다: {exc}"},
+            }
+
+
+    async def _handle_delete_plan(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "working", "message": "여행 계획 삭제 중..."},
+        }
+        await asyncio.sleep(0)
+
+        # Resolve the plan ID: prefer explicit intent.plan_id, then session's last saved plan
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is None or plan_id is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "삭제할 계획을 찾을 수 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "삭제할 여행 계획을 지정해주세요. (예: '3번 계획 삭제')"},
+            }
+            return
+
+        try:
+            from app.models import TravelPlan as TravelPlanModel
+
+            plan = db.get(TravelPlanModel, plan_id)
+            if plan is None:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                }
+                return
+
+            destination = plan.destination
+            db.delete(plan)
+            db.commit()
+
+            # Clear the session's saved plan reference if it matches
+            if session.last_saved_plan_id == plan_id:
+                session.last_saved_plan_id = None
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "done", "message": "삭제 완료!"},
+            }
+            yield {
+                "type": "plan_deleted",
+                "data": {"plan_id": plan_id, "destination": destination},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"'{destination}' 여행 계획(#{plan_id})이 삭제되었습니다."},
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "삭제 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"여행 계획 삭제 중 오류가 발생했습니다: {exc}"},
             }
 
 
