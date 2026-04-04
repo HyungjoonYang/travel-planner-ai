@@ -11,12 +11,6 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-- [ ] #47 - modify_day intent handler: update a day's places via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md (Intent handlers — modify_day)
-  - depends: #46
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: `_handle_modify_day` dispatched on modify_day intent; emits planner agent_status (thinking→working→done) + day_update event; test_modify_day_emits_day_update + test_modify_day_activates_planner_agent pass
-  - gh: #23
 
 - [ ] #48 - Secretary save_plan handler: persist plan to DB [feature]
   - ref: markdowns/feat-chat-dashboard.md (Stage 4 — 저장)
@@ -110,6 +104,7 @@ _(없음)_
 - [x] #44 - chat.js: Plan dashboard rendering (plan_update / day_update / search_results SSE events) [feature] — 2026-04-04
 - [x] #45 - Agent panel compact/expanded toggle + mobile responsive layout [feature] — 2026-04-04
 - [x] #46 - SSE reconnect with exponential backoff + session state restore on reconnect [feature] — 2026-04-04
+- [x] #47 - modify_day intent handler: update a day's places via chat [feature] — 2026-04-04
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -121,5 +116,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 45 done, 6 ready
+- Total tasks: 46 done, 5 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
