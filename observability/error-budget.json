@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 84,
-    "successful_runs": 79,
+    "total_runs": 85,
+    "successful_runs": 80,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -20,89 +20,608 @@
     "EXHAUSTED": "budget_remaining < 0.01 — feature freeze, stabilization only"
   },
   "history": [
-    {"run_id": "2026-04-01-0000", "task": "#1 - Initialize FastAPI project structure", "result": "success", "tests_passed": 2, "tests_total": 2},
-    {"run_id": "2026-04-01-0001", "task": "#2 - Create travel plan data models", "result": "success", "tests_passed": 16, "tests_total": 16},
-    {"run_id": "2026-04-01-0300", "task": "#3 - Implement CRUD endpoints", "result": "success", "tests_passed": 36, "tests_total": 36},
-    {"run_id": "monitor-2026-04-01-1353", "task": "monitor", "result": "success", "tests_passed": 36, "tests_total": 36},
-    {"run_id": "2026-04-01-1413", "task": "#4 - Write unit tests for CRUD endpoints", "result": "success", "tests_passed": 93, "tests_total": 93},
-    {"run_id": "monitor-2026-04-01-1446", "task": "monitor", "result": "success", "tests_passed": 93, "tests_total": 93},
-    {"run_id": "2026-04-01-1500", "task": "#5 - Add seed data and database initialization", "result": "success", "tests_passed": 113, "tests_total": 113},
-    {"run_id": "2026-04-01-1600", "task": "#6 - Setup Render deployment", "result": "success", "tests_passed": 140, "tests_total": 140},
-    {"run_id": "monitor-2026-04-01-1700", "task": "monitor", "result": "success", "tests_passed": 140, "tests_total": 140},
-    {"run_id": "2026-04-01-1800", "task": "#7 - Integrate Gemini API", "result": "success", "tests_passed": 171, "tests_total": 171},
-    {"run_id": "2026-04-01-1900", "task": "#8 - Add web search tool", "result": "success", "tests_passed": 206, "tests_total": 206},
-    {"run_id": "monitor-2026-04-01-2000", "task": "monitor", "result": "success", "tests_passed": 206, "tests_total": 206},
-    {"run_id": "2026-04-01-2100", "task": "#9 - Implement structured output", "result": "success", "tests_passed": 231, "tests_total": 231},
-    {"run_id": "2026-04-01-2200", "task": "#10 - Write tests for AI-generated travel plans", "result": "success", "tests_passed": 273, "tests_total": 273},
-    {"run_id": "monitor-2026-04-01-2300", "task": "monitor", "result": "success", "tests_passed": 273, "tests_total": 273},
-    {"run_id": "2026-04-01-2330", "task": "#11 - Add Google Calendar integration", "result": "success", "tests_passed": 313, "tests_total": 313},
-    {"run_id": "2026-04-01-2345", "task": "#12 - Implement hotel search via web search", "result": "success", "tests_passed": 357, "tests_total": 357},
-    {"run_id": "monitor-2026-04-01-1834", "task": "monitor", "result": "success", "tests_passed": 357, "tests_total": 357},
-    {"run_id": "2026-04-01-1900b", "task": "#13 - Implement flight search via web search", "result": "success", "tests_passed": 407, "tests_total": 407},
-    {"run_id": "2026-04-01-1930", "task": "#14 - Add expense tracking", "result": "success", "tests_passed": 464, "tests_total": 464},
-    {"run_id": "monitor-2026-04-01-1938", "task": "monitor", "result": "success", "tests_passed": 464, "tests_total": 464},
-    {"run_id": "2026-04-01-2000b", "task": "#15 - Build frontend UI", "result": "success", "tests_passed": 474, "tests_total": 474},
-    {"run_id": "2026-04-01-2100b", "task": "#16 - Write integration tests for advanced features", "result": "success", "tests_passed": 513, "tests_total": 513},
-    {"run_id": "monitor-2026-04-01-2200b", "task": "monitor", "result": "success", "tests_passed": 513, "tests_total": 513},
-    {"run_id": "2026-04-01-2300b", "task": "#17 - Add comprehensive error handling and validation", "result": "success", "tests_passed": 537, "tests_total": 537},
-    {"run_id": "2026-04-01-2330b", "task": "#18 - Performance optimization and caching", "result": "success", "tests_passed": 572, "tests_total": 572},
-    {"run_id": "2026-04-02-0000", "task": "#19 - Write README with architecture overview", "result": "success", "tests_passed": 572, "tests_total": 572},
-    {"run_id": "monitor-2026-04-02-0001", "task": "monitor", "result": "success", "tests_passed": 572, "tests_total": 572},
-    {"run_id": "2026-04-02-1409", "task": "#20 - Final test coverage review and gap filling", "result": "success", "tests_passed": 585, "tests_total": 585},
-    {"run_id": "monitor-2026-04-02-1439", "task": "monitor", "result": "success", "tests_passed": 585, "tests_total": 585},
-    {"run_id": "2026-04-02-1500", "task": "#21 - Add manual itinerary editing", "result": "success", "tests_passed": 636, "tests_total": 636},
-    {"run_id": "2026-04-02-1600", "task": "#22 - Plan duplication endpoint", "result": "success", "tests_passed": 657, "tests_total": 657},
-    {"run_id": "monitor-2026-04-02-1537", "task": "monitor", "result": "success", "tests_passed": 657, "tests_total": 657},
-    {"run_id": "2026-04-02-1700", "task": "#23 - Place ordering endpoint", "result": "success", "tests_passed": 681, "tests_total": 681},
-    {"run_id": "2026-04-02-1800", "task": "#24 - Travel plan search & filter", "result": "success", "tests_passed": 708, "tests_total": 708},
-    {"run_id": "monitor-2026-04-02-1634", "task": "monitor", "result": "success", "tests_passed": 708, "tests_total": 708},
-    {"run_id": "2026-04-02-1651", "task": "#25 - Add pagination to GET /travel-plans", "result": "success", "tests_passed": 741, "tests_total": 741},
-    {"run_id": "2026-04-02-1719", "task": "#26 - Add notes field to travel plans", "result": "success", "tests_passed": 764, "tests_total": 764},
-    {"run_id": "monitor-2026-04-02-1732", "task": "monitor", "result": "success", "tests_passed": 764, "tests_total": 764},
-    {"run_id": "2026-04-02-1750", "task": "#27 - Plan export endpoint", "result": "success", "tests_passed": 797, "tests_total": 797},
-    {"run_id": "2026-04-02-1820", "task": "#28 - Add tags to travel plans", "result": "success", "tests_passed": 822, "tests_total": 822},
-    {"run_id": "monitor-2026-04-02-1833", "task": "monitor", "result": "success", "tests_passed": 822, "tests_total": 822},
-    {"run_id": "2026-04-02-1852", "task": "#29 - Plan sharing feature", "result": "success", "tests_passed": 854, "tests_total": 854},
-    {"run_id": "2026-04-02-1923", "task": "#30 - AI plan refinement endpoint", "result": "success", "tests_passed": 884, "tests_total": 884},
-    {"run_id": "monitor-2026-04-02-1933", "task": "monitor", "result": "success", "tests_passed": 884, "tests_total": 884},
-    {"run_id": "2026-04-02-1950", "task": "#31 - Budget overage alerts", "result": "success", "tests_passed": 904, "tests_total": 904},
-    {"run_id": "2026-04-02-2010", "task": "#32 - Plan version history", "result": "success", "tests_passed": 934, "tests_total": 934},
-    {"run_id": "monitor-2026-04-02-2025", "task": "monitor", "result": "success", "tests_passed": 934, "tests_total": 934},
-    {"run_id": "2026-04-02-2035", "task": "#33 - Collaborative comments on shared plans", "result": "success", "tests_passed": 959, "tests_total": 959},
-    {"run_id": "2026-04-02-2100", "task": "#34 - Place ratings and reviews", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "monitor-2026-04-03-0500", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "monitor-2026-04-03-1430", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "monitor-2026-04-03-1530", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "monitor-2026-04-03-1630", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "monitor-2026-04-03-1726", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "monitor-2026-04-03-1828", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "monitor-2026-04-03-1929", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "monitor-2026-04-03-2026", "task": "monitor", "result": "success", "tests_passed": 994, "tests_total": 994},
-    {"run_id": "2026-04-03-2100", "task": "#39 - ChatService 기본 구조", "result": "success", "tests_passed": 1037, "tests_total": 1037},
-    {"run_id": "2026-04-04-0000", "task": "#40 - Chat SSE 스트리밍 엔드포인트", "result": "success", "tests_passed": 1037, "tests_total": 1037},
-    {"run_id": "2026-04-04-0620", "task": "#41 - ChatService intent 핸들러 연결", "result": "success", "tests_passed": 1054, "tests_total": 1054},
-    {"run_id": "2026-04-04-1000", "task": "#35 - Per-day cost summary", "result": "success", "tests_passed": 1063, "tests_total": 1063},
-    {"run_id": "2026-04-04-1400", "task": "#36 - Favorite places library", "result": "success", "tests_passed": 1090, "tests_total": 1090},
-    {"run_id": "2026-04-04-1800", "task": "#37 - Plan activity log", "result": "success", "tests_passed": 1102, "tests_total": 1102},
-    {"run_id": "2026-04-04-2000", "task": "#42 - Chat page HTML/CSS", "result": "success", "tests_passed": 1103, "tests_total": 1103},
-    {"run_id": "2026-04-04-2200", "task": "#43 - chat.js SSE client + chat message UI", "result": "success", "tests_passed": 1118, "tests_total": 1118},
-    {"run_id": "2026-04-04-2400", "task": "#44 - chat.js Plan dashboard rendering", "result": "success", "tests_passed": 1143, "tests_total": 1143},
-    {"run_id": "2026-04-04-2600", "task": "#45 - Agent panel compact/expanded toggle + mobile responsive layout", "result": "success", "tests_passed": 1153, "tests_total": 1153},
-    {"run_id": "monitor-2026-04-04-1336", "task": "monitor", "result": "success", "tests_passed": 1153, "tests_total": 1153},
-    {"run_id": "2026-04-04-2800", "task": "#46 - SSE reconnect with exponential backoff + session state restore on reconnect", "result": "success", "tests_passed": 1170, "tests_total": 1170},
-    {"run_id": "2026-04-04-3000", "task": "#47 - modify_day intent handler: update a day's places via chat", "result": "success", "tests_passed": 1177, "tests_total": 1177},
-    {"run_id": "monitor-2026-04-04-3100", "task": "monitor", "result": "success", "tests_passed": 1177, "tests_total": 1177},
-    {"run_id": "2026-04-04-3200", "task": "#48 - Secretary save_plan handler: persist plan to DB", "result": "success", "tests_passed": 1179, "tests_total": 1179},
-    {"run_id": "2026-04-04-3400", "task": "#49 - E2E Playwright tests for chat page", "result": "success", "tests_passed": 1179, "tests_total": 1179},
-    {"run_id": "monitor-2026-04-04-3500", "task": "monitor", "result": "success", "tests_passed": 1179, "tests_total": 1179},
-    {"run_id": "2026-04-04-3600", "task": "#50 - Budget Analyst: real per-category cost breakdown in chat", "result": "success", "tests_passed": 1181, "tests_total": 1181},
-    {"run_id": "2026-04-04-3800", "task": "#51 - Reporter agent: auto-close GitHub Issues on task completion", "result": "success", "tests_passed": 1181, "tests_total": 1181},
-    {"run_id": "monitor-2026-04-04-3900", "task": "monitor", "result": "success", "tests_passed": 1181, "tests_total": 1181},
-    {"run_id": "2026-04-04-4000", "task": "#52 - Chat Secretary: export_calendar intent handler", "result": "success", "tests_passed": 1192, "tests_total": 1192},
-    {"run_id": "2026-04-04-4200", "task": "#53 - Chat conversation context: pass last 10 messages to Gemini", "result": "success", "tests_passed": 1205, "tests_total": 1205},
-    {"run_id": "monitor-2026-04-04-4300", "task": "monitor", "result": "success", "tests_passed": 1205, "tests_total": 1205},
-    {"run_id": "2026-04-04-4400", "task": "#56 - Chat: list_plans intent handler — show saved plans in chat", "result": "success", "tests_passed": 1215, "tests_total": 1215},
-    {"run_id": "2026-04-04-4600", "task": "#54 - Coordinator agent: gh issue comment on task assignment", "result": "success", "tests_passed": 1215, "tests_total": 1215},
-    {"run_id": "monitor-2026-04-04-4700", "task": "monitor", "result": "success", "tests_passed": 1215, "tests_total": 1215}
-  ]
+    {
+      "run_id": "2026-04-01-0000",
+      "task": "#1 - Initialize FastAPI project structure",
+      "result": "success",
+      "tests_passed": 2,
+      "tests_total": 2
+    },
+    {
+      "run_id": "2026-04-01-0001",
+      "task": "#2 - Create travel plan data models",
+      "result": "success",
+      "tests_passed": 16,
+      "tests_total": 16
+    },
+    {
+      "run_id": "2026-04-01-0300",
+      "task": "#3 - Implement CRUD endpoints",
+      "result": "success",
+      "tests_passed": 36,
+      "tests_total": 36
+    },
+    {
+      "run_id": "monitor-2026-04-01-1353",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 36,
+      "tests_total": 36
+    },
+    {
+      "run_id": "2026-04-01-1413",
+      "task": "#4 - Write unit tests for CRUD endpoints",
+      "result": "success",
+      "tests_passed": 93,
+      "tests_total": 93
+    },
+    {
+      "run_id": "monitor-2026-04-01-1446",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 93,
+      "tests_total": 93
+    },
+    {
+      "run_id": "2026-04-01-1500",
+      "task": "#5 - Add seed data and database initialization",
+      "result": "success",
+      "tests_passed": 113,
+      "tests_total": 113
+    },
+    {
+      "run_id": "2026-04-01-1600",
+      "task": "#6 - Setup Render deployment",
+      "result": "success",
+      "tests_passed": 140,
+      "tests_total": 140
+    },
+    {
+      "run_id": "monitor-2026-04-01-1700",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 140,
+      "tests_total": 140
+    },
+    {
+      "run_id": "2026-04-01-1800",
+      "task": "#7 - Integrate Gemini API",
+      "result": "success",
+      "tests_passed": 171,
+      "tests_total": 171
+    },
+    {
+      "run_id": "2026-04-01-1900",
+      "task": "#8 - Add web search tool",
+      "result": "success",
+      "tests_passed": 206,
+      "tests_total": 206
+    },
+    {
+      "run_id": "monitor-2026-04-01-2000",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 206,
+      "tests_total": 206
+    },
+    {
+      "run_id": "2026-04-01-2100",
+      "task": "#9 - Implement structured output",
+      "result": "success",
+      "tests_passed": 231,
+      "tests_total": 231
+    },
+    {
+      "run_id": "2026-04-01-2200",
+      "task": "#10 - Write tests for AI-generated travel plans",
+      "result": "success",
+      "tests_passed": 273,
+      "tests_total": 273
+    },
+    {
+      "run_id": "monitor-2026-04-01-2300",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 273,
+      "tests_total": 273
+    },
+    {
+      "run_id": "2026-04-01-2330",
+      "task": "#11 - Add Google Calendar integration",
+      "result": "success",
+      "tests_passed": 313,
+      "tests_total": 313
+    },
+    {
+      "run_id": "2026-04-01-2345",
+      "task": "#12 - Implement hotel search via web search",
+      "result": "success",
+      "tests_passed": 357,
+      "tests_total": 357
+    },
+    {
+      "run_id": "monitor-2026-04-01-1834",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 357,
+      "tests_total": 357
+    },
+    {
+      "run_id": "2026-04-01-1900b",
+      "task": "#13 - Implement flight search via web search",
+      "result": "success",
+      "tests_passed": 407,
+      "tests_total": 407
+    },
+    {
+      "run_id": "2026-04-01-1930",
+      "task": "#14 - Add expense tracking",
+      "result": "success",
+      "tests_passed": 464,
+      "tests_total": 464
+    },
+    {
+      "run_id": "monitor-2026-04-01-1938",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 464,
+      "tests_total": 464
+    },
+    {
+      "run_id": "2026-04-01-2000b",
+      "task": "#15 - Build frontend UI",
+      "result": "success",
+      "tests_passed": 474,
+      "tests_total": 474
+    },
+    {
+      "run_id": "2026-04-01-2100b",
+      "task": "#16 - Write integration tests for advanced features",
+      "result": "success",
+      "tests_passed": 513,
+      "tests_total": 513
+    },
+    {
+      "run_id": "monitor-2026-04-01-2200b",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 513,
+      "tests_total": 513
+    },
+    {
+      "run_id": "2026-04-01-2300b",
+      "task": "#17 - Add comprehensive error handling and validation",
+      "result": "success",
+      "tests_passed": 537,
+      "tests_total": 537
+    },
+    {
+      "run_id": "2026-04-01-2330b",
+      "task": "#18 - Performance optimization and caching",
+      "result": "success",
+      "tests_passed": 572,
+      "tests_total": 572
+    },
+    {
+      "run_id": "2026-04-02-0000",
+      "task": "#19 - Write README with architecture overview",
+      "result": "success",
+      "tests_passed": 572,
+      "tests_total": 572
+    },
+    {
+      "run_id": "monitor-2026-04-02-0001",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 572,
+      "tests_total": 572
+    },
+    {
+      "run_id": "2026-04-02-1409",
+      "task": "#20 - Final test coverage review and gap filling",
+      "result": "success",
+      "tests_passed": 585,
+      "tests_total": 585
+    },
+    {
+      "run_id": "monitor-2026-04-02-1439",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 585,
+      "tests_total": 585
+    },
+    {
+      "run_id": "2026-04-02-1500",
+      "task": "#21 - Add manual itinerary editing",
+      "result": "success",
+      "tests_passed": 636,
+      "tests_total": 636
+    },
+    {
+      "run_id": "2026-04-02-1600",
+      "task": "#22 - Plan duplication endpoint",
+      "result": "success",
+      "tests_passed": 657,
+      "tests_total": 657
+    },
+    {
+      "run_id": "monitor-2026-04-02-1537",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 657,
+      "tests_total": 657
+    },
+    {
+      "run_id": "2026-04-02-1700",
+      "task": "#23 - Place ordering endpoint",
+      "result": "success",
+      "tests_passed": 681,
+      "tests_total": 681
+    },
+    {
+      "run_id": "2026-04-02-1800",
+      "task": "#24 - Travel plan search & filter",
+      "result": "success",
+      "tests_passed": 708,
+      "tests_total": 708
+    },
+    {
+      "run_id": "monitor-2026-04-02-1634",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 708,
+      "tests_total": 708
+    },
+    {
+      "run_id": "2026-04-02-1651",
+      "task": "#25 - Add pagination to GET /travel-plans",
+      "result": "success",
+      "tests_passed": 741,
+      "tests_total": 741
+    },
+    {
+      "run_id": "2026-04-02-1719",
+      "task": "#26 - Add notes field to travel plans",
+      "result": "success",
+      "tests_passed": 764,
+      "tests_total": 764
+    },
+    {
+      "run_id": "monitor-2026-04-02-1732",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 764,
+      "tests_total": 764
+    },
+    {
+      "run_id": "2026-04-02-1750",
+      "task": "#27 - Plan export endpoint",
+      "result": "success",
+      "tests_passed": 797,
+      "tests_total": 797
+    },
+    {
+      "run_id": "2026-04-02-1820",
+      "task": "#28 - Add tags to travel plans",
+      "result": "success",
+      "tests_passed": 822,
+      "tests_total": 822
+    },
+    {
+      "run_id": "monitor-2026-04-02-1833",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 822,
+      "tests_total": 822
+    },
+    {
+      "run_id": "2026-04-02-1852",
+      "task": "#29 - Plan sharing feature",
+      "result": "success",
+      "tests_passed": 854,
+      "tests_total": 854
+    },
+    {
+      "run_id": "2026-04-02-1923",
+      "task": "#30 - AI plan refinement endpoint",
+      "result": "success",
+      "tests_passed": 884,
+      "tests_total": 884
+    },
+    {
+      "run_id": "monitor-2026-04-02-1933",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 884,
+      "tests_total": 884
+    },
+    {
+      "run_id": "2026-04-02-1950",
+      "task": "#31 - Budget overage alerts",
+      "result": "success",
+      "tests_passed": 904,
+      "tests_total": 904
+    },
+    {
+      "run_id": "2026-04-02-2010",
+      "task": "#32 - Plan version history",
+      "result": "success",
+      "tests_passed": 934,
+      "tests_total": 934
+    },
+    {
+      "run_id": "monitor-2026-04-02-2025",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 934,
+      "tests_total": 934
+    },
+    {
+      "run_id": "2026-04-02-2035",
+      "task": "#33 - Collaborative comments on shared plans",
+      "result": "success",
+      "tests_passed": 959,
+      "tests_total": 959
+    },
+    {
+      "run_id": "2026-04-02-2100",
+      "task": "#34 - Place ratings and reviews",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "monitor-2026-04-03-0500",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "monitor-2026-04-03-1430",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "monitor-2026-04-03-1530",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "monitor-2026-04-03-1630",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "monitor-2026-04-03-1726",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "monitor-2026-04-03-1828",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "monitor-2026-04-03-1929",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "monitor-2026-04-03-2026",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 994,
+      "tests_total": 994
+    },
+    {
+      "run_id": "2026-04-03-2100",
+      "task": "#39 - ChatService 기본 구조",
+      "result": "success",
+      "tests_passed": 1037,
+      "tests_total": 1037
+    },
+    {
+      "run_id": "2026-04-04-0000",
+      "task": "#40 - Chat SSE 스트리밍 엔드포인트",
+      "result": "success",
+      "tests_passed": 1037,
+      "tests_total": 1037
+    },
+    {
+      "run_id": "2026-04-04-0620",
+      "task": "#41 - ChatService intent 핸들러 연결",
+      "result": "success",
+      "tests_passed": 1054,
+      "tests_total": 1054
+    },
+    {
+      "run_id": "2026-04-04-1000",
+      "task": "#35 - Per-day cost summary",
+      "result": "success",
+      "tests_passed": 1063,
+      "tests_total": 1063
+    },
+    {
+      "run_id": "2026-04-04-1400",
+      "task": "#36 - Favorite places library",
+      "result": "success",
+      "tests_passed": 1090,
+      "tests_total": 1090
+    },
+    {
+      "run_id": "2026-04-04-1800",
+      "task": "#37 - Plan activity log",
+      "result": "success",
+      "tests_passed": 1102,
+      "tests_total": 1102
+    },
+    {
+      "run_id": "2026-04-04-2000",
+      "task": "#42 - Chat page HTML/CSS",
+      "result": "success",
+      "tests_passed": 1103,
+      "tests_total": 1103
+    },
+    {
+      "run_id": "2026-04-04-2200",
+      "task": "#43 - chat.js SSE client + chat message UI",
+      "result": "success",
+      "tests_passed": 1118,
+      "tests_total": 1118
+    },
+    {
+      "run_id": "2026-04-04-2400",
+      "task": "#44 - chat.js Plan dashboard rendering",
+      "result": "success",
+      "tests_passed": 1143,
+      "tests_total": 1143
+    },
+    {
+      "run_id": "2026-04-04-2600",
+      "task": "#45 - Agent panel compact/expanded toggle + mobile responsive layout",
+      "result": "success",
+      "tests_passed": 1153,
+      "tests_total": 1153
+    },
+    {
+      "run_id": "monitor-2026-04-04-1336",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 1153,
+      "tests_total": 1153
+    },
+    {
+      "run_id": "2026-04-04-2800",
+      "task": "#46 - SSE reconnect with exponential backoff + session state restore on reconnect",
+      "result": "success",
+      "tests_passed": 1170,
+      "tests_total": 1170
+    },
+    {
+      "run_id": "2026-04-04-3000",
+      "task": "#47 - modify_day intent handler: update a day's places via chat",
+      "result": "success",
+      "tests_passed": 1177,
+      "tests_total": 1177
+    },
+    {
+      "run_id": "monitor-2026-04-04-3100",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 1177,
+      "tests_total": 1177
+    },
+    {
+      "run_id": "2026-04-04-3200",
+      "task": "#48 - Secretary save_plan handler: persist plan to DB",
+      "result": "success",
+      "tests_passed": 1179,
+      "tests_total": 1179
+    },
+    {
+      "run_id": "2026-04-04-3400",
+      "task": "#49 - E2E Playwright tests for chat page",
+      "result": "success",
+      "tests_passed": 1179,
+      "tests_total": 1179
+    },
+    {
+      "run_id": "monitor-2026-04-04-3500",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 1179,
+      "tests_total": 1179
+    },
+    {
+      "run_id": "2026-04-04-3600",
+      "task": "#50 - Budget Analyst: real per-category cost breakdown in chat",
+      "result": "success",
+      "tests_passed": 1181,
+      "tests_total": 1181
+    },
+    {
+      "run_id": "2026-04-04-3800",
+      "task": "#51 - Reporter agent: auto-close GitHub Issues on task completion",
+      "result": "success",
+      "tests_passed": 1181,
+      "tests_total": 1181
+    },
+    {
+      "run_id": "monitor-2026-04-04-3900",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 1181,
+      "tests_total": 1181
+    },
+    {
+      "run_id": "2026-04-04-4000",
+      "task": "#52 - Chat Secretary: export_calendar intent handler",
+      "result": "success",
+      "tests_passed": 1192,
+      "tests_total": 1192
+    },
+    {
+      "run_id": "2026-04-04-4200",
+      "task": "#53 - Chat conversation context: pass last 10 messages to Gemini",
+      "result": "success",
+      "tests_passed": 1205,
+      "tests_total": 1205
+    },
+    {
+      "run_id": "monitor-2026-04-04-4300",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 1205,
+      "tests_total": 1205
+    },
+    {
+      "run_id": "2026-04-04-4400",
+      "task": "#56 - Chat: list_plans intent handler — show saved plans in chat",
+      "result": "success",
+      "tests_passed": 1215,
+      "tests_total": 1215
+    },
+    {
+      "run_id": "2026-04-04-4600",
+      "task": "#54 - Coordinator agent: gh issue comment on task assignment",
+      "result": "success",
+      "tests_passed": 1215,
+      "tests_total": 1215
+    },
+    {
+      "run_id": "monitor-2026-04-04-4700",
+      "task": "monitor",
+      "result": "success",
+      "tests_passed": 1215,
+      "tests_total": 1215
+    },
+    {
+      "run_id": "2026-04-04-4800",
+      "task": "#55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures",
+      "result": "success",
+      "tests_passed": 1225,
+      "tests_total": 1225
+    }
+  ],
+  "consecutive_qa_failures": 0,
+  "history_tail": {
+    "run_id": "2026-04-04-4800",
+    "task": "#55 - Incident auto-issue: create Bug GitHub Issue on 3 consecutive QA failures",
+    "result": "success",
+    "tests_passed": 1225,
+    "tests_total": 1225
+  }
 }
