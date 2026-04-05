@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T09:00:00Z (Evolve Run #90)
-Run count: 97
+Last run: 2026-04-05T11:00:00Z (Evolve Run #91)
+Run count: 98
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 66
+Tasks completed: 67
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #67 Chat: refine_plan intent handler — AI plan refinement via chat
+Next planned: #68 Chat: delete_expense intent handler
 
 ## LTES Snapshot
 
-- Latency: ~18540ms (pytest 1338 tests)
-- Traffic: 43 commits/24h
-- Errors: 0 test failures (1338/1338 pass), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Latency: ~21490ms (pytest 1352 tests)
+- Traffic: 44 commits/24h
+- Errors: 0 test failures (1352/1352 pass), error_rate=0.0%
+- Saturation: 4 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #67 Chat: refine_plan intent handler — AI plan refinement via ch
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #91 — 2026-04-05T11:00:00Z
+- **Task**: #67 - Chat: `refine_plan` intent handler — AI plan refinement via chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1352/1352 passed (+14 new: TestRefinePlanIntent class, tests/test_chat.py)
+- **Files changed**: src/app/chat.py (+197/-1), tests/test_chat.py (+14 tests)
+- **Builder note**: Added refine_plan intent handler (_handle_refine_plan). refine_plan added to Intent.action literal. Calls refine_itinerary when session.last_plan exists, falls back to generate_itinerary otherwise. Emits planner working→done + budget_analyst working→done + plan_update with full refined plan + day_update per day + chat_chunk summary. 14 tests covering DB update, agent events, fallback path, and SSE shapes.
+- **LTES**: L=21490ms T=1 commit E=0.0% S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #90 — 2026-04-05T09:00:00Z
 - **Task**: #38 - Bulk expense import via JSON

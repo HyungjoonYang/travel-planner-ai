@@ -11,11 +11,6 @@ _(없음)_
 ## Ready
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-- [ ] #67 - Chat: `refine_plan` intent handler — AI plan refinement via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: `refine_plan` added to intent action list; calls GeminiService refine equivalent with current plan; Planner agent_status working→done; emits plan_update with refined plan; chat_chunk summary; tests for DB update + agent events
-  - gh: #63
 
 - [ ] #68 - Chat: `delete_expense` intent handler [feature]
   - ref: markdowns/feat-chat-dashboard.md
@@ -123,6 +118,7 @@ _(없음)_
 - [x] #64 - Chat: `update_plan` intent handler — edit plan metadata via chat [feature] — 2026-04-05
 - [x] #65 - Chat: `get_expense_summary` intent — expense breakdown via chat [feature] — 2026-04-05
 - [x] #66 - Chat session: persist conversation history to SQLite [improvement] — 2026-04-05
+- [x] #67 - Chat: `refine_plan` intent handler — AI plan refinement via chat [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -135,5 +131,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 66 done, 5 ready (0 in progress)
+- Total tasks: 67 done, 4 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

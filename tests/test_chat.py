@@ -3608,3 +3608,295 @@ class TestChatHistoryPersistence:
         assert msg.session_id == "test-session"
         assert msg.role == "user"
         assert msg.content == "hello"
+
+
+# ---------------------------------------------------------------------------
+# Task #67: refine_plan intent handler — AI plan refinement via chat
+# ---------------------------------------------------------------------------
+
+class TestRefinePlan:
+    """_handle_refine_plan dispatched on refine_plan intent.
+
+    Done criteria:
+    - refine_plan in intent action list
+    - calls GeminiService refine_itinerary with current plan
+    - Planner agent_status working→done
+    - emits plan_update with refined plan
+    - chat_chunk summary
+    - tests for agent events
+    """
+
+    def _make_service_with_gemini(self, gemini_mock):
+        return ChatService(
+            api_key="",
+            ttl_seconds=SESSION_TTL_SECONDS,
+            gemini_service=gemini_mock,
+            web_search_service=MagicMock(),
+            hotel_search_service=MagicMock(),
+            flight_search_service=MagicMock(),
+        )
+
+    def _make_fake_last_plan(self, itinerary=None):
+        if itinerary is None:
+            itinerary = _make_fake_itinerary()
+        return {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-04",
+            "budget": 2000000.0,
+            "interests": "food",
+            "days": [d.model_dump() for d in itinerary.days],
+            "total_estimated_cost": itinerary.total_estimated_cost,
+        }
+
+    # --- refine_plan in action list ---
+
+    def test_refine_plan_is_valid_intent_action(self):
+        """Intent model accepts 'refine_plan' as action."""
+        intent = Intent(action="refine_plan", raw_message="더 저렴하게 바꿔줘")
+        assert intent.action == "refine_plan"
+
+    # --- activates planner agent ---
+
+    def test_refine_plan_activates_planner_agent(self):
+        """refine_plan intent must activate the planner agent."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="더 저렴하게 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "더 저렴하게 바꿔줘")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "planner" in agent_names
+
+    # --- planner working → done sequence ---
+
+    def test_refine_plan_planner_working_then_done(self):
+        """Planner must emit working then done (no requirement for thinking)."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        planner_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert "working" in planner_statuses
+        assert "done" in planner_statuses
+        assert planner_statuses.index("working") < planner_statuses.index("done")
+
+    # --- budget_analyst activated ---
+
+    def test_refine_plan_activates_budget_analyst(self):
+        """refine_plan must also activate budget_analyst."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "budget_analyst" in agent_names
+
+    # --- emits plan_update ---
+
+    def test_refine_plan_emits_plan_update(self):
+        """refine_plan must emit exactly one plan_update event."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "바꿔줘")
+
+        plan_events = [e for e in events if e["type"] == "plan_update"]
+        assert len(plan_events) == 1
+        assert "days" in plan_events[0]["data"]
+
+    def test_refine_plan_update_has_destination_and_budget(self):
+        """plan_update data must include destination and budget from last_plan."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        plan_update = next(e for e in events if e["type"] == "plan_update")
+        assert plan_update["data"]["destination"] == "도쿄"
+        assert plan_update["data"]["budget"] == 2000000.0
+
+    # --- emits day_update per day ---
+
+    def test_refine_plan_emits_day_update_per_day(self):
+        """refine_plan must emit one day_update per day in refined result."""
+        mock_gemini = MagicMock()
+        itinerary = _make_fake_itinerary()
+        mock_gemini.refine_itinerary.return_value = itinerary
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan(itinerary)
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        day_events = [e for e in events if e["type"] == "day_update"]
+        assert len(day_events) == len(itinerary.days)
+
+    # --- calls refine_itinerary when last_plan exists ---
+
+    def test_refine_plan_with_existing_plan_calls_refine_itinerary(self):
+        """When session.last_plan exists, refine_itinerary must be called."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="더 저렴하게"
+        )):
+            _collect_events(svc, session.session_id, "더 저렴하게")
+
+        mock_gemini.refine_itinerary.assert_called_once()
+        call_args = mock_gemini.refine_itinerary.call_args[0]
+        assert call_args[0] == "도쿄"  # destination
+
+    def test_refine_plan_passes_instruction_to_refine(self):
+        """The raw_message is forwarded as instruction to refine_itinerary."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="맛집 위주로 바꿔줘"
+        )):
+            _collect_events(svc, session.session_id, "맛집 위주로 바꿔줘")
+
+        call_args = mock_gemini.refine_itinerary.call_args[0]
+        # instruction is the last positional arg
+        assert "맛집 위주로 바꿔줘" in call_args[-1]
+
+    # --- fallback to generate when no last_plan ---
+
+    def test_refine_plan_without_existing_plan_falls_back_to_generate(self):
+        """When session.last_plan is None, generate_itinerary is called instead."""
+        mock_gemini = MagicMock()
+        mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        # session.last_plan is None by default
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", destination="도쿄", raw_message="수정"
+        )):
+            _collect_events(svc, session.session_id, "수정")
+
+        mock_gemini.generate_itinerary.assert_called_once()
+        mock_gemini.refine_itinerary.assert_not_called()
+
+    # --- emits chat_chunk summary ---
+
+    def test_refine_plan_emits_chat_chunk(self):
+        """refine_plan must emit at least one chat_chunk event."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chunk_events) >= 1
+
+    # --- session last_plan updated ---
+
+    def test_refine_plan_updates_session_last_plan(self):
+        """After refine_plan, session.last_plan should be updated with refined result."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.return_value = _make_fake_itinerary()
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="수정"
+        )):
+            _collect_events(svc, session.session_id, "수정")
+
+        fetched = svc.get_session(session.session_id)
+        assert fetched.last_plan is not None
+        assert "days" in fetched.last_plan
+
+    # --- error handling ---
+
+    def test_refine_plan_gemini_error_emits_planner_error_status(self):
+        """When Gemini fails, planner agent must emit error status."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.side_effect = RuntimeError("Gemini down")
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status"
+            and e["data"]["agent"] == "planner"
+            and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_refine_plan_error_emits_chat_chunk(self):
+        """On Gemini failure, a chat_chunk with error message must be emitted."""
+        mock_gemini = MagicMock()
+        mock_gemini.refine_itinerary.side_effect = RuntimeError("API error")
+        svc = self._make_service_with_gemini(mock_gemini)
+        session = svc.create_session()
+        session.last_plan = self._make_fake_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="refine_plan", raw_message="수정"
+        )):
+            events = _collect_events(svc, session.session_id, "수정")
+
+        chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chunk_events) >= 1
