@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #74 - Chat: update_expense intent handler — edit existing expense via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md (expense management via chat)
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: update_expense added to Intent.action + system prompt; _handle_update_expense finds by name and updates amount/category; emits expense_updated + expense_summary events; chat.js handles expense_updated; 2+ tests
-  - gh: #75
-
 - [ ] #75 - E2E: SSE reconnect + session state restore Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md (SSE reconnect, session restore)
   - depends: #70
@@ -119,6 +113,7 @@ _(없음)_
 - [x] #71 - E2E: Chat expense workflow + update_plan Playwright scenarios [test] — 2026-04-05
 - [x] #72 - Chat frontend: localStorage session ID persistence [improvement] — 2026-04-05
 - [x] #73 - Chat: expense_deleted SSE event + frontend expense row removal [improvement] — 2026-04-05
+- [x] #74 - Chat: update_expense intent handler — edit existing expense via chat [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -131,5 +126,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 73 done, 3 ready (0 in progress)
+- Total tasks: 74 done, 2 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

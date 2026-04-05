@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T17:00:00Z (Evolve Run #97)
-Run count: 105
+Last run: 2026-04-05T11:13:45Z (Evolve Run #98)
+Run count: 106
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 73
+Tasks completed: 74
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #74 Chat: update_expense intent handler — edit existing expense via chat
+Next planned: #75 E2E: SSE reconnect + session state restore Playwright scenarios
 
 ## LTES Snapshot
 
-- Latency: ~20030ms (pytest 1388 tests)
-- Traffic: 13 commits/24h
-- Errors: 0 test failures (1388/1388 pass), error_rate=0.0%
-- Saturation: 3 tasks ready
+- Latency: ~22450ms (pytest 1399 tests)
+- Traffic: 1 commit/run
+- Errors: 0 test failures (1399/1399 pass), error_rate=0.0%
+- Saturation: 2 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #74 Chat: update_expense intent handler — edit existing expense 
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #98 — 2026-04-05T11:13:45Z
+- **Task**: #74 - Chat: update_expense intent handler — edit existing expense via chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1399/1399 passed (+11 new: TestUpdateExpense class in tests/test_chat.py)
+- **Files changed**: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py (+195/-2)
+- **Builder note**: update_expense added to Intent.action type annotation; system prompt updated with update_expense guidance; _handle_update_expense finds expense by name and updates amount/category, emits expense_updated + expense_summary events; process_message dispatch added; chat.js handleExpenseUpdated updates matching DOM row and refreshes budget bar; 11 new tests all pass.
+- **LTES**: L=22450ms T=1 commit E=0.0% S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #97 — 2026-04-05T17:00:00Z
 - **Task**: #73 - Chat: expense_deleted SSE event + frontend expense row removal
