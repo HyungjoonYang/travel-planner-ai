@@ -6243,3 +6243,285 @@ class TestPlanSuggestionsEvent:
             events = _collect_events(svc, session.session_id, "suggestions?")
 
         assert not any(e["type"] == "plan_suggestions" for e in events)
+
+
+# ---------------------------------------------------------------------------
+# Task #88: remove_place intent handler
+# ---------------------------------------------------------------------------
+
+
+def _make_plan_with_places(day_places: list[list[dict]]) -> dict:
+    """Build a minimal last_plan dict with given places per day."""
+    days = []
+    for i, places in enumerate(day_places):
+        days.append({
+            "date": f"2026-05-0{i + 1}",
+            "notes": "",
+            "transport": "",
+            "places": places,
+        })
+    return {
+        "destination": "도쿄",
+        "start_date": "2026-05-01",
+        "end_date": f"2026-05-0{len(day_places)}",
+        "budget": 2000000.0,
+        "days": days,
+    }
+
+
+class TestRemovePlace:
+    """_handle_remove_place: day_number + place name/index → removes from plan, emits day_update."""
+
+    def test_remove_place_intent_accepted_by_model(self):
+        """Intent model must accept remove_place as a valid action."""
+        intent = Intent(
+            action="remove_place",
+            day_number=1,
+            query="센소지",
+            raw_message="1일차에서 센소지 빼줘",
+        )
+        assert intent.action == "remove_place"
+        assert intent.day_number == 1
+        assert intent.query == "센소지"
+
+    def test_remove_place_intent_with_place_index(self):
+        """Intent model must accept place_index field."""
+        intent = Intent(
+            action="remove_place",
+            day_number=2,
+            place_index=1,
+            raw_message="2일차 첫 번째 장소 삭제",
+        )
+        assert intent.place_index == 1
+
+    def test_remove_place_activates_planner_agent(self):
+        """remove_place must activate the planner agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([[{"name": "센소지", "category": "sightseeing", "estimated_cost": 0}]])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_place", day_number=1, query="센소지", raw_message="1일차에서 센소지 빼줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차에서 센소지 빼줘")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "planner" in agent_names
+
+    def test_remove_place_by_name_emits_day_update(self):
+        """remove_place by name emits day_update with the place removed."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([[
+            {"name": "센소지", "category": "sightseeing", "estimated_cost": 0},
+            {"name": "우에노 공원", "category": "park", "estimated_cost": 0},
+        ]])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_place", day_number=1, query="센소지", raw_message="Day 1에서 센소지 빼줘"
+        )):
+            events = _collect_events(svc, session.session_id, "Day 1에서 센소지 빼줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) >= 1
+        place_names = [p["name"] for p in day_updates[0]["data"]["places"]]
+        assert "센소지" not in place_names
+        assert "우에노 공원" in place_names
+
+    def test_remove_place_by_index_emits_day_update(self):
+        """remove_place by place_index removes the correct place from in-memory plan."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([[
+            {"name": "첫째 장소", "category": "sightseeing", "estimated_cost": 0},
+            {"name": "둘째 장소", "category": "food", "estimated_cost": 0},
+        ]])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_place", day_number=1, place_index=1, raw_message="1일차 첫 번째 장소 삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 첫 번째 장소 삭제")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) >= 1
+        place_names = [p["name"] for p in day_updates[0]["data"]["places"]]
+        assert "첫째 장소" not in place_names
+        assert "둘째 장소" in place_names
+
+    def test_remove_place_planner_status_working_then_done(self):
+        """Planner must transition working → done for remove_place."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([[{"name": "도쿄 타워", "category": "sightseeing", "estimated_cost": 0}]])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_place", day_number=1, query="도쿄 타워", raw_message="도쿄 타워 삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄 타워 삭제")
+
+        planner_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert "working" in planner_statuses
+        assert "done" in planner_statuses
+
+    def test_remove_place_no_plan_emits_chat_chunk(self):
+        """remove_place with no plan returns a helpful chat_chunk message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_place", day_number=1, query="센소지", raw_message="센소지 삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "센소지 삭제")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+    def test_remove_place_db_removes_place_and_emits_day_update(self):
+        """remove_place with saved plan deletes Place from DB and emits day_update."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="도쿄",
+                start_date=date_type(2026, 5, 1),
+                end_date=date_type(2026, 5, 2),
+                budget=2000000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day = DayItineraryModel(
+                travel_plan_id=plan.id,
+                date=date_type(2026, 5, 1),
+                notes="",
+            )
+            db.add(day)
+            db.commit()
+            db.refresh(day)
+
+            place1 = PlaceModel(
+                day_itinerary_id=day.id,
+                name="센소지",
+                category="sightseeing",
+                estimated_cost=0.0,
+                order=0,
+            )
+            place2 = PlaceModel(
+                day_itinerary_id=day.id,
+                name="우에노 공원",
+                category="park",
+                estimated_cost=0.0,
+                order=1,
+            )
+            db.add_all([place1, place2])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="remove_place", day_number=1, query="센소지", raw_message="센소지 빼줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "센소지 빼줘", db)
+
+            # DB:센소지 removed, 우에노 공원 remains
+            db.expire_all()
+            remaining = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day.id).all()
+            names = [p.name for p in remaining]
+            assert "센소지" not in names
+            assert "우에노 공원" in names
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) >= 1
+            assert not any(p["name"] == "센소지" for p in day_updates[0]["data"]["places"])
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_remove_place_db_by_index(self):
+        """remove_place by place_index deletes the correct DB place."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="파리",
+                start_date=date_type(2026, 6, 1),
+                end_date=date_type(2026, 6, 2),
+                budget=1500000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day = DayItineraryModel(
+                travel_plan_id=plan.id,
+                date=date_type(2026, 6, 1),
+                notes="",
+            )
+            db.add(day)
+            db.commit()
+            db.refresh(day)
+
+            place1 = PlaceModel(
+                day_itinerary_id=day.id,
+                name="루브르 박물관",
+                category="museum",
+                estimated_cost=0.0,
+                order=0,
+            )
+            place2 = PlaceModel(
+                day_itinerary_id=day.id,
+                name="에펠탑",
+                category="landmark",
+                estimated_cost=0.0,
+                order=1,
+            )
+            db.add_all([place1, place2])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="remove_place", day_number=1, place_index=1, raw_message="1일차 첫 번째 장소 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "1일차 첫 번째 장소 삭제", db)
+
+            db.expire_all()
+            remaining = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day.id).all()
+            names = [p.name for p in remaining]
+            assert "루브르 박물관" not in names
+            assert "에펠탑" in names
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)

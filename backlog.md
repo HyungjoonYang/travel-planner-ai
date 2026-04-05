@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #88 - Chat: `remove_place` intent — remove a place from a day's itinerary via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: "1일차 첫 번째 장소 삭제" / "Day 2에서 센소지 빼줘" extracts day_number + place name/index; removes from in-memory plan; emits day_update; planner agent working→done; graceful fallback if no plan; 2+ tests
-  - gh: #109
-
 - [ ] #89 - Chat: `add_place` intent — append a custom place to a specific day via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
@@ -140,6 +134,7 @@ _(없음)_
 - [x] #85 - Chat: budget bar auto-refresh on expense changes [improvement] — 2026-04-05
 - [x] #86 - Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions [feature] — 2026-04-05
 - [x] #87 - Chat frontend: `plan_suggestions` SSE handler — render improvement suggestions panel [feature] — 2026-04-05
+- [x] #88 - Chat: `remove_place` intent — remove a place from a day's itinerary via chat [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -152,5 +147,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 87 done, 4 ready (0 in progress)
+- Total tasks: 88 done, 3 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
