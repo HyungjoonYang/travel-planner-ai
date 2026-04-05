@@ -267,3 +267,45 @@ class TestSseReconnect:
         resp = client.get(f"/chat/sessions/{session_id}")
         data = resp.json()
         assert "last_plan" in data
+
+
+class TestPlaceScoutPersistentSection:
+    """Task #69: Place Scout results — dedicated persistent #places-section."""
+
+    def test_chat_js_has_last_places_cache(self, client: TestClient):
+        """chat.js declares _lastPlaces variable for persisting place results."""
+        content = client.get("/static/chat.js").text
+        assert "_lastPlaces" in content
+
+    def test_chat_js_refresh_includes_places_section(self, client: TestClient):
+        """_refreshPlanSearchSections handles #plan-places-section."""
+        content = client.get("/static/chat.js").text
+        assert "plan-places-section" in content
+
+    def test_chat_js_places_section_has_title(self, client: TestClient):
+        """Places section renders with a section title (Places)."""
+        content = client.get("/static/chat.js").text
+        assert "📍 Places" in content
+
+    def test_chat_js_places_stored_in_last_places(self, client: TestClient):
+        """handleSearchResults assigns results.places to _lastPlaces."""
+        content = client.get("/static/chat.js").text
+        assert "_lastPlaces = results.places" in content
+
+    def test_chat_js_places_calls_refresh_sections(self, client: TestClient):
+        """handleSearchResults calls _refreshPlanSearchSections for places type."""
+        content = client.get("/static/chat.js").text
+        # places must be included in the refresh condition
+        assert "places" in content
+        assert "_refreshPlanSearchSections" in content
+
+    def test_chat_js_place_scout_card_html(self, client: TestClient):
+        """chat.js has _placeScoutCardHtml helper function."""
+        content = client.get("/static/chat.js").text
+        assert "_placeScoutCardHtml" in content
+
+    def test_chat_js_refresh_sections_handles_places(self, client: TestClient):
+        """_refreshPlanSearchSections function body references _lastPlaces."""
+        content = client.get("/static/chat.js").text
+        assert "_lastPlaces" in content
+        assert "_refreshPlanSearchSections" in content

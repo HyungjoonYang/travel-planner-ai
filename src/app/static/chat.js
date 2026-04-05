@@ -13,6 +13,7 @@ let _currentPlanBudget = 0;
 // Persisted search result data — survive plan updates so sections stay visible
 let _lastHotels = null;
 let _lastFlights = null;
+let _lastPlaces = null;
 
 // ---------------------------------------------------------------------------
 // SSE reconnect — exponential backoff configuration
@@ -395,7 +396,19 @@ function _flightCardHtml(f) {
   </div>`;
 }
 
-// Appends or refreshes dedicated #plan-hotels-section / #plan-flights-section inside panel.
+function _placeScoutCardHtml(p) {
+  return `<div class="search-result-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>${escHtml(p.name)}</strong>
+      ${p.estimated_cost ? `<span class="price-tag">$${p.estimated_cost}</span>` : ''}
+    </div>
+    ${p.category ? `<div class="meta">${escHtml(p.category)}</div>` : ''}
+    ${p.address ? `<div class="meta" style="font-size:.75rem">${escHtml(p.address)}</div>` : ''}
+  </div>`;
+}
+
+// Appends or refreshes dedicated #plan-hotels-section / #plan-flights-section /
+// #plan-places-section inside panel.
 // Each section is hidden when there is no data and visible when data is present.
 function _refreshPlanSearchSections(panel) {
   if (!panel) return;
@@ -430,6 +443,22 @@ function _refreshPlanSearchSections(panel) {
     flightsEl.style.display = '';
   } else if (flightsEl) {
     flightsEl.style.display = 'none';
+  }
+
+  // Places section (below Hotels and Flights)
+  let placesEl = panel.querySelector('#plan-places-section');
+  if (_lastPlaces && _lastPlaces.length) {
+    if (!placesEl) {
+      placesEl = document.createElement('div');
+      placesEl.id = 'plan-places-section';
+      placesEl.className = 'plan-search-section';
+      panel.appendChild(placesEl);
+    }
+    placesEl.innerHTML = `<div class="section-title">📍 Places</div>` +
+      _lastPlaces.map(p => _placeScoutCardHtml(p)).join('');
+    placesEl.style.display = '';
+  } else if (placesEl) {
+    placesEl.style.display = 'none';
   }
 }
 
@@ -551,12 +580,8 @@ function handleSearchResults(data) {
     _lastFlights = results.flights;
     itemsHtml = results.flights.map(f => _flightCardHtml(f)).join('');
   } else if (data.type === 'places' && results.places) {
-    itemsHtml = results.places.map(p =>
-      `<div class="search-result-card">
-        <strong>${escHtml(p.name)}</strong>
-        ${p.category ? `<div class="meta">${escHtml(p.category)}</div>` : ''}
-      </div>`
-    ).join('');
+    _lastPlaces = results.places;
+    itemsHtml = results.places.map(p => _placeScoutCardHtml(p)).join('');
   } else if (data.type === 'budget') {
     const cats = [
       {key: 'accommodation', label: '🏨 숙소'},
@@ -587,17 +612,10 @@ function handleSearchResults(data) {
     detailEl.style.display = 'none'; // collapsed by default; toggle on ▾ click
   }
 
-  // Update plan-panel: hotels/flights get dedicated persistent sections;
-  // other types (places) replace content when no day cards are present.
+  // Update plan-panel: hotels/flights/places get dedicated persistent sections.
   const planPanel = document.getElementById('plan-panel');
-  if (data.type === 'hotels' || data.type === 'flights') {
+  if (data.type === 'hotels' || data.type === 'flights' || data.type === 'places') {
     _refreshPlanSearchSections(planPanel);
-  } else {
-    const hasDayCards = planPanel && planPanel.querySelector('.day-card');
-    if (planPanel && !hasDayCards) {
-      const typeLabel = data.type === 'places' ? '📍 Places' : data.type;
-      planPanel.innerHTML = `<div class="section-title">${typeLabel}</div>${itemsHtml}`;
-    }
   }
 }
 
