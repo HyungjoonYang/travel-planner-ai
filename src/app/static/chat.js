@@ -251,6 +251,9 @@ function handleSseEvent(event) {
       }
       break;
     }
+    case 'expense_added':
+      if (event.data) handleExpenseAdded(event.data);
+      break;
     case 'error':
       const errMsg = (event.data && event.data.message) || '오류 발생';
       if (currentStreamBubble) {
@@ -666,4 +669,54 @@ function _activateSavedPlan(plan, cardEl) {
 
   // Re-append hotels/flights sections if they exist from a prior search
   _refreshPlanSearchSections(panel);
+}
+
+// ---------------------------------------------------------------------------
+// Expense added — update budget section + expense list in plan-panel
+// ---------------------------------------------------------------------------
+
+function handleExpenseAdded(data) {
+  const expense   = data.expense || {};
+  const summary   = data.budget_summary || {};
+  const panel     = document.getElementById('plan-panel');
+  if (!panel) return;
+
+  // Update budget bar if present
+  const budgetDiv = panel.querySelector('.plan-budget');
+  const budget    = summary.budget || _currentPlanBudget;
+  const spent     = summary.total_spent || 0;
+  if (budget > 0) {
+    if (budgetDiv) {
+      budgetDiv.innerHTML = _budgetBarHtml(spent, budget);
+    } else {
+      const newBudget = document.createElement('div');
+      newBudget.className = 'plan-budget';
+      newBudget.innerHTML = _budgetBarHtml(spent, budget);
+      const firstChild = panel.firstElementChild;
+      if (firstChild) {
+        firstChild.after(newBudget);
+      } else {
+        panel.appendChild(newBudget);
+      }
+    }
+  }
+
+  // Upsert the expense list section
+  let expenseSection = panel.querySelector('.expense-section');
+  if (!expenseSection) {
+    expenseSection = document.createElement('div');
+    expenseSection.className = 'expense-section';
+    expenseSection.innerHTML = '<div class="section-title">💸 Expenses</div><div class="expense-list"></div>';
+    panel.appendChild(expenseSection);
+  }
+
+  const listEl = expenseSection.querySelector('.expense-list');
+  if (listEl && expense.name != null) {
+    const row = document.createElement('div');
+    row.className = 'place-item';
+    const cat = expense.category ? ` <span class="meta">(${escHtml(expense.category)})</span>` : '';
+    row.innerHTML = `<div><span>${escHtml(String(expense.name))}</span>${cat}</div>` +
+      `<span class="price-tag">${Number(expense.amount).toLocaleString()}원</span>`;
+    listEl.appendChild(row);
+  }
 }
