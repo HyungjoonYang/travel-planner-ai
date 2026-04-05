@@ -12,18 +12,43 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #75 - E2E: SSE reconnect + session state restore Playwright scenarios [test]
-  - ref: markdowns/feat-chat-dashboard.md (SSE reconnect, session restore)
-  - depends: #70
-  - files: e2e/chat.spec.ts
-  - done: test 1 mocks GET /chat/sessions/{id} returning last_plan+agent_states, verifies plan panel + agent cards restored; test 2 mocks message_history, verifies chat bubbles rendered; both use route mocking
-  - gh: #76
-
 - [ ] #76 - Chat: list_expenses intent — refresh full expense list from DB [feature]
   - ref: markdowns/feat-chat-dashboard.md (expense management); CLAUDE.md User Story 5
   - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
   - done: list_expenses added to Intent.action + system prompt; _handle_list_expenses queries all expenses for saved plan; emits expense_list event; chat.js handleExpenseList clears+re-renders .expense-list; 2+ tests
   - gh: #77
+
+- [ ] #77 - Chat: `copy_plan` intent handler — duplicate a saved plan via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md (plan management)
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: copy_plan added to Intent.action + system prompt; _handle_copy_plan resolves plan by name/id then calls duplicate endpoint; emits plan_saved event with new plan data; Secretary agent emits working/done; 2+ tests
+  - gh: #89
+
+- [ ] #78 - Chat frontend: Expenses panel in dashboard — dedicated expense list section [feature]
+  - ref: markdowns/feat-chat-dashboard.md (expense management dashboard)
+  - depends: #76
+  - files: src/app/static/chat.js, src/app/static/index.html
+  - done: `.expense-panel` section added in dashboard below budget tracker; expense_list SSE event triggers panel render with table (item/amount/category/date); panel hidden when no expenses; edit row prefills update_expense message; delete row prefills delete_expense message
+  - gh: #90
+
+- [ ] #79 - Chat: `get_weather` intent handler — fetch weather forecast for trip destination [feature]
+  - ref: CLAUDE.md User Story 1 (travel planning context)
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: get_weather added to Intent.action + system prompt; _handle_get_weather uses SearchService to query weather for plan destination + trip dates; Place Scout agent emits working/done; emits search_results event with weather summary; 2+ tests
+  - gh: #91
+
+- [ ] #80 - E2E: copy_plan + list_expenses + expense panel Playwright scenarios [test]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #76, #77, #78
+  - files: e2e/chat.spec.ts
+  - done: test 1 mocks expense_list SSE event, verifies .expense-panel rendered with rows; test 2 mocks plan_saved from copy_plan intent, verifies new plan card appears in dashboard; both use route mocking
+  - gh: #92
+
+- [ ] #81 - Chat: conversation reset — clear history without new session [improvement]
+  - ref: markdowns/feat-chat-dashboard.md (session management)
+  - files: src/app/chat.py, src/app/routers/chat.py, src/app/static/chat.js, tests/test_chat.py
+  - done: DELETE /chat/sessions/{id}/messages endpoint clears conversation history in DB; _handle_reset_conversation emits session_reset SSE event; chat.js clears chat bubble list + resets all agent cards to idle on session_reset; 2+ tests
+  - gh: #93
 
 ## Blocked
 
@@ -114,6 +139,7 @@ _(없음)_
 - [x] #72 - Chat frontend: localStorage session ID persistence [improvement] — 2026-04-05
 - [x] #73 - Chat: expense_deleted SSE event + frontend expense row removal [improvement] — 2026-04-05
 - [x] #74 - Chat: update_expense intent handler — edit existing expense via chat [feature] — 2026-04-05
+- [x] #75 - E2E: SSE reconnect + session state restore Playwright scenarios [test] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -126,5 +152,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 74 done, 2 ready (0 in progress)
+- Total tasks: 75 done, 6 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
