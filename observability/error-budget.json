@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 104,
-    "successful_runs": 99,
+    "total_runs": 105,
+    "successful_runs": 100,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -653,10 +653,10 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-05-1600",
-    "task": "#72 - Chat frontend: localStorage session ID persistence",
+    "run_id": "2026-04-05-1700",
+    "task": "#73 - Chat: expense_deleted SSE event + frontend expense row removal",
     "result": "success",
-    "tests_passed": 1384,
-    "tests_total": 1384
+    "tests_passed": 1388,
+    "tests_total": 1388
   }
 }

@@ -1618,6 +1618,10 @@ Return a JSON object with these fields:
                 "type": "agent_status",
                 "data": {"agent": "secretary", "status": "done", "message": "지출 삭제 완료!"},
             }
+            yield {
+                "type": "expense_deleted",
+                "data": {"name": deleted_name, "budget_summary": summary},
+            }
             yield {"type": "expense_summary", "data": summary}
             yield {
                 "type": "chat_chunk",
