@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -143,7 +143,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -161,6 +161,7 @@ Return a JSON object with these fields:
 - Use action "list_expenses" when user wants to see all expenses / spending items for the current plan (e.g. "지출 목록 보여줘", "지출 내역 전체", "모든 지출 보기", "지출 항목 리스트")
 - Use action "copy_plan" when user wants to duplicate/copy a saved travel plan (e.g. "이 계획 복사해줘", "3번 계획 복제", "도쿄 여행 계획 복사", "계획 복사")
 - Use action "get_weather" when user wants to know the weather forecast for a destination or trip dates (e.g. "도쿄 날씨 어때?", "여행 기간 날씨 알려줘", "파리 날씨 예보", "weather forecast for Tokyo")
+- Use action "add_day_note" when user wants to append a note or memo to a specific day of the itinerary (e.g. "1일차에 메모 추가해줘", "Day 2에 '우산 챙기기' 노트 달아줘", "3일차 노트: 환전 필요", "add note to day 1"); set day_number to the referenced day number and query to the note text
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -316,6 +317,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "reset_conversation":
             async for event in self._handle_reset_conversation(session):
+                yield _track_and_collect(event)
+        elif intent.action == "add_day_note":
+            async for event in self._handle_add_day_note(intent, session, db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -2102,6 +2106,141 @@ Return a JSON object with these fields:
                 "data": {"text": f"날씨 조회 중 오류가 발생했습니다: {exc}"},
             }
 
+
+    async def _handle_add_day_note(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Append a note to a specific day's itinerary."""
+        day_number = intent.day_number or 1
+        note_text = intent.query or intent.raw_message
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "thinking", "message": f"Day {day_number} 노트 추가 준비 중..."},
+        }
+        await asyncio.sleep(0)
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": f"Day {day_number}에 노트 추가 중..."},
+        }
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    TravelPlan as TravelPlanModel,
+                )
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is None:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                    }
+                    return
+
+                days = (
+                    db.query(DayItineraryModel)
+                    .filter(DayItineraryModel.travel_plan_id == plan_id)
+                    .order_by(DayItineraryModel.date)
+                    .all()
+                )
+
+                day_index = day_number - 1
+                if not days or day_index >= len(days) or day_index < 0:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_number}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획에 Day {day_number}이 없습니다."},
+                    }
+                    return
+
+                day = days[day_index]
+                separator = "\n" if day.notes else ""
+                day.notes = day.notes + separator + note_text
+                db.commit()
+                db.refresh(day)
+
+                places_data = [
+                    {
+                        "name": p.name,
+                        "category": p.category,
+                        "address": p.address,
+                        "estimated_cost": p.estimated_cost,
+                        "ai_reason": p.ai_reason,
+                        "order": p.order,
+                    }
+                    for p in sorted(day.places, key=lambda x: x.order)
+                ]
+                day_data = {
+                    "day_number": day_number,
+                    "date": day.date.isoformat(),
+                    "notes": day.notes,
+                    "transport": day.transport,
+                    "places": places_data,
+                }
+
+                yield {"type": "day_update", "data": day_data}
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 노트 추가 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_number}에 노트를 추가했습니다: {note_text}"},
+                }
+
+            except Exception as exc:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "error", "message": "노트 추가 실패"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"노트 추가 중 오류가 발생했습니다: {exc}"},
+                }
+        else:
+            # No saved plan in DB — update in-memory last_plan if available
+            last_plan = session.last_plan
+            if last_plan:
+                days = last_plan.get("days", [])
+                day_index = day_number - 1
+                if 0 <= day_index < len(days):
+                    day = days[day_index]
+                    existing_notes = day.get("notes", "")
+                    separator = "\n" if existing_notes else ""
+                    day["notes"] = existing_notes + separator + note_text
+                    yield {"type": "day_update", "data": day}
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 노트 추가 완료!"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_number}에 노트를 추가했습니다 (미저장 — 저장 후 영구 보관됩니다)."},
+                    }
+                    return
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 노트 추가 완료!"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "노트를 추가하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
 
     async def _handle_reset_conversation(
         self, session: "ChatSession"

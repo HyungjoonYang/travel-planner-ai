@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T22:00:00Z (Evolve Run #107)
-Run count: 119
+Last run: 2026-04-05T23:00:00Z (Evolve Run #108)
+Run count: 120
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 83
+Tasks completed: 84
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #84 Chat: add_day_note intent handler
+Next planned: #85 Chat: budget bar auto-refresh on expense changes
 
 ## LTES Snapshot
 
-- Latency: 22380ms (pytest 1438 tests in 22.38s)
+- Latency: 25270ms (pytest 1447 tests in 25.27s)
 - Traffic: 1 commit
-- Errors: 0 test failures (1438/1438 pass), error_rate=0.0%
-- Saturation: 3 tasks ready
+- Errors: 0 test failures (1447/1447 pass), error_rate=0.0%
+- Saturation: 2 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #84 Chat: add_day_note intent handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #108 — 2026-04-05T23:00:00Z
+- **Task**: #84 - Chat: `add_day_note` intent handler — append note to a specific day
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1447/1447 passed (9 new: test_add_day_note_activates_planner_agent, test_add_day_note_planner_thinking_then_working_then_done, test_add_day_note_emits_day_update_with_in_memory_plan, test_add_day_note_day_update_contains_note_text, test_add_day_note_appends_to_existing_notes, test_add_day_note_updates_db_notes, test_add_day_note_db_emits_day_update, test_add_day_note_no_plan_emits_chat_chunk, test_add_day_note_intent_accepted_by_model)
+- **Files changed**: src/app/chat.py (+168/-2), tests/test_chat.py
+- **Builder note**: _handle_add_day_note extracts day_number (intent.day_number) + note text (intent.query); appends to DayItinerary.notes in DB via db_day.notes append + db.commit; emits day_update SSE; planner agent activates with thinking→working→done states; falls back to in-memory last_plan update when no DB session/plan.
+- **LTES**: L=25270ms T=1 commit E=0.0% S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #107 — 2026-04-05T22:00:00Z
 - **Task**: #83 - E2E: weather forecast + conversation reset Playwright scenarios

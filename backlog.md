@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #84 - Chat: `add_day_note` intent handler — append note to a specific day [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: intent extracts day_number + note text; updates DayItinerary.notes in DB if plan saved; emits day_update SSE; planner agent activates; 2+ tests
-  - gh: #100
-
 - [ ] #85 - Chat: budget bar auto-refresh on expense changes [improvement]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
@@ -129,6 +123,7 @@ _(없음)_
 - [x] #81 - Chat: conversation reset — clear history without new session [improvement] — 2026-04-05
 - [x] #82 - Chat frontend: Weather forecast panel [feature] — 2026-04-05
 - [x] #83 - E2E: weather forecast + conversation reset Playwright scenarios [test] — 2026-04-05
+- [x] #84 - Chat: `add_day_note` intent handler — append note to a specific day [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -141,5 +136,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 83 done, 3 ready (0 in progress)
+- Total tasks: 84 done, 2 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
