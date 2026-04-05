@@ -17,7 +17,7 @@ from app.ai import AIItineraryResult, AIDayItinerary, AIPlace
 from app.chat import ChatService, Intent, SESSION_TTL_SECONDS, _MAX_HISTORY_TURNS
 from app.flight_search import FlightSearchResult, FlightResult
 from app.hotel_search import HotelSearchResult, HotelResult
-from app.web_search import DestinationSearchResult, PlaceSearchResult
+from app.web_search import DestinationSearchResult, PlaceSearchResult, WeatherSearchResult
 
 
 # ---------------------------------------------------------------------------
@@ -459,6 +459,19 @@ def _make_fake_places_result() -> DestinationSearchResult:
     )
 
 
+def _make_fake_weather_result() -> WeatherSearchResult:
+    return WeatherSearchResult(
+        destination="도쿄",
+        start_date="2026-05-01",
+        end_date="2026-05-03",
+        summary="도쿄 여행 기간 동안 대체로 맑고 따뜻한 날씨가 예상됩니다.",
+        forecast=[
+            {"date": "2026-05-01", "condition": "sunny", "temperature_high": "22°C", "temperature_low": "15°C", "description": "맑음"},
+            {"date": "2026-05-02", "condition": "partly cloudy", "temperature_high": "20°C", "temperature_low": "14°C", "description": "구름 조금"},
+        ],
+    )
+
+
 class TestServiceHandlerIntegration:
     """Verify that intent handlers call real services and emit correct events."""
 
@@ -767,6 +780,75 @@ class TestServiceHandlerIntegration:
             if e["type"] == "agent_status" and e["data"]["status"] == "error"
         ]
         assert any(e["data"]["agent"] == "flight_finder" for e in error_events)
+
+    # --- get_weather → WebSearchService ---
+
+    def test_get_weather_calls_web_search_service(self):
+        mock_web = MagicMock()
+        mock_web.search_weather.return_value = _make_fake_weather_result()
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="get_weather", destination="도쿄",
+            start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄 날씨"
+        )):
+            _collect_events(svc, session.session_id, "도쿄 날씨")
+
+        mock_web.search_weather.assert_called_once()
+        args = mock_web.search_weather.call_args[0]
+        assert args[0] == "도쿄"
+
+    def test_get_weather_emits_search_results_event(self):
+        mock_web = MagicMock()
+        mock_web.search_weather.return_value = _make_fake_weather_result()
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄 날씨")
+
+        results_events = [e for e in events if e["type"] == "search_results"]
+        assert len(results_events) == 1
+        assert results_events[0]["data"]["type"] == "weather"
+
+    def test_get_weather_place_scout_emits_working_and_done(self):
+        mock_web = MagicMock()
+        mock_web.search_weather.return_value = _make_fake_weather_result()
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄 날씨")
+
+        scout_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "place_scout"
+        ]
+        statuses = [e["data"]["status"] for e in scout_events]
+        assert "working" in statuses
+        assert "done" in statuses
+
+    def test_get_weather_error_emits_place_scout_error_status(self):
+        mock_web = MagicMock()
+        mock_web.search_weather.side_effect = RuntimeError("weather search failed")
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄 날씨")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert any(e["data"]["agent"] == "place_scout" for e in error_events)
 
 
 # ---------------------------------------------------------------------------

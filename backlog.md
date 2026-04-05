@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #79 - Chat: `get_weather` intent handler — fetch weather forecast for trip destination [feature]
-  - ref: CLAUDE.md User Story 1 (travel planning context)
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: get_weather added to Intent.action + system prompt; _handle_get_weather uses SearchService to query weather for plan destination + trip dates; Place Scout agent emits working/done; emits search_results event with weather summary; 2+ tests
-  - gh: #91
-
 - [ ] #80 - E2E: copy_plan + list_expenses + expense panel Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #76, #77, #78
@@ -125,6 +119,7 @@ _(없음)_
 - [x] #77 - Chat: copy_plan intent handler — duplicate a saved plan via chat [feature] — 2026-04-05
 - [x] #78 - Chat frontend: Expenses panel in dashboard — dedicated expense list section [feature] — 2026-04-05
 - [x] #77 - Chat: `copy_plan` intent handler — duplicate a saved plan via chat [feature] — 2026-04-05
+- [x] #79 - Chat: `get_weather` intent handler — fetch weather forecast for trip destination [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -137,5 +132,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 77 done, 4 ready (0 in progress)
+- Total tasks: 79 done, 2 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

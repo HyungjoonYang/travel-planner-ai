@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -134,7 +134,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -151,6 +151,7 @@ Return a JSON object with these fields:
 - Use action "update_expense" when user wants to edit/modify an existing expense item's amount or category (e.g. "택시 비용 30000원으로 수정", "식사 지출 금액 변경", "교통비 카테고리 변경")
 - Use action "list_expenses" when user wants to see all expenses / spending items for the current plan (e.g. "지출 목록 보여줘", "지출 내역 전체", "모든 지출 보기", "지출 항목 리스트")
 - Use action "copy_plan" when user wants to duplicate/copy a saved travel plan (e.g. "이 계획 복사해줘", "3번 계획 복제", "도쿄 여행 계획 복사", "계획 복사")
+- Use action "get_weather" when user wants to know the weather forecast for a destination or trip dates (e.g. "도쿄 날씨 어때?", "여행 기간 날씨 알려줘", "파리 날씨 예보", "weather forecast for Tokyo")
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -300,6 +301,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "copy_plan":
             async for event in self._handle_copy_plan(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "get_weather":
+            async for event in self._handle_get_weather(intent, session):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -2026,6 +2030,60 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"여행 계획 복사 중 오류가 발생했습니다: {exc}"},
+            }
+
+    async def _handle_get_weather(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+    ) -> AsyncGenerator[dict, None]:
+        """Fetch weather forecast for the trip destination and dates."""
+        dest = intent.destination or (session.last_plan or {}).get("destination") or "목적지"
+        start, end = self._parse_dates(intent)
+        start_str = start.isoformat()
+        end_str = end.isoformat()
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "place_scout", "status": "working", "message": f"{dest} 날씨 조회 중..."},
+        }
+
+        try:
+            result = await asyncio.to_thread(
+                self._web_search.search_weather,
+                dest,
+                start_str,
+                end_str,
+            )
+
+            forecast_count = len(result.forecast)
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "place_scout",
+                    "status": "done",
+                    "message": f"날씨 정보 조회 완료 ({forecast_count}일)",
+                    "result_count": forecast_count,
+                },
+            }
+            yield {
+                "type": "search_results",
+                "data": {"type": "weather", "results": result.model_dump()},
+            }
+            summary_text = result.summary or f"{dest} 날씨 정보를 가져왔습니다."
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": summary_text},
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "place_scout", "status": "error", "message": "날씨 조회 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"날씨 조회 중 오류가 발생했습니다: {exc}"},
             }
 
 
