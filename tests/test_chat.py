@@ -5307,3 +5307,209 @@ class TestExpensePanelListDate:
             db.close()
             from app.database import Base
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #81: reset_conversation — clear history without new session
+# ---------------------------------------------------------------------------
+
+class TestResetConversation:
+    """reset_conversation clears in-memory history; _handle_reset_conversation emits session_reset."""
+
+    def test_reset_conversation_clears_message_history(self):
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.message_history = [
+            {"role": "user", "content": "안녕"},
+            {"role": "assistant", "content": "어서오세요"},
+        ]
+        result = svc.reset_conversation(session.session_id)
+        assert result is True
+        assert session.message_history == []
+
+    def test_reset_conversation_clears_history(self):
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.history = [{"role": "user", "content": "도쿄", "intent": {}}]
+        svc.reset_conversation(session.session_id)
+        assert session.history == []
+
+    def test_reset_conversation_returns_false_for_unknown_session(self):
+        svc = _make_service_no_api()
+        assert svc.reset_conversation("no-such-session") is False
+
+    def test_handle_reset_conversation_emits_session_reset_event(self):
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.message_history = [{"role": "user", "content": "hello"}]
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="reset_conversation", raw_message="대화 초기화"
+        )):
+            events = _collect_events(svc, session.session_id, "대화 초기화")
+
+        event_types = [e["type"] for e in events]
+        assert "session_reset" in event_types
+
+    def test_handle_reset_conversation_clears_memory(self):
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.message_history = [{"role": "user", "content": "파리 여행"}]
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="reset_conversation", raw_message="초기화"
+        )):
+            _collect_events(svc, session.session_id, "초기화")
+
+        # After reset, only the newly appended assistant turn remains (from chat_chunk)
+        # The original user message before reset must be gone.
+        contents = [m["content"] for m in session.message_history]
+        assert "파리 여행" not in contents
+
+    def test_handle_reset_conversation_emits_chat_chunk(self):
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="reset_conversation", raw_message="초기화"
+        )):
+            events = _collect_events(svc, session.session_id, "초기화")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+
+class TestClearSessionMessagesEndpoint:
+    """DELETE /chat/sessions/{id}/messages clears DB history."""
+
+    def test_clear_messages_returns_204(self):
+        from fastapi.testclient import TestClient
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+        from app.database import Base, get_db
+        from app.main import app
+
+        engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(bind=engine)
+        TestingSession = sessionmaker(bind=engine)
+
+        def override_get_db():
+            db = TestingSession()
+            try:
+                yield db
+            finally:
+                db.close()
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            with TestClient(app) as client:
+                # Create a session
+                r = client.post("/chat/sessions")
+                assert r.status_code == 201
+                session_id = r.json()["session_id"]
+
+                # Clear messages — should return 204
+                r = client.delete(f"/chat/sessions/{session_id}/messages")
+                assert r.status_code == 204
+        finally:
+            app.dependency_overrides.clear()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_clear_messages_deletes_db_records(self):
+        from fastapi.testclient import TestClient
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+        from app.database import Base, get_db
+        from app.main import app
+        from app.models import ChatMessage
+
+        engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(bind=engine)
+        TestingSession = sessionmaker(bind=engine)
+
+        def override_get_db():
+            db = TestingSession()
+            try:
+                yield db
+            finally:
+                db.close()
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            with TestClient(app) as client:
+                # Create a session
+                r = client.post("/chat/sessions")
+                assert r.status_code == 201
+                session_id = r.json()["session_id"]
+
+                # Seed some DB messages directly
+                db = TestingSession()
+                try:
+                    db.add(ChatMessage(session_id=session_id, role="user", content="hello"))
+                    db.add(ChatMessage(session_id=session_id, role="assistant", content="hi"))
+                    db.commit()
+                    count_before = db.query(ChatMessage).filter(
+                        ChatMessage.session_id == session_id
+                    ).count()
+                    assert count_before == 2
+                finally:
+                    db.close()
+
+                # Clear messages
+                r = client.delete(f"/chat/sessions/{session_id}/messages")
+                assert r.status_code == 204
+
+                # Verify DB records are gone
+                db = TestingSession()
+                try:
+                    count_after = db.query(ChatMessage).filter(
+                        ChatMessage.session_id == session_id
+                    ).count()
+                    assert count_after == 0
+                finally:
+                    db.close()
+        finally:
+            app.dependency_overrides.clear()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_clear_messages_unknown_session_returns_404(self):
+        from fastapi.testclient import TestClient
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+        from app.database import Base, get_db
+        from app.main import app
+
+        engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(bind=engine)
+        TestingSession = sessionmaker(bind=engine)
+
+        def override_get_db():
+            db = TestingSession()
+            try:
+                yield db
+            finally:
+                db.close()
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            with TestClient(app) as client:
+                r = client.delete("/chat/sessions/no-such-session/messages")
+                assert r.status_code == 404
+        finally:
+            app.dependency_overrides.clear()
+            Base.metadata.drop_all(bind=engine)

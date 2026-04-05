@@ -78,6 +78,24 @@ def delete_session(session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
 
 
+@router.delete("/sessions/{session_id}/messages", status_code=204)
+def clear_session_messages(session_id: str, db: Session = Depends(get_db)):
+    """Clear conversation history for a session (DB + in-memory)."""
+    session = chat_service.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found or expired")
+
+    # Delete DB records
+    try:
+        db.query(ChatMessage).filter(ChatMessage.session_id == session_id).delete()
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    # Clear in-memory history
+    chat_service.reset_conversation(session_id)
+
+
 @router.post("/sessions/{session_id}/messages")
 async def send_message(
     session_id: str,

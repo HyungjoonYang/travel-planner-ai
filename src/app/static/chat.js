@@ -318,6 +318,9 @@ function handleSseEvent(event) {
     case 'expense_list':
       if (event.data) handleExpenseList(event.data);
       break;
+    case 'session_reset':
+      _handleSessionReset();
+      break;
     case 'error':
       const errMsg = (event.data && event.data.message) || '오류 발생';
       if (currentStreamBubble) {
@@ -416,6 +419,13 @@ function handleAgentStatus(data) {
 // ---------------------------------------------------------------------------
 // Chat bubble helpers
 // ---------------------------------------------------------------------------
+
+function _handleSessionReset() {
+  const messagesEl = document.getElementById('chat-messages');
+  if (messagesEl) messagesEl.innerHTML = '';
+  currentStreamBubble = null;
+  resetAgentCards();
+}
 
 function appendAiBubble(text) {
   const messagesEl = document.getElementById('chat-messages');
