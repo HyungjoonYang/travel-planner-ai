@@ -312,6 +312,9 @@ function handleSseEvent(event) {
     case 'expense_summary':
       if (event.data) handleExpenseSummary(event.data);
       break;
+    case 'expense_list':
+      if (event.data) handleExpenseList(event.data);
+      break;
     case 'error':
       const errMsg = (event.data && event.data.message) || '오류 발생';
       if (currentStreamBubble) {
@@ -910,4 +913,37 @@ function handleExpenseSummary(data) {
     `<div class="place-item"><span>총 지출</span><span class="price-tag"${overStyle}>${Number(spent).toLocaleString()}원${data.over_budget ? ' ⚠️' : ''}</span></div>` +
     `<div class="place-item"><span>남은 예산</span><span class="price-tag">${Number(remaining).toLocaleString()}원</span></div>` +
     (catRows ? '<div class="section-title" style="font-size:.8rem;margin-top:.4rem">카테고리별</div>' + catRows : '');
+}
+
+// ---------------------------------------------------------------------------
+// Expense list — clear and re-render all expense rows in plan-panel
+// ---------------------------------------------------------------------------
+
+function handleExpenseList(data) {
+  const expenses = data.expenses || [];
+  const panel    = document.getElementById('plan-panel');
+  if (!panel) return;
+
+  // Upsert expense section
+  let expenseSection = panel.querySelector('.expense-section');
+  if (!expenseSection) {
+    expenseSection = document.createElement('div');
+    expenseSection.className = 'expense-section';
+    expenseSection.innerHTML = '<div class="section-title">💸 Expenses</div><div class="expense-list"></div>';
+    panel.appendChild(expenseSection);
+  }
+
+  const listEl = expenseSection.querySelector('.expense-list');
+  if (!listEl) return;
+
+  // Clear existing rows and re-render full list
+  listEl.innerHTML = '';
+  for (const expense of expenses) {
+    const row = document.createElement('div');
+    row.className = 'place-item';
+    const cat = expense.category ? ` <span class="meta">(${escHtml(String(expense.category))})</span>` : '';
+    row.innerHTML = `<div><span>${escHtml(String(expense.name))}</span>${cat}</div>` +
+      `<span class="price-tag">${Number(expense.amount).toLocaleString()}원</span>`;
+    listEl.appendChild(row);
+  }
 }

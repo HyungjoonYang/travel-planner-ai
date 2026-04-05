@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #76 - Chat: list_expenses intent — refresh full expense list from DB [feature]
-  - ref: markdowns/feat-chat-dashboard.md (expense management); CLAUDE.md User Story 5
-  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
-  - done: list_expenses added to Intent.action + system prompt; _handle_list_expenses queries all expenses for saved plan; emits expense_list event; chat.js handleExpenseList clears+re-renders .expense-list; 2+ tests
-  - gh: #77
-
 - [ ] #77 - Chat: `copy_plan` intent handler — duplicate a saved plan via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md (plan management)
   - files: src/app/chat.py, tests/test_chat.py
@@ -140,6 +134,7 @@ _(없음)_
 - [x] #73 - Chat: expense_deleted SSE event + frontend expense row removal [improvement] — 2026-04-05
 - [x] #74 - Chat: update_expense intent handler — edit existing expense via chat [feature] — 2026-04-05
 - [x] #75 - E2E: SSE reconnect + session state restore Playwright scenarios [test] — 2026-04-05
+- [x] #76 - Chat: list_expenses intent — refresh full expense list from DB [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -152,5 +147,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 75 done, 6 ready (0 in progress)
+- Total tasks: 76 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
