@@ -5120,3 +5120,108 @@ class TestCopyPlan:
             db.close()
             from app.database import Base
             Base.metadata.drop_all(bind=engine)
+
+
+class TestExpensePanelListDate:
+    """Task #78 — expense_list event must include a 'date' field per expense row
+    so the frontend expense panel table can show item/amount/category/date columns."""
+
+    def test_expense_list_event_includes_date_field_none(self):
+        """expense_list rows must have a 'date' key; None when not set."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 30000.0, "category": "food"},
+            ])
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록", db)
+
+            evt = next(e for e in events if e["type"] == "expense_list")
+            expenses = evt["data"]["expenses"]
+            assert len(expenses) == 1
+            assert "date" in expenses[0]
+            assert expenses[0]["date"] is None
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_expense_list_event_includes_date_iso_string(self):
+        """expense_list rows must include date as ISO string when set."""
+        from datetime import date as date_type
+        from app.models import Expense as ExpenseModel, TravelPlan as TravelPlanModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="도쿄",
+                start_date=date_type(2026, 5, 1),
+                end_date=date_type(2026, 5, 5),
+                budget=500000.0,
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            expense = ExpenseModel(
+                travel_plan_id=plan.id,
+                name="숙소",
+                amount=100000.0,
+                category="accommodation",
+                date=date_type(2026, 5, 2),
+            )
+            db.add(expense)
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록", db)
+
+            evt = next(e for e in events if e["type"] == "expense_list")
+            expenses = evt["data"]["expenses"]
+            assert len(expenses) == 1
+            assert expenses[0]["date"] == "2026-05-02"
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_expense_list_event_row_has_id_field(self):
+        """expense_list rows must include 'id' field for edit/delete prefill in frontend."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록", db)
+
+            evt = next(e for e in events if e["type"] == "expense_list")
+            expenses = evt["data"]["expenses"]
+            assert len(expenses) == 1
+            assert "id" in expenses[0]
+            assert isinstance(expenses[0]["id"], int)
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)

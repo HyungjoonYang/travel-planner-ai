@@ -1851,6 +1851,7 @@ Return a JSON object with these fields:
                     "name": e.name,
                     "amount": e.amount,
                     "category": e.category,
+                    "date": e.date.isoformat() if e.date else None,
                     "travel_plan_id": plan_id,
                 }
                 for e in all_expenses

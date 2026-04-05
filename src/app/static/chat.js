@@ -916,34 +916,79 @@ function handleExpenseSummary(data) {
 }
 
 // ---------------------------------------------------------------------------
-// Expense list — clear and re-render all expense rows in plan-panel
+// Expense panel — dedicated section below budget tracker in plan-panel
+// expense_list SSE event triggers full re-render as a table with edit/delete
 // ---------------------------------------------------------------------------
+
+// Prefill the chat input with a message (for edit/delete row actions)
+function prefillChatInput(text) {
+  const input = document.getElementById('chat-input');
+  if (!input) return;
+  input.value = text;
+  input.focus();
+}
 
 function handleExpenseList(data) {
   const expenses = data.expenses || [];
   const panel    = document.getElementById('plan-panel');
   if (!panel) return;
 
-  // Upsert expense section
-  let expenseSection = panel.querySelector('.expense-section');
-  if (!expenseSection) {
-    expenseSection = document.createElement('div');
-    expenseSection.className = 'expense-section';
-    expenseSection.innerHTML = '<div class="section-title">💸 Expenses</div><div class="expense-list"></div>';
-    panel.appendChild(expenseSection);
+  // Get or create the .expense-panel section
+  let expensePanel = panel.querySelector('.expense-panel');
+  if (!expensePanel) {
+    expensePanel = document.createElement('div');
+    expensePanel.className = 'expense-panel';
+    // Insert below .plan-budget if present, otherwise append
+    const budgetDiv = panel.querySelector('.plan-budget');
+    if (budgetDiv && budgetDiv.nextSibling) {
+      panel.insertBefore(expensePanel, budgetDiv.nextSibling);
+    } else if (budgetDiv) {
+      panel.appendChild(expensePanel);
+    } else {
+      panel.appendChild(expensePanel);
+    }
   }
 
-  const listEl = expenseSection.querySelector('.expense-list');
-  if (!listEl) return;
-
-  // Clear existing rows and re-render full list
-  listEl.innerHTML = '';
-  for (const expense of expenses) {
-    const row = document.createElement('div');
-    row.className = 'place-item';
-    const cat = expense.category ? ` <span class="meta">(${escHtml(String(expense.category))})</span>` : '';
-    row.innerHTML = `<div><span>${escHtml(String(expense.name))}</span>${cat}</div>` +
-      `<span class="price-tag">${Number(expense.amount).toLocaleString()}원</span>`;
-    listEl.appendChild(row);
+  // Hide panel when there are no expenses
+  if (!expenses.length) {
+    expensePanel.style.display = 'none';
+    return;
   }
+  expensePanel.style.display = '';
+
+  // Build table rows
+  const rows = expenses.map(e => {
+    const id       = e.id != null ? escHtml(String(e.id)) : '';
+    const name     = escHtml(String(e.name || ''));
+    const amount   = Number(e.amount || 0).toLocaleString();
+    const category = e.category ? escHtml(String(e.category)) : '—';
+    const date     = e.date ? escHtml(String(e.date)) : '—';
+    // Edit prefill: "지출 수정 {id} {name} {amount}"
+    const editMsg  = `지출 수정 ${e.id} ${e.name} ${e.amount}`;
+    // Delete prefill: "지출 삭제 {id} {name}"
+    const delMsg   = `지출 삭제 ${e.id} ${e.name}`;
+    return `<tr>
+      <td>${name}</td>
+      <td class="price-tag">${amount}원</td>
+      <td>${category}</td>
+      <td>${date}</td>
+      <td class="expense-panel-actions">
+        <button class="btn btn-outline btn-sm"
+          onclick="prefillChatInput(${JSON.stringify(editMsg)})">수정</button>
+        <button class="btn btn-danger btn-sm"
+          onclick="prefillChatInput(${JSON.stringify(delMsg)})">삭제</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  expensePanel.innerHTML = `
+    <div class="section-title">💸 지출 내역</div>
+    <table class="expense-panel-table">
+      <thead>
+        <tr>
+          <th>항목</th><th>금액</th><th>카테고리</th><th>날짜</th><th></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
