@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_plan | get_expense_summary | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_plan | get_expense_summary | delete_expense | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -134,7 +134,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_plan", "get_expense_summary", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_plan", "get_expense_summary", "delete_expense", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -144,9 +144,10 @@ Return a JSON object with these fields:
 - plan_id: integer plan ID if deleting, viewing, or updating a specific plan (e.g. "3번 계획 삭제" → 3, "3번 계획 수정" → 3), else null
 - For update_plan: destination = new destination/title if user wants to rename, budget = new budget value, start_date/end_date = new dates
 - query: search query string if searching, else null
-- expense_name: expense item name if adding an expense (e.g. "식사", "택시", "입장료"), else null
+- expense_name: expense item name if adding or deleting an expense (e.g. "식사", "택시", "입장료"), else null; for "마지막 지출 삭제" leave null
 - expense_amount: expense amount as a number if adding an expense (e.g. "5만원" → 50000, "$30" → 30), else null
-- expense_category: expense category if adding an expense (e.g. "food", "transport", "accommodation", "activities"), infer from context, else null
+- expense_category: expense category if adding or deleting an expense (e.g. "food", "transport", "accommodation", "activities"), infer from context, else null; for "식비 삭제" set to "food"
+- Use action "delete_expense" when user wants to delete/remove an expense item (e.g. "마지막 지출 삭제", "식비 항목 삭제", "택시 지출 취소")
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -284,6 +285,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "get_expense_summary":
             async for event in self._handle_get_expense_summary(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "delete_expense":
+            async for event in self._handle_delete_expense(intent, session, db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -1495,6 +1499,144 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"지출 내역 조회 중 오류가 발생했습니다: {exc}"},
+            }
+
+
+    async def _handle_delete_expense(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Delete an expense from the current saved plan by name, category, or last added."""
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "working", "message": "지출 항목 삭제 중..."},
+        }
+        await asyncio.sleep(0)
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is None or plan_id is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "삭제할 여행 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "지출을 삭제하려면 먼저 여행 계획을 저장해주세요."},
+            }
+            return
+
+        try:
+            from app.models import Expense as ExpenseModel, TravelPlan as TravelPlanModel
+
+            plan = db.get(TravelPlanModel, plan_id)
+            if plan is None:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                }
+                return
+
+            # Identify the target expense: by name > by category > latest
+            expense_to_delete: Optional[ExpenseModel] = None
+
+            if intent.expense_name:
+                expense_to_delete = (
+                    db.query(ExpenseModel)
+                    .filter(
+                        ExpenseModel.travel_plan_id == plan_id,
+                        ExpenseModel.name == intent.expense_name,
+                    )
+                    .order_by(ExpenseModel.id.desc())
+                    .first()
+                )
+            elif intent.expense_category:
+                expense_to_delete = (
+                    db.query(ExpenseModel)
+                    .filter(
+                        ExpenseModel.travel_plan_id == plan_id,
+                        ExpenseModel.category == intent.expense_category,
+                    )
+                    .order_by(ExpenseModel.id.desc())
+                    .first()
+                )
+            else:
+                # "마지막 지출 삭제" — delete the most recently added expense
+                expense_to_delete = (
+                    db.query(ExpenseModel)
+                    .filter(ExpenseModel.travel_plan_id == plan_id)
+                    .order_by(ExpenseModel.id.desc())
+                    .first()
+                )
+
+            if expense_to_delete is None:
+                label = intent.expense_name or intent.expense_category or "마지막 지출"
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": f"'{label}' 항목을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"'{label}' 지출 항목을 찾을 수 없습니다."},
+                }
+                return
+
+            deleted_name = expense_to_delete.name
+            deleted_amount = expense_to_delete.amount
+            db.delete(expense_to_delete)
+            db.commit()
+
+            # Compute updated budget summary
+            remaining_expenses = (
+                db.query(ExpenseModel)
+                .filter(ExpenseModel.travel_plan_id == plan_id)
+                .all()
+            )
+            total_spent = round(sum(e.amount for e in remaining_expenses), 2)
+            by_category: dict[str, float] = {}
+            for e in remaining_expenses:
+                key = e.category or "other"
+                by_category[key] = round(by_category.get(key, 0.0) + e.amount, 2)
+
+            summary = {
+                "plan_id": plan_id,
+                "budget": plan.budget,
+                "total_spent": total_spent,
+                "remaining": round(plan.budget - total_spent, 2),
+                "by_category": by_category,
+                "expense_count": len(remaining_expenses),
+                "over_budget": total_spent > plan.budget,
+            }
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "done", "message": "지출 삭제 완료!"},
+            }
+            yield {"type": "expense_summary", "data": summary}
+            yield {
+                "type": "chat_chunk",
+                "data": {
+                    "text": (
+                        f"'{deleted_name}' {deleted_amount:,.0f}원 지출을 삭제했습니다."
+                        f" 총 지출: {total_spent:,.0f}원"
+                    )
+                },
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "지출 삭제 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"지출 삭제 중 오류가 발생했습니다: {exc}"},
             }
 
 

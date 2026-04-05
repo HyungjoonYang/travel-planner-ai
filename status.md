@@ -1,19 +1,19 @@
 # Status
 
-Last run: 2026-04-05T11:00:00Z (Evolve Run #91)
-Run count: 98
+Last run: 2026-04-05T12:00:00Z (Evolve Run #92)
+Run count: 99
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 67
+Tasks completed: 68
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #68 Chat: delete_expense intent handler
+Next planned: #69 Chat dashboard: Place Scout results dedicated persistent section
 
 ## LTES Snapshot
 
-- Latency: ~21490ms (pytest 1352 tests)
-- Traffic: 44 commits/24h
-- Errors: 0 test failures (1352/1352 pass), error_rate=0.0%
+- Latency: ~21640ms (pytest 1364 tests)
+- Traffic: 45 commits/24h
+- Errors: 0 test failures (1364/1364 pass), error_rate=0.0%
 - Saturation: 4 tasks ready
 
 ## Phase Transition
@@ -29,6 +29,15 @@ Next planned: #68 Chat: delete_expense intent handler
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #92 — 2026-04-05T12:00:00Z
+- **Task**: #68 - Chat: `delete_expense` intent handler
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1364/1364 passed (+12 new: TestDeleteExpense class, tests/test_chat.py)
+- **Files changed**: src/app/chat.py (+215/-2), tests/test_chat.py (+12 tests)
+- **Builder note**: Implemented _handle_delete_expense handler. Deletion priority: by name > by category > most recently added (마지막 지출). After deletion, expense_summary is re-emitted so the frontend budget tracker stays up to date. Secretary agent_status events (working→done). 12 new tests covering: secretary agent events, error when no DB/no plan/not found, delete by name, delete by category (most recent), delete last expense, expense_summary re-emit with correct totals, required fields, working→done transition, chat_chunk confirmation.
+- **LTES**: L=21640ms T=1 commit E=0.0% S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #91 — 2026-04-05T11:00:00Z
 - **Task**: #67 - Chat: `refine_plan` intent handler — AI plan refinement via chat

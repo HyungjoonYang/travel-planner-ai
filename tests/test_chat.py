@@ -3900,3 +3900,316 @@ class TestRefinePlan:
 
         chunk_events = [e for e in events if e["type"] == "chat_chunk"]
         assert len(chunk_events) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Task #68: Chat delete_expense intent handler
+# ---------------------------------------------------------------------------
+
+class TestDeleteExpense:
+    """_handle_delete_expense must remove an Expense row and re-emit expense_summary SSE."""
+
+    def test_delete_expense_activates_secretary(self):
+        """delete_expense intent activates the secretary agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="delete_expense", expense_name="식사", raw_message="식사 지출 삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "식사 지출 삭제")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "secretary" in agent_names
+
+    def test_delete_expense_no_db_emits_error(self):
+        """delete_expense without a DB session emits error."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="delete_expense", expense_name="식사", raw_message="식사 삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "식사 삭제")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_delete_expense_no_saved_plan_emits_error(self):
+        """delete_expense without session.last_saved_plan_id emits error."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # no last_saved_plan_id set
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="식사", raw_message="식사 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 삭제", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_by_name_removes_row(self):
+        """delete_expense by name deletes the matching Expense row from DB."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="식사", raw_message="식사 지출 삭제"
+            )):
+                _collect_events_with_db(svc, session.session_id, "식사 지출 삭제", db)
+
+            remaining = db.query(ExpenseModel).filter(ExpenseModel.travel_plan_id == plan_id).all()
+            assert len(remaining) == 1
+            assert remaining[0].name == "택시"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_by_category_removes_most_recent(self):
+        """delete_expense by category deletes the most recent matching expense."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "점심", "amount": 30000.0, "category": "food"},
+                {"name": "저녁", "amount": 60000.0, "category": "food"},
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_category="food", raw_message="식비 항목 삭제"
+            )):
+                _collect_events_with_db(svc, session.session_id, "식비 항목 삭제", db)
+
+            remaining = db.query(ExpenseModel).filter(ExpenseModel.travel_plan_id == plan_id).all()
+            names = {e.name for e in remaining}
+            # most recent food expense (저녁) deleted, 점심 and 택시 remain
+            assert "저녁" not in names
+            assert "점심" in names
+            assert "택시" in names
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_last_expense_when_no_name_or_category(self):
+        """When neither name nor category given, deletes the most recently added expense."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+                {"name": "입장료", "amount": 20000.0, "category": "activities"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", raw_message="마지막 지출 삭제"
+            )):
+                _collect_events_with_db(svc, session.session_id, "마지막 지출 삭제", db)
+
+            remaining = db.query(ExpenseModel).filter(ExpenseModel.travel_plan_id == plan_id).all()
+            assert len(remaining) == 1
+            assert remaining[0].name == "식사"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_not_found_emits_error(self):
+        """delete_expense for a non-existent name emits an error agent_status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="없는항목", raw_message="없는항목 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "없는항목 삭제", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status"
+                and e["data"]["agent"] == "secretary"
+                and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_reemits_expense_summary(self):
+        """After deletion, an expense_summary SSE event must be emitted."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="식사", raw_message="식사 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 삭제", db)
+
+            summary_events = [e for e in events if e["type"] == "expense_summary"]
+            assert len(summary_events) == 1
+            summary = summary_events[0]["data"]
+            assert summary["total_spent"] == 15000.0
+            assert summary["expense_count"] == 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_summary_has_required_fields(self):
+        """expense_summary event after deletion must include all required keys."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="식사", raw_message="식사 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 삭제", db)
+
+            summary = next(e["data"] for e in events if e["type"] == "expense_summary")
+            for key in ("plan_id", "budget", "total_spent", "remaining", "by_category", "expense_count", "over_budget"):
+                assert key in summary, f"Missing key: {key}"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_secretary_working_then_done(self):
+        """Secretary agent must transition working -> done on successful deletion."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="식사", raw_message="식사 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 삭제", db)
+
+            secretary_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+            ]
+            statuses = [e["data"]["status"] for e in secretary_events]
+            assert "working" in statuses
+            assert "done" in statuses
+            assert statuses.index("working") < statuses.index("done")
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_emits_chat_chunk(self):
+        """delete_expense must emit a chat_chunk with confirmation text."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="택시", raw_message="택시 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "택시 삭제", db)
+
+            chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chunk_events) >= 1
+            text = " ".join(e["data"]["text"] for e in chunk_events)
+            assert "택시" in text
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_intent_accepted_by_model(self):
+        """Intent model must accept action='delete_expense'."""
+        intent = Intent(
+            action="delete_expense",
+            expense_name="식사",
+            expense_category="food",
+            raw_message="식사 삭제",
+        )
+        assert intent.action == "delete_expense"
+        assert intent.expense_name == "식사"
+        assert intent.expense_category == "food"
