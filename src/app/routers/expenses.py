@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Expense, TravelPlan
-from app.schemas import BudgetSummary, ExpenseCreate, ExpenseOut, ExpenseUpdate
+from app.schemas import BudgetSummary, BulkExpenseResult, ExpenseCreate, ExpenseOut, ExpenseUpdate
 
 router = APIRouter(prefix="/plans/{plan_id}/expenses", tags=["expenses"])
 
@@ -32,6 +32,26 @@ def create_expense(
     db.commit()
     db.refresh(expense)
     return expense
+
+
+@router.post("/bulk", response_model=BulkExpenseResult, status_code=status.HTTP_201_CREATED)
+def bulk_create_expenses(
+    plan_id: int,
+    payload: list[ExpenseCreate],
+    db: Session = Depends(get_db),
+):
+    if not payload:
+        raise HTTPException(status_code=422, detail="Expense list must not be empty")
+    _get_plan_or_404(plan_id, db)
+    expenses = [
+        Expense(**item.model_dump(), travel_plan_id=plan_id) for item in payload
+    ]
+    for expense in expenses:
+        db.add(expense)
+    db.commit()
+    for expense in expenses:
+        db.refresh(expense)
+    return BulkExpenseResult(items=expenses, count=len(expenses))
 
 
 @router.get("", response_model=list[ExpenseOut])

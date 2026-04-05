@@ -101,6 +101,11 @@ class ExpenseOut(ExpenseBase):
     model_config = {"from_attributes": True}
 
 
+class BulkExpenseResult(BaseModel):
+    items: list["ExpenseOut"]
+    count: int
+
+
 class BudgetSummary(BaseModel):
     plan_id: int
     budget: float
