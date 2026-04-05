@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T20:30:00Z (Evolve Run #113)
-Run count: 129
+Last run: 2026-04-05T21:00:00Z (Evolve Run #114)
+Run count: 130
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 89
+Tasks completed: 90
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #90 E2E: suggest_improvements + budget auto-refresh Playwright scenarios
+Next planned: #91 Chat: `share_plan` intent — generate shareable plan link via chat
 
 ## LTES Snapshot
 
-- Latency: 24340ms (pytest 1491 tests in 24.34s)
-- Traffic: 44 commits today (2026-04-05)
+- Latency: 22530ms (pytest 1491 tests in 22.53s)
+- Traffic: 45 commits today (2026-04-05)
 - Errors: 0 test failures (1491/1491 pass), error_rate=0.0%
-- Saturation: 2 tasks ready
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #90 E2E: suggest_improvements + budget auto-refresh Playwright sce
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #114 — 2026-04-05T21:00:00Z
+- **Task**: #90 - E2E: suggest_improvements + budget auto-refresh Playwright scenarios
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1491/1491 passed (2 new Playwright E2E scenarios in `test.describe('suggest_improvements + budget auto-refresh (Task #90)')`)
+- **Files changed**: e2e/chat.spec.ts (+305/-0)
+- **Builder note**: Scenario A: 'any suggestions?' → #suggestions-panel visible, place_scout + budget_analyst both reach agent-done. Scenario B: two-message flow — plan_update (budget=2M, cost=400K → 20%), then expense_added with budget_summary (total_spent=1.36M → 68%); asserts '68.0% 사용' and #plan-budget-bar width. Both use route mocking so no live Gemini key needed.
+- **LTES**: L=22530ms T=1 commit E=0.0% S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #113 — 2026-04-05T20:30:00Z
 - **Task**: #89 - Chat: `add_place` intent — append a custom place to a specific day via chat

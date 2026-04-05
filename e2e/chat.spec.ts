@@ -1472,3 +1472,307 @@ test.describe("SSE reconnect + session state restore", () => {
     await expect(aiBubbles).toHaveCount(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// suggest_improvements + budget auto-refresh (Task #90 / Issue #111)
+// ---------------------------------------------------------------------------
+
+test.describe("suggest_improvements + budget auto-refresh (Task #90)", () => {
+  /**
+   * Scenario A: "any suggestions?" → plan_suggestions SSE event renders the
+   * suggestions panel; place_scout and budget_analyst both activate.
+   *
+   * Done criteria:
+   *   - #suggestions-panel is visible in the dashboard column
+   *   - .suggestion-card items are rendered with the suggestion text
+   *   - place_scout reaches agent-done state
+   *   - budget_analyst reaches agent-done state
+   */
+  test("suggest_improvements: suggestions panel appears with place_scout + budget_analyst active", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "suggest_improvements 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "place_scout",
+          status: "working",
+          message: "장소 개선안 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "budget_analyst",
+          status: "working",
+          message: "예산 최적화 분석 중...",
+        },
+      },
+      {
+        type: "plan_suggestions",
+        data: {
+          suggestions: [
+            "아사쿠사 관광 후 스카이트리 방문을 추가하면 동선이 효율적입니다.",
+            "2일차에 시부야 스크램블 교차로 야경을 포함해보세요.",
+            "예산의 20%를 음식 체험에 배정하면 만족도가 높아집니다.",
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "place_scout",
+          status: "done",
+          message: "3개 개선안 준비 완료",
+          result_count: 3,
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "budget_analyst",
+          status: "done",
+          message: "예산 분석 완료",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "여행 계획 개선 제안을 준비했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "any suggestions?");
+    await page.click('button:has-text("전송")');
+
+    // Suggestions panel must appear in the dashboard
+    await expect(page.locator("#suggestions-panel")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Panel title must say "Suggestions"
+    await expect(page.locator(".suggestions-title")).toContainText(
+      "Suggestions"
+    );
+
+    // All three suggestion cards must be rendered
+    await expect(page.locator(".suggestion-card")).toHaveCount(3);
+    await expect(page.locator("#suggestions-panel")).toContainText("스카이트리");
+    await expect(page.locator("#suggestions-panel")).toContainText("시부야");
+    await expect(page.locator("#suggestions-panel")).toContainText("예산");
+
+    // place_scout must reach done state
+    await expect(page.locator('[data-agent="place_scout"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // budget_analyst must reach done state
+    await expect(page.locator('[data-agent="budget_analyst"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+  });
+
+  /**
+   * Scenario B: add_expense → budget bar percentage auto-refreshes in plan overview.
+   *
+   * Flow:
+   *   1. First message: plan_update (budget=2,000,000, cost=400,000 → 20%)
+   *   2. Second message: expense_added with budget_summary (total_spent=1,360,000 → 68%)
+   *
+   * Done criteria:
+   *   - After first message: .progress-bar-bg is visible; initial pct text reflects 20%
+   *   - After second message: #plan-budget-bar width reflects 68%; pct text shows "68.0% 사용"
+   */
+  test("add_expense: budget bar percentage updates in plan overview", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-budget-refresh-session";
+    let sseCallCount = 0;
+
+    // Custom session mock so we can stream two different responses
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.route(
+      `**/chat/sessions/${SESSION_ID}/messages`,
+      async (route) => {
+        sseCallCount++;
+        if (sseCallCount === 1) {
+          // First message: create plan with initial budget state (20% spent)
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "create_plan 파악",
+                },
+              },
+              {
+                type: "plan_update",
+                data: {
+                  destination: "도쿄",
+                  start_date: "2026-05-01",
+                  end_date: "2026-05-04",
+                  budget: 2_000_000,
+                  total_estimated_cost: 400_000,
+                  days: [
+                    {
+                      day: 1,
+                      date: "2026-05-01",
+                      theme: "아사쿠사",
+                      places: [
+                        {
+                          name: "센소지",
+                          category: "문화",
+                          address: "도쿄 아사쿠사",
+                          estimated_cost: 0,
+                          ai_reason: "유명 사원",
+                          order: 1,
+                        },
+                      ],
+                      notes: "",
+                    },
+                  ],
+                },
+              },
+              {
+                type: "chat_chunk",
+                data: { text: "도쿄 여행 계획을 생성했습니다." },
+              },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        } else {
+          // Second message: expense_added refreshes budget bar to 68%
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "add_expense 파악",
+                },
+              },
+              {
+                type: "agent_status",
+                data: {
+                  agent: "secretary",
+                  status: "done",
+                  message: "지출 추가 완료!",
+                },
+              },
+              {
+                type: "expense_added",
+                data: {
+                  expense: {
+                    id: 1,
+                    name: "도쿄 투어 패키지",
+                    amount: 960_000,
+                    category: "activities",
+                    travel_plan_id: 1,
+                  },
+                  budget_summary: {
+                    plan_id: 1,
+                    budget: 2_000_000,
+                    total_spent: 1_360_000,
+                    remaining: 640_000,
+                    by_category: { activities: 1_360_000 },
+                    expense_count: 1,
+                    over_budget: false,
+                  },
+                },
+              },
+              {
+                type: "chat_chunk",
+                data: { text: "'도쿄 투어 패키지' 960,000원 지출을 추가했습니다." },
+              },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        }
+      }
+    );
+
+    await goToChat(page);
+
+    // --- First message: build the plan (sets initial budget bar to 20%) ---
+    await page.fill("#chat-input", "도쿄 3박4일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+
+    // Budget bar must be present after plan_update
+    await expect(page.locator(".progress-bar-bg")).toBeVisible();
+
+    // Initial percentage should reflect 20% (400,000 / 2,000,000)
+    await expect(page.locator("#plan-panel")).toContainText("20.0% 사용");
+
+    // Wait for input to re-enable before sending next message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({
+      timeout: 5_000,
+    });
+
+    // --- Second message: add_expense refreshes the budget bar to 68% ---
+    await page.fill("#chat-input", "도쿄 투어 패키지 96만원 추가해줘");
+    await page.click('button:has-text("전송")');
+
+    // Budget bar percentage must update to 68.0% (1,360,000 / 2,000,000)
+    await expect(page.locator("#plan-panel")).toContainText("68.0% 사용", {
+      timeout: 10_000,
+    });
+
+    // The bar element must exist and have a non-zero width
+    const bar = page.locator("#plan-budget-bar");
+    await expect(bar).toBeVisible();
+    const width = await bar.evaluate((el) =>
+      parseFloat((el as HTMLElement).style.width)
+    );
+    expect(width).toBeCloseTo(68.0, 0);
+  });
+});
