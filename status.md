@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T18:46:29Z (Monitor)
-Run count: 121
+Last run: 2026-04-05T24:00:00Z (Evolve Run #109)
+Run count: 122
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 84
+Tasks completed: 85
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #85 Chat: budget bar auto-refresh on expense changes
+Next planned: #86 Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions
 
 ## LTES Snapshot
 
-- Latency: 42725ms (pytest 1447 tests in 24.31s + overhead)
-- Traffic: 38 commits/24h
-- Errors: 0 test failures (1447/1447 pass), error_rate=0.0%
-- Saturation: 2 tasks ready
+- Latency: 23430ms (pytest 1452 tests in 23.43s)
+- Traffic: 1 commit (this run)
+- Errors: 0 test failures (1452/1452 pass), error_rate=0.0%
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #85 Chat: budget bar auto-refresh on expense changes
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #109 — 2026-04-05T24:00:00Z
+- **Task**: #85 - Chat: budget bar auto-refresh on expense changes
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1452/1452 passed (5 new: test_add_expense_emits_plan_update_with_budget_used, test_add_expense_activates_budget_analyst, test_update_expense_emits_plan_update_with_budget_used, test_delete_expense_emits_plan_update_with_budget_used, test_budget_pct_correct_calculation)
+- **Files changed**: src/app/chat.py (+85/-0), tests/test_chat.py
+- **Builder note**: Added _emit_budget_plan_update helper method to ChatService. Briefly activates budget_analyst (thinking→done) and re-emits plan_update with budget_used + budget_pct fields. Called from _handle_add_expense (line 1339), _handle_update_expense (line 1694), _handle_delete_expense (line 1839) after each successful operation.
+- **LTES**: L=23430ms T=1 commit E=0.0% S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #108 — 2026-04-05T23:00:00Z
 - **Task**: #84 - Chat: `add_day_note` intent handler — append note to a specific day

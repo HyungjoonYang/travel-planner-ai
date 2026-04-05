@@ -5762,3 +5762,171 @@ class TestAddDayNote:
         assert intent.action == "add_day_note"
         assert intent.day_number == 3
         assert intent.query == "메모 내용"
+
+
+# ---------------------------------------------------------------------------
+# Task #85: budget bar auto-refresh on expense changes
+# ---------------------------------------------------------------------------
+
+
+class TestBudgetBarAutoRefresh:
+    """After add/update/delete_expense, plan_update with budget_used + budget_pct must be emitted
+    and the budget_analyst agent must briefly activate."""
+
+    def test_add_expense_emits_plan_update_with_budget_used(self):
+        """add_expense must emit a plan_update event containing budget_used and budget_pct."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)  # budget=500000
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="식사", expense_amount=100000.0,
+                expense_category="food", raw_message="식사 10만원 추가"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 10만원 추가", db)
+
+            plan_updates = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_updates) >= 1
+            last_update = plan_updates[-1]["data"]
+            assert "budget_used" in last_update
+            assert "budget_pct" in last_update
+            assert last_update["budget_used"] == 100000.0
+            assert abs(last_update["budget_pct"] - 20.0) < 0.1  # 100000/500000 * 100 = 20%
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_expense_activates_budget_analyst(self):
+        """add_expense must briefly activate the budget_analyst agent after persisting."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="택시", expense_amount=20000.0,
+                raw_message="택시 2만원"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "택시 2만원", db)
+
+            budget_analyst_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+            ]
+            assert len(budget_analyst_events) >= 1
+            statuses = {e["data"]["status"] for e in budget_analyst_events}
+            assert "thinking" in statuses or "done" in statuses
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_emits_plan_update_with_budget_used(self):
+        """update_expense must emit a plan_update event containing budget_used and budget_pct."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)  # budget=500000
+            # Pre-seed an expense to update
+            expense = ExpenseModel(
+                travel_plan_id=plan_id, name="식사", amount=50000.0, category="food"
+            )
+            db.add(expense)
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_name="식사", expense_amount=80000.0,
+                raw_message="식사 8만원으로 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 8만원으로 수정", db)
+
+            plan_updates = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_updates) >= 1
+            last_update = plan_updates[-1]["data"]
+            assert "budget_used" in last_update
+            assert "budget_pct" in last_update
+            assert last_update["budget_used"] == 80000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_delete_expense_emits_plan_update_with_budget_used(self):
+        """delete_expense must emit a plan_update event containing budget_used and budget_pct."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)  # budget=500000
+            # Pre-seed two expenses; one will be deleted
+            for name, amount in [("식사", 50000.0), ("택시", 30000.0)]:
+                db.add(ExpenseModel(travel_plan_id=plan_id, name=name, amount=amount))
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="택시", raw_message="택시 삭제"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "택시 삭제", db)
+
+            plan_updates = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_updates) >= 1
+            last_update = plan_updates[-1]["data"]
+            assert "budget_used" in last_update
+            assert "budget_pct" in last_update
+            # After deletion only 식사(50000) remains
+            assert last_update["budget_used"] == 50000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_budget_pct_correct_calculation(self):
+        """budget_pct in plan_update must equal total_spent / budget * 100."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)  # budget=500000
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="숙소", expense_amount=250000.0,
+                raw_message="숙소 25만원"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "숙소 25만원", db)
+
+            plan_updates = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_updates) >= 1
+            last_update = plan_updates[-1]["data"]
+            # 250000 / 500000 * 100 = 50.0%
+            assert last_update["budget_pct"] == 50.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
