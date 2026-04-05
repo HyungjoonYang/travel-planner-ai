@@ -12,18 +12,41 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #90 - E2E: suggest_improvements + budget auto-refresh Playwright scenarios [test]
-  - ref: markdowns/feat-chat-dashboard.md
-  - depends: #85, #86, #87
-  - files: e2e/chat.spec.ts
-  - done: Playwright scenario "any suggestions?" → suggestions panel appears; place_scout + budget_analyst activate; add_expense → budget bar percentage updates in plan overview; 2+ scenarios pass
-  - gh: #111
-
 - [ ] #91 - Chat: `share_plan` intent — generate shareable plan link via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
   - done: "이 계획 공유해줘" → secretary emits plan_shared event with share_url + share_token; frontend shows copiable URL in chat/dashboard; graceful error if no saved plan; 2+ tests
   - gh: #112
+
+- [ ] #92 - E2E: share_plan Playwright scenarios [test]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #91
+  - files: e2e/chat.spec.ts
+  - done: "이 계획 공유해줘" → plan_shared SSE event fires → share URL rendered in chat; copy button visible; graceful error when no plan loaded; 2+ scenarios pass
+  - gh: #118
+
+- [ ] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: "1일차와 3일차 순서 바꿔줘" → places swapped between days in DB; day_update SSE for both days; chat reply confirms; error on out-of-range day; 2+ tests
+  - gh: #119
+
+- [ ] #94 - Chat: `clear_day` intent — remove all places from a day via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: "3일차 일정 다 지워줘" → all places deleted from day in DB; day_update SSE with empty list; chat reply confirms; error when day not found; 2+ tests
+  - gh: #120
+
+- [ ] #95 - Frontend: message timestamp display in chat bubbles [improvement]
+  - files: src/app/static/chat.js, src/app/static/index.html
+  - done: each chat bubble shows relative timestamp (방금/5분 전/시간); restores after SSE reconnect; 1+ Playwright assertion; no existing tests broken
+  - gh: #121
+
+- [ ] #96 - Chat: `duplicate_day` intent — copy a day's itinerary to another day [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: "2일차 일정을 4일차에도 넣어줘" → places duplicated to target day; day_update SSE; source day unchanged; error when day not found; 2+ tests
+  - gh: #122
 
 ## Blocked
 
@@ -130,6 +153,7 @@ _(없음)_
 - [x] #87 - Chat frontend: `plan_suggestions` SSE handler — render improvement suggestions panel [feature] — 2026-04-05
 - [x] #88 - Chat: `remove_place` intent — remove a place from a day's itinerary via chat [feature] — 2026-04-05
 - [x] #89 - Chat: `add_place` intent — append a custom place to a specific day via chat [feature] — 2026-04-05
+- [x] #90 - E2E: suggest_improvements + budget auto-refresh Playwright scenarios [test] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -142,5 +166,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 89 done, 2 ready (0 in progress)
+- Total tasks: 90 done, 6 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
