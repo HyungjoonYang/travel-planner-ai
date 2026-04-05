@@ -1,0 +1,27 @@
+{
+  "run_id": "monitor-2026-04-05-1746",
+  "timestamp": "2026-04-05T17:46:00Z",
+  "type": "monitor",
+  "ltes": {
+    "latency": {
+      "this_run_ms": 46050,
+      "description": "pytest 1423 tests + git queries"
+    },
+    "traffic": {
+      "commits_last_24h": 39,
+      "recent_diff_summary": "9 files changed, 238 insertions(+), 77 deletions(-)"
+    },
+    "errors": {
+      "test_failures": 0,
+      "tests_total": 1423,
+      "tests_passed": 1423,
+      "error_rate_pct": 0.0
+    },
+    "saturation": {
+      "backlog_ready": 3,
+      "backlog_in_progress": 0
+    }
+  },
+  "health": "GREEN",
+  "error_budget_status": "HEALTHY"
+}
