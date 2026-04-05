@@ -292,6 +292,9 @@ function handleSseEvent(event) {
       break;
     case 'plan_saved':
       appendAiBubble('✅ ' + ((event.data && event.data.message) || '저장 완료'));
+      if (event.data && event.data.plan) {
+        _appendSavedPlanCard(event.data.plan);
+      }
       break;
     case 'plan_deleted': {
       const panel = document.getElementById('plan-panel');
@@ -991,4 +994,43 @@ function handleExpenseList(data) {
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+// ---------------------------------------------------------------------------
+// Append a single plan card to the plan-panel (used by plan_saved/copy_plan)
+// ---------------------------------------------------------------------------
+
+function _appendSavedPlanCard(plan) {
+  const panel = document.getElementById('plan-panel');
+  if (!panel) return;
+  const dest   = escHtml(plan.destination || '');
+  const dates  = (plan.start_date && plan.end_date)
+    ? `${escHtml(plan.start_date)} → ${escHtml(plan.end_date)}` : '';
+  const budget = plan.budget ? `₩${Math.round(plan.budget).toLocaleString()}` : '';
+  const status = plan.status ? escHtml(plan.status) : '';
+
+  if (!panel.querySelector('.plan-saved-header')) {
+    const header = document.createElement('div');
+    header.className = 'section-title plan-saved-header';
+    header.textContent = '📋 복사된 계획';
+    panel.appendChild(header);
+  }
+
+  const card = document.createElement('div');
+  card.className = 'card plan-saved-card';
+  card.dataset.planId = String(plan.id ?? '');
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
+  card.style.cssText = 'cursor:pointer;margin-bottom:.5rem';
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>${dest}</strong>
+      ${budget ? `<span class="price-tag">${budget}</span>` : ''}
+    </div>
+    ${dates  ? `<div class="meta">${dates}</div>`  : ''}
+    ${status ? `<div class="meta">${status}</div>` : ''}`;
+  const activate = () => _activateSavedPlan(plan, card);
+  card.addEventListener('click', activate);
+  card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') activate(); });
+  panel.appendChild(card);
 }

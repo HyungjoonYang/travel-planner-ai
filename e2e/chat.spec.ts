@@ -627,6 +627,118 @@ test.describe("Chat Page", () => {
     );
     await expect(budgetToggle).not.toBeVisible();
   });
+
+  /**
+   * Scenario 9 (Task #80): expense_list SSE event renders .expense-panel with rows.
+   */
+  test("expense_list event renders expense panel with rows", async ({ page }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "list_expenses 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "budget_analyst", status: "working", message: "지출 내역 조회 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "budget_analyst", status: "done", message: "지출 내역 조회 완료" },
+      },
+      {
+        type: "expense_list",
+        data: {
+          expenses: [
+            { id: 1, name: "센소지 입장료", amount: 2100, category: "activities", date: "2026-05-01" },
+            { id: 2, name: "라멘 식사", amount: 1500, category: "food", date: "2026-05-01" },
+          ],
+          plan_id: 1,
+        },
+      },
+      { type: "chat_chunk", data: { text: "지출 내역 2건을 가져왔습니다." } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "지출 내역 보여줘");
+    await page.click('button:has-text("전송")');
+
+    // .expense-panel must appear in the plan panel
+    await expect(page.locator(".expense-panel")).toBeVisible({ timeout: 10_000 });
+
+    // Both expense rows must be rendered in the table
+    await expect(page.locator(".expense-panel")).toContainText("센소지 입장료");
+    await expect(page.locator(".expense-panel")).toContainText("라멘 식사");
+    await expect(page.locator(".expense-panel")).toContainText("2,100");
+    await expect(page.locator(".expense-panel")).toContainText("1,500");
+
+    // Budget analyst must reach done state
+    await expect(page.locator('[data-agent="budget_analyst"]')).toHaveClass(
+      /agent-done/
+    );
+  });
+
+  /**
+   * Scenario 10 (Task #80): plan_saved from copy_plan intent shows new plan card in dashboard.
+   */
+  test("plan_saved from copy_plan shows new plan card in dashboard", async ({ page }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "copy_plan 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "working", message: "여행 계획 복사 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "done", message: "복사 완료!" },
+      },
+      {
+        type: "plan_saved",
+        data: {
+          message: "'도쿄' 여행 계획이 복사되었습니다.",
+          plan_id: 42,
+          plan: {
+            id: 42,
+            destination: "도쿄",
+            start_date: "2026-05-01",
+            end_date: "2026-05-04",
+            budget: 2_000_000,
+            status: "draft",
+          },
+          copied_from: 1,
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "'도쿄' 여행 계획(#1)이 복사되어 새 계획(#42)이 생성되었습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "이 계획 복사해줘");
+    await page.click('button:has-text("전송")');
+
+    // A new .plan-saved-card must appear in the plan panel
+    await expect(page.locator(".plan-saved-card")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator(".plan-saved-card")).toContainText("도쿄");
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
