@@ -4586,3 +4586,247 @@ class TestUpdateExpense:
         assert intent.action == "update_expense"
         assert intent.expense_name == "식사"
         assert intent.expense_amount == 60000.0
+
+
+# ---------------------------------------------------------------------------
+# Task #76: list_expenses intent handler
+# ---------------------------------------------------------------------------
+
+class TestListExpenses:
+    """_handle_list_expenses must query all expenses for the saved plan and emit expense_list SSE."""
+
+    def test_list_expenses_activates_budget_analyst(self):
+        """list_expenses intent activates the budget_analyst agent."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+            ])
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록 보여줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록 보여줘", db)
+
+            agent_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+            ]
+            assert len(agent_events) >= 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_expenses_no_db_emits_error(self):
+        """list_expenses without a DB session emits error."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="list_expenses", raw_message="지출 목록"
+        )):
+            events = _collect_events(svc, session.session_id, "지출 목록")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"].get("status") == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_list_expenses_no_saved_plan_emits_error(self):
+        """list_expenses without session.last_saved_plan_id emits error."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # No last_saved_plan_id set
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"].get("status") == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_expenses_emits_expense_list_event(self):
+        """list_expenses must emit an expense_list SSE event."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록 보여줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록 보여줘", db)
+
+            list_events = [e for e in events if e["type"] == "expense_list"]
+            assert len(list_events) == 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_expenses_event_contains_all_expenses(self):
+        """expense_list event must contain all expense rows for the plan."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+                {"name": "입장료", "amount": 10000.0, "category": "activities"},
+            ])
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 내역 전체"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 내역 전체", db)
+
+            evt = next(e for e in events if e["type"] == "expense_list")
+            expenses = evt["data"]["expenses"]
+            assert len(expenses) == 3
+            names = {e["name"] for e in expenses}
+            assert names == {"식사", "택시", "입장료"}
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_expenses_event_has_required_fields(self):
+        """expense_list event data must include plan_id, expenses, total_spent, expense_count."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+            ])
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록", db)
+
+            evt = next(e for e in events if e["type"] == "expense_list")
+            data = evt["data"]
+            assert "plan_id" in data
+            assert "expenses" in data
+            assert "total_spent" in data
+            assert "expense_count" in data
+            assert data["expense_count"] == 1
+            assert data["total_spent"] == 50000.0
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_expenses_empty_plan_emits_empty_list(self):
+        """list_expenses with no expenses should return an empty list event."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [])  # no expenses
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록", db)
+
+            list_events = [e for e in events if e["type"] == "expense_list"]
+            assert len(list_events) == 1
+            assert list_events[0]["data"]["expenses"] == []
+            assert list_events[0]["data"]["expense_count"] == 0
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_expenses_budget_analyst_working_then_done(self):
+        """budget_analyst agent must transition working → done on successful list."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 30000.0, "category": "food"},
+            ])
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록", db)
+
+            analyst_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+            ]
+            statuses = [e["data"]["status"] for e in analyst_events]
+            assert "working" in statuses
+            assert "done" in statuses
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_expenses_emits_chat_chunk(self):
+        """list_expenses must emit a chat_chunk event."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+            ])
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="list_expenses", raw_message="지출 목록"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 목록", db)
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_list_expenses_intent_accepted_by_model(self):
+        """Intent model must accept action='list_expenses'."""
+        intent = Intent(
+            action="list_expenses",
+            raw_message="지출 목록 보여줘",
+        )
+        assert intent.action == "list_expenses"

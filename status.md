@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T13:01:00Z (Evolve Run #99)
-Run count: 108
+Last run: 2026-04-05T14:00:00Z (Evolve Run #100)
+Run count: 109
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 75
+Tasks completed: 76
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #76 Chat: list_expenses intent — refresh full expense list from DB
+Next planned: #77 Chat: copy_plan intent handler — duplicate a saved plan via chat
 
 ## LTES Snapshot
 
-- Latency: ~22860ms (pytest 1399 tests)
-- Traffic: 38 commits/day
-- Errors: 0 test failures (1399/1399 pass), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Latency: ~20570ms (pytest 1409 tests)
+- Traffic: 39 commits/day
+- Errors: 0 test failures (1409/1409 pass), error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #76 Chat: list_expenses intent — refresh full expense list from 
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #100 — 2026-04-05T14:00:00Z
+- **Task**: #76 - Chat: list_expenses intent — refresh full expense list from DB
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1409/1409 passed (10 new tests in TestListExpenses class in tests/test_chat.py)
+- **Files changed**: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py (+175/-0)
+- **Builder note**: list_expenses added to Intent.action comment + system prompt (chat.py:31, 137, 152); dispatch branch at chat.py:297; _handle_list_expenses at chat.py:1796 queries all Expense rows for session.last_saved_plan_id ordered by id asc, emits expense_list event with plan_id/expenses/total_spent/expense_count; chat.js handleExpenseList at line 922 clears .expense-list and re-renders all rows; 10 tests cover all scenarios.
+- **LTES**: L=20570ms T=1 commit E=0.0% S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #99 — 2026-04-05T13:01:00Z
 - **Task**: #75 - E2E: SSE reconnect + session state restore Playwright scenarios

@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 108,
-    "successful_runs": 103,
+    "total_runs": 109,
+    "successful_runs": 104,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -653,10 +653,10 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-05-1300",
-    "task": "#75 - E2E: SSE reconnect + session state restore Playwright scenarios",
+    "run_id": "2026-04-05-1400",
+    "task": "#76 - Chat: list_expenses intent — refresh full expense list from DB",
     "result": "success",
-    "tests_passed": 1399,
-    "tests_total": 1399
+    "tests_passed": 1409,
+    "tests_total": 1409
   }
 }
