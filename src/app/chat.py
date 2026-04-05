@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_plan | general
+    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_plan | get_expense_summary | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -134,7 +134,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_plan", "general"
+- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_plan", "get_expense_summary", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -259,6 +259,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "update_plan":
             async for event in self._handle_update_plan(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "get_expense_summary":
+            async for event in self._handle_get_expense_summary(intent, session, db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -1262,6 +1265,103 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"여행 계획 수정 중 오류가 발생했습니다: {exc}"},
+            }
+
+
+    async def _handle_get_expense_summary(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Return total/remaining/category expense breakdown for the current plan."""
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "budget_analyst", "status": "working", "message": "지출 내역 분석 중..."},
+        }
+        await asyncio.sleep(0)
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is None or plan_id is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "budget_analyst", "status": "error", "message": "분석할 여행 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "지출 내역을 확인하려면 먼저 여행 계획을 저장해주세요."},
+            }
+            return
+
+        try:
+            from app.models import Expense as ExpenseModel, TravelPlan as TravelPlanModel
+
+            plan = db.get(TravelPlanModel, plan_id)
+            if plan is None:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "budget_analyst", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                }
+                return
+
+            all_expenses = (
+                db.query(ExpenseModel)
+                .filter(ExpenseModel.travel_plan_id == plan_id)
+                .all()
+            )
+            total_spent = round(sum(e.amount for e in all_expenses), 2)
+            by_category: dict[str, float] = {}
+            for e in all_expenses:
+                key = e.category or "other"
+                by_category[key] = round(by_category.get(key, 0.0) + e.amount, 2)
+
+            summary = {
+                "plan_id": plan_id,
+                "budget": plan.budget,
+                "total_spent": total_spent,
+                "remaining": round(plan.budget - total_spent, 2),
+                "by_category": by_category,
+                "expense_count": len(all_expenses),
+                "over_budget": total_spent > plan.budget,
+            }
+
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "budget_analyst",
+                    "status": "done",
+                    "message": f"총 {total_spent:,.0f}원 지출, {summary['remaining']:,.0f}원 남음",
+                    "result_count": len(all_expenses),
+                },
+            }
+            yield {"type": "expense_summary", "data": summary}
+
+            over_msg = " (예산 초과!)" if summary["over_budget"] else ""
+            if all_expenses:
+                cat_lines = [f"  • {cat}: {amt:,.0f}원" for cat, amt in by_category.items()]
+                text = (
+                    f"총 지출: {total_spent:,.0f}원 / 예산: {plan.budget:,.0f}원{over_msg}\n"
+                    f"남은 예산: {summary['remaining']:,.0f}원\n"
+                    "카테고리별:\n" + "\n".join(cat_lines)
+                )
+            else:
+                text = f"아직 기록된 지출이 없습니다. 예산: {plan.budget:,.0f}원"
+
+            yield {"type": "chat_chunk", "data": {"text": text}}
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "budget_analyst", "status": "error", "message": "지출 내역 조회 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"지출 내역 조회 중 오류가 발생했습니다: {exc}"},
             }
 
 

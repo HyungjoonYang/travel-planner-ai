@@ -254,6 +254,9 @@ function handleSseEvent(event) {
     case 'expense_added':
       if (event.data) handleExpenseAdded(event.data);
       break;
+    case 'expense_summary':
+      if (event.data) handleExpenseSummary(event.data);
+      break;
     case 'error':
       const errMsg = (event.data && event.data.message) || '오류 발생';
       if (currentStreamBubble) {
@@ -719,4 +722,49 @@ function handleExpenseAdded(data) {
       `<span class="price-tag">${Number(expense.amount).toLocaleString()}원</span>`;
     listEl.appendChild(row);
   }
+}
+
+function handleExpenseSummary(data) {
+  const panel = document.getElementById('plan-panel');
+  if (!panel) return;
+
+  const budget  = data.budget || 0;
+  const spent   = data.total_spent || 0;
+  const remaining = (data.remaining != null) ? data.remaining : (budget - spent);
+
+  // Update budget bar
+  if (budget > 0) {
+    const budgetDiv = panel.querySelector('.plan-budget');
+    const html = _budgetBarHtml(spent, budget);
+    if (budgetDiv) {
+      budgetDiv.innerHTML = html;
+    } else {
+      const newBudget = document.createElement('div');
+      newBudget.className = 'plan-budget';
+      newBudget.innerHTML = html;
+      const firstChild = panel.firstElementChild;
+      if (firstChild) firstChild.after(newBudget);
+      else panel.appendChild(newBudget);
+    }
+  }
+
+  // Upsert expense summary section
+  let summarySection = panel.querySelector('.expense-summary-section');
+  if (!summarySection) {
+    summarySection = document.createElement('div');
+    summarySection.className = 'expense-summary-section';
+    panel.appendChild(summarySection);
+  }
+
+  const byCategory = data.by_category || {};
+  const catRows = Object.entries(byCategory).map(([cat, amt]) =>
+    `<div class="place-item"><span>${escHtml(cat)}</span><span class="price-tag">${Number(amt).toLocaleString()}원</span></div>`
+  ).join('');
+  const overStyle = data.over_budget ? ' style="color:red"' : '';
+
+  summarySection.innerHTML =
+    '<div class="section-title">💰 지출 요약</div>' +
+    `<div class="place-item"><span>총 지출</span><span class="price-tag"${overStyle}>${Number(spent).toLocaleString()}원${data.over_budget ? ' ⚠️' : ''}</span></div>` +
+    `<div class="place-item"><span>남은 예산</span><span class="price-tag">${Number(remaining).toLocaleString()}원</span></div>` +
+    (catRows ? '<div class="section-title" style="font-size:.8rem;margin-top:.4rem">카테고리별</div>' + catRows : '');
 }
