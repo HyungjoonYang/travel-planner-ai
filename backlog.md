@@ -12,18 +12,42 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #70 - Chat: restore message bubbles from DB after SSE reconnect [improvement]
-  - ref: markdowns/feat-chat-dashboard.md (SSE reconnect + session restore)
-  - depends: #66
-  - files: src/app/routers/chat.py, src/app/static/chat.js
-  - done: GET /chat/sessions/{id} returns last 10 messages from DB in `message_history` field; `restoreSessionState()` renders them as chat bubbles (user/assistant); tests for endpoint + frontend rendering
-  - gh: #66
-
 - [ ] #71 - E2E: Chat expense workflow + update_plan Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md (e2e test cases)
   - files: e2e/chat.spec.ts
   - done: SSE-mocked scenario for `expense_added` event renders expense row in plan panel; `expense_summary` event renders budget breakdown; `plan_update` after `update_plan` reflects new metadata (destination/dates); 3+ new test scenarios added
   - gh: #67
+
+- [ ] #72 - Chat frontend: localStorage session ID persistence [improvement]
+  - ref: markdowns/feat-chat-dashboard.md (SSE reconnect + session state restore)
+  - files: src/app/static/chat.js
+  - done: chatSessionId written to localStorage on creation; initChatSession() checks localStorage first (GET verify), falls back to new session if expired/missing; tests cover happy-path + expired fallback
+  - gh: #73
+
+- [ ] #73 - Chat: expense_deleted SSE event + frontend expense row removal [improvement]
+  - ref: markdowns/feat-chat-dashboard.md (expense section in plan panel)
+  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat_dashboard.py
+  - done: _handle_delete_expense emits {type: "expense_deleted", data: {name, budget_summary}}; chat.js handleExpenseDeleted removes matching row from .expense-list; budget bar updates; 2+ new tests
+  - gh: #74
+
+- [ ] #74 - Chat: update_expense intent handler — edit existing expense via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md (expense management via chat)
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: update_expense added to Intent.action + system prompt; _handle_update_expense finds by name and updates amount/category; emits expense_updated + expense_summary events; chat.js handles expense_updated; 2+ tests
+  - gh: #75
+
+- [ ] #75 - E2E: SSE reconnect + session state restore Playwright scenarios [test]
+  - ref: markdowns/feat-chat-dashboard.md (SSE reconnect, session restore)
+  - depends: #70
+  - files: e2e/chat.spec.ts
+  - done: test 1 mocks GET /chat/sessions/{id} returning last_plan+agent_states, verifies plan panel + agent cards restored; test 2 mocks message_history, verifies chat bubbles rendered; both use route mocking
+  - gh: #76
+
+- [ ] #76 - Chat: list_expenses intent — refresh full expense list from DB [feature]
+  - ref: markdowns/feat-chat-dashboard.md (expense management); CLAUDE.md User Story 5
+  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
+  - done: list_expenses added to Intent.action + system prompt; _handle_list_expenses queries all expenses for saved plan; emits expense_list event; chat.js handleExpenseList clears+re-renders .expense-list; 2+ tests
+  - gh: #77
 
 ## Blocked
 
@@ -109,6 +133,7 @@ _(없음)_
 - [x] #67 - Chat: `refine_plan` intent handler — AI plan refinement via chat [feature] — 2026-04-05
 - [x] #68 - Chat: `delete_expense` intent handler [feature] — 2026-04-05
 - [x] #69 - Chat dashboard: Place Scout results dedicated persistent section [improvement] — 2026-04-05
+- [x] #70 - Chat: restore message bubbles from DB after SSE reconnect [improvement] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -121,5 +146,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 69 done, 2 ready (0 in progress)
+- Total tasks: 70 done, 6 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

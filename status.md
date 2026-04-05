@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T13:00:00Z (Evolve Run #93)
-Run count: 100
+Last run: 2026-04-05T14:00:00Z (Evolve Run #94)
+Run count: 102
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 69
+Tasks completed: 70
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #70 Chat: restore message bubbles from DB after SSE reconnect
+Next planned: #71 E2E: Chat expense workflow + update_plan Playwright scenarios
 
 ## LTES Snapshot
 
-- Latency: ~22170ms (pytest 1371 tests)
-- Traffic: 46 commits/24h
-- Errors: 0 test failures (1371/1371 pass), error_rate=0.0%
-- Saturation: 3 tasks ready
+- Latency: ~21050ms (pytest 1384 tests)
+- Traffic: 10 commits/24h
+- Errors: 0 test failures (1384/1384 pass), error_rate=0.0%
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #70 Chat: restore message bubbles from DB after SSE reconnect
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #94 — 2026-04-05T14:00:00Z
+- **Task**: #70 - Chat: restore message bubbles from DB after SSE reconnect
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1384/1384 passed (+13 new: 7 backend TestChatSessionMessageHistory in tests/test_chat.py, 6 frontend Task#70 class in tests/test_frontend.py)
+- **Files changed**: src/app/routers/chat.py (+95/-4), src/app/static/chat.js, tests/test_chat.py, tests/test_frontend.py
+- **Builder note**: GET /chat/sessions/{id} now injects db and queries ChatMessage table (last 10 by id desc) to populate message_history, falling back to in-memory state if DB has none. restoreSessionState() now calls _restoreMessageBubbles(history) which prepends historical chat bubbles (user/assistant) into #chat-messages, using data-restored attribute for idempotency. Fixed timestamp ordering: uses id DESC instead of created_at DESC to avoid SQLite same-timestamp ambiguity.
+- **LTES**: L=21050ms T=1 commit E=0.0% S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #93 — 2026-04-05T13:00:00Z
 - **Task**: #69 - Chat dashboard: Place Scout results dedicated persistent section

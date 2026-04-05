@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 101,
-    "successful_runs": 96,
+    "total_runs": 102,
+    "successful_runs": 97,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -653,10 +653,10 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-05-1300",
-    "task": "#69 - Chat dashboard: Place Scout results dedicated persistent section",
+    "run_id": "2026-04-05-1400",
+    "task": "#70 - Chat: restore message bubbles from DB after SSE reconnect",
     "result": "success",
-    "tests_passed": 1371,
-    "tests_total": 1371
+    "tests_passed": 1384,
+    "tests_total": 1384
   }
 }

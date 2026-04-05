@@ -309,3 +309,43 @@ class TestPlaceScoutPersistentSection:
         content = client.get("/static/chat.js").text
         assert "_lastPlaces" in content
         assert "_refreshPlanSearchSections" in content
+
+
+class TestRestoreMessageBubbles:
+    """Task #70: restoreSessionState() renders message_history as chat bubbles."""
+
+    def test_chat_js_restore_handles_message_history(self, client: TestClient):
+        """restoreSessionState accesses message_history from session response."""
+        content = client.get("/static/chat.js").text
+        assert "message_history" in content
+
+    def test_chat_js_has_restore_message_bubbles_fn(self, client: TestClient):
+        """chat.js defines _restoreMessageBubbles helper."""
+        content = client.get("/static/chat.js").text
+        assert "_restoreMessageBubbles" in content
+
+    def test_chat_js_restore_state_calls_restore_bubbles(self, client: TestClient):
+        """restoreSessionState calls _restoreMessageBubbles."""
+        content = client.get("/static/chat.js").text
+        # restoreSessionState must reference _restoreMessageBubbles
+        restore_fn_idx = content.index("async function restoreSessionState")
+        next_fn_idx = content.find("\nasync function ", restore_fn_idx + 1)
+        if next_fn_idx == -1:
+            next_fn_idx = content.find("\nfunction ", restore_fn_idx + 1)
+        body = content[restore_fn_idx:next_fn_idx] if next_fn_idx != -1 else content[restore_fn_idx:]
+        assert "_restoreMessageBubbles" in body
+
+    def test_chat_js_restore_bubbles_uses_chat_user_class(self, client: TestClient):
+        """_restoreMessageBubbles renders user messages with chat-user CSS class."""
+        content = client.get("/static/chat.js").text
+        assert "chat-user" in content
+
+    def test_chat_js_restore_bubbles_uses_chat_ai_class(self, client: TestClient):
+        """_restoreMessageBubbles renders assistant messages with chat-ai CSS class."""
+        content = client.get("/static/chat.js").text
+        assert "chat-ai" in content
+
+    def test_chat_js_restore_bubbles_marks_data_restored(self, client: TestClient):
+        """_restoreMessageBubbles sets data-restored attribute to avoid re-rendering."""
+        content = client.get("/static/chat.js").text
+        assert "data-restored" in content or "dataset.restored" in content

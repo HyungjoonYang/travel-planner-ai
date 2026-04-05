@@ -9,9 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.chat import chat_service
 from app.database import get_db
+from app.models import ChatMessage
 from app.schemas import ChatMessageRequest, ChatSessionOut
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+_GET_SESSION_HISTORY_LIMIT = 10
 
 
 @router.post("/sessions", response_model=ChatSessionOut, status_code=201)
@@ -29,18 +32,41 @@ def create_session():
 
 
 @router.get("/sessions/{session_id}", response_model=ChatSessionOut)
-def get_session(session_id: str):
-    """Retrieve an existing chat session, including last known agent states and plan."""
+def get_session(session_id: str, db: Session = Depends(get_db)):
+    """Retrieve an existing chat session, including last known agent states and plan.
+
+    message_history is populated from the DB (last 10 messages), falling back to
+    the in-memory history when no DB records exist.
+    """
     session = chat_service.get_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found or expired")
+
+    # Prefer DB records for message_history so reconnecting clients see persisted bubbles.
+    message_history = session.message_history
+    try:
+        db_msgs = (
+            db.query(ChatMessage)
+            .filter(ChatMessage.session_id == session_id)
+            .order_by(ChatMessage.id.desc())
+            .limit(_GET_SESSION_HISTORY_LIMIT)
+            .all()
+        )
+        if db_msgs:
+            message_history = [
+                {"role": m.role, "content": m.content}
+                for m in reversed(db_msgs)
+            ]
+    except Exception:
+        pass  # fall back to in-memory
+
     return ChatSessionOut(
         session_id=session.session_id,
         created_at=session.created_at,
         expires_at=session.expires_at,
         agent_states=session.agent_states,
         last_plan=session.last_plan,
-        message_history=session.message_history,
+        message_history=message_history,
     )
 
 
