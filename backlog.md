@@ -12,13 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #78 - Chat frontend: Expenses panel in dashboard — dedicated expense list section [feature]
-  - ref: markdowns/feat-chat-dashboard.md (expense management dashboard)
-  - depends: #76
-  - files: src/app/static/chat.js, src/app/static/index.html
-  - done: `.expense-panel` section added in dashboard below budget tracker; expense_list SSE event triggers panel render with table (item/amount/category/date); panel hidden when no expenses; edit row prefills update_expense message; delete row prefills delete_expense message
-  - gh: #90
-
 - [ ] #79 - Chat: `get_weather` intent handler — fetch weather forecast for trip destination [feature]
   - ref: CLAUDE.md User Story 1 (travel planning context)
   - files: src/app/chat.py, tests/test_chat.py
@@ -129,6 +122,8 @@ _(없음)_
 - [x] #74 - Chat: update_expense intent handler — edit existing expense via chat [feature] — 2026-04-05
 - [x] #75 - E2E: SSE reconnect + session state restore Playwright scenarios [test] — 2026-04-05
 - [x] #76 - Chat: list_expenses intent — refresh full expense list from DB [feature] — 2026-04-05
+- [x] #77 - Chat: copy_plan intent handler — duplicate a saved plan via chat [feature] — 2026-04-05
+- [x] #78 - Chat frontend: Expenses panel in dashboard — dedicated expense list section [feature] — 2026-04-05
 - [x] #77 - Chat: `copy_plan` intent handler — duplicate a saved plan via chat [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)

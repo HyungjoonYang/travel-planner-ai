@@ -123,6 +123,13 @@
     .chat-col { flex: none; height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
     .dashboard-col { flex: none; }
   }
+  /* ── Expense panel (dashboard below budget tracker) ──────────────────────── */
+  .expense-panel { margin-top: .75rem; }
+  .expense-panel-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  .expense-panel-table th, .expense-panel-table td { padding: .35rem .5rem; border-bottom: 1px solid var(--border); text-align: left; }
+  .expense-panel-table th { font-weight: 600; color: var(--muted); font-size: .75rem; text-transform: uppercase; }
+  .expense-panel-table .price-tag { font-weight: 700; color: var(--success); white-space: nowrap; }
+  .expense-panel-actions { display: flex; gap: .25rem; justify-content: flex-end; white-space: nowrap; }
 </style>
 </head>
 <body>
