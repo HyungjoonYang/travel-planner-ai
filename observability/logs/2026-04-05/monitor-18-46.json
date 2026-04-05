@@ -1,0 +1,28 @@
+{
+  "run_id": "monitor-2026-04-05-1846",
+  "timestamp": "2026-04-05T18:46:29Z",
+  "type": "monitor",
+  "health": "GREEN",
+  "ltes": {
+    "latency_ms": 42725,
+    "traffic_commits_24h": 38,
+    "errors": {
+      "test_failures": 0,
+      "test_pass_rate": 1.0,
+      "error_rate_pct": 0.0
+    },
+    "saturation": {
+      "backlog_tasks_remaining": 2,
+      "logs_dir_size": "420K"
+    }
+  },
+  "tests": {
+    "passed": 1447,
+    "failed": 0,
+    "total": 1447
+  },
+  "error_budget": {
+    "status": "HEALTHY",
+    "budget_remaining": 1.0
+  }
+}
