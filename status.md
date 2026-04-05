@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T07:00:00Z (Evolve Run #89)
-Run count: 96
+Last run: 2026-04-05T09:00:00Z (Evolve Run #90)
+Run count: 97
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 65
+Tasks completed: 66
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
 Next planned: #67 Chat: refine_plan intent handler — AI plan refinement via chat
 
 ## LTES Snapshot
 
-- Latency: ~20500ms (pytest 1325 tests)
-- Traffic: 42 commits/24h
-- Errors: 0 test failures (1325/1325 pass), error_rate=0.0%
-- Saturation: 7 tasks ready
+- Latency: ~18540ms (pytest 1338 tests)
+- Traffic: 43 commits/24h
+- Errors: 0 test failures (1338/1338 pass), error_rate=0.0%
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #67 Chat: refine_plan intent handler — AI plan refinement via ch
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #90 — 2026-04-05T09:00:00Z
+- **Task**: #38 - Bulk expense import via JSON
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1338/1338 passed (+13 new: TestBulkExpenseImport class, tests/test_expenses.py)
+- **Files changed**: src/app/routers/expenses.py (+bulk endpoint), src/app/schemas.py (+BulkExpenseResult schema), tests/test_expenses.py (+13 tests)
+- **Builder note**: POST /plans/{plan_id}/expenses/bulk implemented. Accepts list[ExpenseCreate] (min 1, Pydantic validated — empty list returns 422). Atomicity: single db.commit() covers all inserts (all-or-none for DB errors; Pydantic 422 rejects before handler for validation failures). Returns BulkExpenseResult{items: list[ExpenseRead], count: int}. 13 new tests covering: 201 response, count, items, persistence, 404, 422, atomicity, field preservation, and budget summary.
+- **LTES**: L=18540ms T=1 commit E=0.0% S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #89 — 2026-04-05T07:00:00Z
 - **Task**: #66 - Chat session: persist conversation history to SQLite

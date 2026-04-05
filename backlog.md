@@ -6,9 +6,7 @@
 
 ## In Progress
 
-### Phase 9: User Experience & Polish (remaining)
-- [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
-  - gh: #8
+_(없음)_
 
 ## Ready
 
@@ -130,11 +128,12 @@ _(없음)_
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
 - [x] #36 - Favorite places library (`POST /favorite-places`, `POST /favorite-places/copy-from-itinerary`, `GET /favorite-places`, `GET /favorite-places/{id}`, `DELETE /favorite-places/{id}`; global; copy-from-itinerary support) [feature] — 2026-04-04
 - [x] #37 - Plan activity log (`PlanActivity` model; record create/update/delete events on plans with timestamp+action+detail; `GET /travel-plans/{id}/activity`) [feature] — 2026-04-04
+- [x] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns BulkExpenseResult{items,count}) [feature] — 2026-04-05
 
 ---
 
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 65 done, 7 ready (1 in progress)
+- Total tasks: 66 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

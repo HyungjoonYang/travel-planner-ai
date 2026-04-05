@@ -459,3 +459,104 @@ class TestExpensesInTravelPlan:
         plan_id = _create_plan(client)
         r = client.get(f"/travel-plans/{plan_id}")
         assert r.json()["expenses"] == []
+
+
+# ---------------------------------------------------------------------------
+# POST /plans/{plan_id}/expenses/bulk
+# ---------------------------------------------------------------------------
+
+
+BULK_PAYLOAD = [
+    {"name": "Ramen", "amount": 15.0, "category": "food"},
+    {"name": "Train pass", "amount": 30.0, "category": "transport"},
+    {"name": "Museum entry", "amount": 12.0, "category": "activity"},
+]
+
+
+class TestBulkExpenseImport:
+    def test_returns_201(self, client):
+        plan_id = _create_plan(client)
+        r = client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        assert r.status_code == 201
+
+    def test_returns_count(self, client):
+        plan_id = _create_plan(client)
+        r = client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        assert r.json()["count"] == 3
+
+    def test_returns_items_list(self, client):
+        plan_id = _create_plan(client)
+        r = client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        body = r.json()
+        assert "items" in body
+        assert len(body["items"]) == 3
+
+    def test_items_have_ids(self, client):
+        plan_id = _create_plan(client)
+        r = client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        for item in r.json()["items"]:
+            assert "id" in item
+
+    def test_items_have_travel_plan_id(self, client):
+        plan_id = _create_plan(client)
+        r = client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        for item in r.json()["items"]:
+            assert item["travel_plan_id"] == plan_id
+
+    def test_items_persisted_in_list(self, client):
+        plan_id = _create_plan(client)
+        client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        r = client.get(f"/plans/{plan_id}/expenses")
+        assert len(r.json()) == 3
+
+    def test_single_item_bulk(self, client):
+        plan_id = _create_plan(client)
+        r = client.post(
+            f"/plans/{plan_id}/expenses/bulk",
+            json=[{"name": "Coffee", "amount": 5.0}],
+        )
+        assert r.status_code == 201
+        assert r.json()["count"] == 1
+
+    def test_404_for_unknown_plan(self, client):
+        r = client.post("/plans/9999/expenses/bulk", json=BULK_PAYLOAD)
+        assert r.status_code == 404
+
+    def test_422_for_empty_list(self, client):
+        plan_id = _create_plan(client)
+        r = client.post(f"/plans/{plan_id}/expenses/bulk", json=[])
+        assert r.status_code == 422
+
+    def test_atomic_rollback_on_invalid_item(self, client):
+        """If any item is invalid, no expenses should be created (all-or-nothing)."""
+        plan_id = _create_plan(client)
+        invalid_payload = [
+            {"name": "Valid item", "amount": 10.0},
+            {"name": "Bad item", "amount": -5.0},  # invalid: amount must be > 0
+        ]
+        r = client.post(f"/plans/{plan_id}/expenses/bulk", json=invalid_payload)
+        assert r.status_code == 422
+        # Nothing should have been persisted
+        expenses = client.get(f"/plans/{plan_id}/expenses").json()
+        assert expenses == []
+
+    def test_fields_preserved(self, client):
+        plan_id = _create_plan(client)
+        r = client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        items = r.json()["items"]
+        names = {item["name"] for item in items}
+        assert names == {"Ramen", "Train pass", "Museum entry"}
+
+    def test_bulk_plus_single_coexist(self, client):
+        plan_id = _create_plan(client)
+        _create_expense(client, plan_id)
+        client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        r = client.get(f"/plans/{plan_id}/expenses")
+        assert len(r.json()) == 4
+
+    def test_summary_reflects_bulk_import(self, client):
+        plan_id = _create_plan(client)
+        client.post(f"/plans/{plan_id}/expenses/bulk", json=BULK_PAYLOAD)
+        summary = client.get(f"/plans/{plan_id}/expenses/summary").json()
+        assert summary["expense_count"] == 3
+        assert summary["total_spent"] == 57.0
