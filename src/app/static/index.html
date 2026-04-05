@@ -130,6 +130,18 @@
   .expense-panel-table th { font-weight: 600; color: var(--muted); font-size: .75rem; text-transform: uppercase; }
   .expense-panel-table .price-tag { font-weight: 700; color: var(--success); white-space: nowrap; }
   .expense-panel-actions { display: flex; gap: .25rem; justify-content: flex-end; white-space: nowrap; }
+  /* ── Weather panel (dashboard, persists across messages) ─────────────────── */
+  .weather-panel { margin-top: .75rem; }
+  .weather-panel-title { font-size: .75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted); margin-bottom: .5rem; }
+  .weather-city { font-size: 1rem; font-weight: 600; margin-bottom: .5rem; }
+  .weather-summary { font-size: .85rem; color: var(--muted); margin-bottom: .5rem; }
+  .weather-forecast-row { display: flex; justify-content: space-between; align-items: center;
+    padding: .3rem 0; border-bottom: 1px solid var(--border); font-size: .85rem; }
+  .weather-forecast-row:last-child { border-bottom: none; }
+  .weather-forecast-date { color: var(--muted); flex: 0 0 6rem; }
+  .weather-forecast-temps { font-weight: 600; white-space: nowrap; }
+  .weather-forecast-condition { flex: 1; text-align: center; }
 </style>
 </head>
 <body>

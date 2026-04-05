@@ -280,6 +280,9 @@ function handleSseEvent(event) {
     case 'search_results':
       if (event.data) handleSearchResults(event.data);
       break;
+    case 'weather_data':
+      if (event.data) handleWeatherData(event.data);
+      break;
     case 'plans_list':
       if (event.data) handlePlansList(event.data);
       break;
@@ -687,6 +690,46 @@ function handleSearchResults(data) {
   if (data.type === 'hotels' || data.type === 'flights' || data.type === 'places') {
     _refreshPlanSearchSections(planPanel);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Weather data panel — persists in dashboard across messages
+// ---------------------------------------------------------------------------
+
+function handleWeatherData(data) {
+  const dashboardCol = document.querySelector('.dashboard-col');
+  if (!dashboardCol) return;
+
+  let panel = dashboardCol.querySelector('.weather-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'weather-panel card';
+    dashboardCol.appendChild(panel);
+  }
+
+  const city = escHtml(data.destination || '');
+  const summary = escHtml(data.summary || '');
+  const forecast = Array.isArray(data.forecast) ? data.forecast : [];
+
+  const forecastRows = forecast.map(row => {
+    const dateStr = escHtml(row.date || '');
+    const high = escHtml(row.temperature_high || '');
+    const low = escHtml(row.temperature_low || '');
+    const condition = escHtml(row.description || row.condition || '');
+    const temps = (high || low) ? `${high} / ${low}` : '';
+    return `<div class="weather-forecast-row">
+      <span class="weather-forecast-date">${dateStr}</span>
+      <span class="weather-forecast-condition">${condition}</span>
+      <span class="weather-forecast-temps">${temps}</span>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="weather-panel-title">🌤 날씨 예보</div>
+    <div class="weather-city">${city}</div>
+    ${summary ? `<div class="weather-summary">${summary}</div>` : ''}
+    <div class="weather-forecast">${forecastRows || '<div class="meta">날씨 정보 없음</div>'}</div>
+  `;
 }
 
 // ---------------------------------------------------------------------------
