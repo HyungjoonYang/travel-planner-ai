@@ -2461,6 +2461,32 @@ class TestAddExpense:
             db.close()
             Base.metadata.drop_all(bind=engine)
 
+    def test_add_expense_nonexistent_plan_emits_error(self):
+        """add_expense for a missing plan_id must emit an error agent_status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = 9999  # non-existent plan
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="식사", expense_amount=50000.0,
+                raw_message="식사 5만원 추가"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 5만원 추가", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
     def test_view_plan_secretary_done_status(self):
         """view_plan must emit a secretary done agent_status event on success."""
         from app.database import Base
@@ -2499,6 +2525,470 @@ class TestAddExpense:
                 None,
             )
             assert secretary_done is not None
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #64: update_plan intent handler — edit plan metadata via chat
+# ---------------------------------------------------------------------------
+
+def _seed_plan_for_update(db):
+    """Insert a TravelPlan row for update tests and return its id."""
+    from app.models import TravelPlan as TravelPlanModel
+    from datetime import date as date_type
+
+    plan = TravelPlanModel(
+        destination="도쿄",
+        start_date=date_type(2026, 5, 1),
+        end_date=date_type(2026, 5, 5),
+        budget=1000000.0,
+    )
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+    return plan.id
+
+
+class TestUpdatePlan:
+    """_handle_update_plan must update DB fields and emit plan_update SSE.
+    Done criteria: budget/title/date update via natural language; plan_update SSE emitted; 3 field types tested.
+    """
+
+    # --- intent recognition ---
+
+    def test_update_plan_activates_secretary(self):
+        """update_plan intent activates the secretary agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="update_plan", budget=2000000.0, raw_message="예산 200만원으로 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "예산 200만원으로 바꿔줘")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "secretary" in agent_names
+
+    # --- field type 1: budget update ---
+
+    def test_update_plan_budget_persists_to_db(self):
+        """update_plan with new budget must update TravelPlan.budget in DB."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", budget=2000000.0, raw_message="예산 200만원으로 바꿔줘"
+            )):
+                _collect_events_with_db(svc, session.session_id, "예산 200만원으로 바꿔줘", db)
+
+            plan = db.get(TravelPlanModel, plan_id)
+            assert plan.budget == 2000000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_plan_budget_emits_plan_update(self):
+        """update_plan with new budget must emit a plan_update SSE event."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", budget=1500000.0, raw_message="예산 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "예산 수정", db)
+
+            plan_update_events = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_update_events) == 1
+            assert plan_update_events[0]["data"]["budget"] == 1500000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    # --- field type 2: destination/title update ---
+
+    def test_update_plan_destination_persists_to_db(self):
+        """update_plan with new destination must update TravelPlan.destination in DB."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", destination="오사카", raw_message="목적지를 오사카로 바꿔줘"
+            )):
+                _collect_events_with_db(svc, session.session_id, "목적지를 오사카로 바꿔줘", db)
+
+            plan = db.get(TravelPlanModel, plan_id)
+            assert plan.destination == "오사카"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_plan_destination_emits_plan_update(self):
+        """update_plan with new destination must emit plan_update with updated destination."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", destination="교토", raw_message="교토로 바꿔줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "교토로 바꿔줘", db)
+
+            plan_update_events = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_update_events) == 1
+            assert plan_update_events[0]["data"]["destination"] == "교토"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    # --- field type 3: date update ---
+
+    def test_update_plan_start_date_persists_to_db(self):
+        """update_plan with new start_date must update TravelPlan.start_date in DB."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", start_date="2026-06-01", raw_message="출발일을 6월 1일로 바꿔줘"
+            )):
+                _collect_events_with_db(svc, session.session_id, "출발일을 6월 1일로 바꿔줘", db)
+
+            plan = db.get(TravelPlanModel, plan_id)
+            assert plan.start_date == date_type(2026, 6, 1)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_plan_end_date_persists_to_db(self):
+        """update_plan with new end_date must update TravelPlan.end_date in DB."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", end_date="2026-06-07", raw_message="종료일을 6월 7일로 바꿔줘"
+            )):
+                _collect_events_with_db(svc, session.session_id, "종료일을 6월 7일로 바꿔줘", db)
+
+            plan = db.get(TravelPlanModel, plan_id)
+            assert plan.end_date == date_type(2026, 6, 7)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_plan_date_emits_plan_update(self):
+        """update_plan with new dates must emit a plan_update SSE event with updated dates."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", start_date="2026-07-10", end_date="2026-07-15",
+                raw_message="날짜를 7월 10~15일로 변경해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "날짜 변경", db)
+
+            plan_update_events = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_update_events) == 1
+            data = plan_update_events[0]["data"]
+            assert data["start_date"] == "2026-07-10"
+            assert data["end_date"] == "2026-07-15"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    # --- secretary agent status ---
+
+    def test_update_plan_secretary_working_then_done(self):
+        """Secretary must transition working → done on successful update_plan."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", budget=3000000.0, raw_message="예산 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "예산 수정", db)
+
+            secretary_statuses = [
+                e["data"]["status"]
+                for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+            ]
+            assert "working" in secretary_statuses
+            assert "done" in secretary_statuses
+            assert secretary_statuses.index("working") < secretary_statuses.index("done")
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    # --- plan_update event shape ---
+
+    def test_update_plan_plan_update_has_required_fields(self):
+        """plan_update event must include id, destination, start_date, end_date, budget, status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", budget=500000.0, raw_message="예산 변경"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "예산 변경", db)
+
+            plan_update = next(e for e in events if e["type"] == "plan_update")
+            for field in ("id", "destination", "start_date", "end_date", "budget", "status"):
+                assert field in plan_update["data"], f"Missing field: {field}"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    # --- session state update ---
+
+    def test_update_plan_updates_session_state(self):
+        """update_plan must update session.last_plan and session.last_saved_plan_id."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", destination="삿포로", raw_message="목적지 변경"
+            )):
+                _collect_events_with_db(svc, session.session_id, "목적지 변경", db)
+
+            assert session.last_saved_plan_id == plan_id
+            assert session.last_plan is not None
+            assert session.last_plan["destination"] == "삿포로"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    # --- error cases ---
+
+    def test_update_plan_no_db_emits_error(self):
+        """update_plan without a DB session must emit an error agent_status."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="update_plan", budget=1000000.0, raw_message="예산 변경"
+        )):
+            events = _collect_events(svc, session.session_id, "예산 변경")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_update_plan_no_saved_plan_emits_error(self):
+        """update_plan without session.last_saved_plan_id emits error."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # Do NOT set session.last_saved_plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", budget=2000000.0, raw_message="예산 변경"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "예산 변경", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_plan_nonexistent_plan_emits_error(self):
+        """update_plan for a missing plan_id must emit an error agent_status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = 9999  # non-existent
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", budget=2000000.0, raw_message="예산 변경"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "예산 변경", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_plan_no_changed_fields_emits_error(self):
+        """update_plan with no recognizable fields (no budget/destination/dates) emits error."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            # No fields set — all None
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", raw_message="뭔가 바꿔줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "뭔가 바꿔줘", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_plan_uses_intent_plan_id(self):
+        """update_plan can use intent.plan_id directly (not just session's last_saved_plan_id)."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # session.last_saved_plan_id intentionally left None
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", plan_id=plan_id, budget=3000000.0,
+                raw_message=f"{plan_id}번 계획 예산 300만원으로 변경"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "예산 변경", db)
+
+            plan_update_events = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_update_events) == 1
+            plan = db.get(TravelPlanModel, plan_id)
+            assert plan.budget == 3000000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_plan_emits_chat_chunk_with_change_summary(self):
+        """update_plan must emit a chat_chunk describing what was changed."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_update(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_plan", budget=2500000.0, raw_message="예산 250만원으로 바꿔줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "예산 변경", db)
+
+            chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chunk_events) >= 1
+            full_text = " ".join(e["data"]["text"] for e in chunk_events)
+            assert "수정" in full_text or "변경" in full_text
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)

@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | general
+    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_plan | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -134,14 +134,15 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "general"
+- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_plan", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
 - budget: budget as a number if mentioned or inferred from context, else null
 - interests: comma-separated interests if mentioned or inferred from context, else null
 - day_number: specific day number if modifying a day, else null
-- plan_id: integer plan ID if deleting or viewing a specific plan (e.g. "3번 계획 삭제" → 3, "3번 계획 보여줘" → 3), else null
+- plan_id: integer plan ID if deleting, viewing, or updating a specific plan (e.g. "3번 계획 삭제" → 3, "3번 계획 수정" → 3), else null
+- For update_plan: destination = new destination/title if user wants to rename, budget = new budget value, start_date/end_date = new dates
 - query: search query string if searching, else null
 - expense_name: expense item name if adding an expense (e.g. "식사", "택시", "입장료"), else null
 - expense_amount: expense amount as a number if adding an expense (e.g. "5만원" → 50000, "$30" → 30), else null
@@ -255,6 +256,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "add_expense":
             async for event in self._handle_add_expense(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "update_plan":
+            async for event in self._handle_update_plan(intent, session, db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -1142,6 +1146,122 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"지출 추가 중 오류가 발생했습니다: {exc}"},
+            }
+
+
+    async def _handle_update_plan(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Update a saved plan's metadata (budget, destination/title, dates) via chat."""
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "working", "message": "여행 계획 수정 중..."},
+        }
+        await asyncio.sleep(0)
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is None or plan_id is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "수정할 여행 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "수정할 여행 계획을 찾을 수 없습니다. 먼저 계획을 저장하거나 선택해주세요."},
+            }
+            return
+
+        try:
+            from app.models import TravelPlan as TravelPlanModel
+
+            plan = db.get(TravelPlanModel, plan_id)
+            if plan is None:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                }
+                return
+
+            updated_fields: list[str] = []
+
+            if intent.budget is not None:
+                plan.budget = intent.budget
+                updated_fields.append(f"예산: {intent.budget:,.0f}원")
+
+            if intent.destination is not None:
+                plan.destination = intent.destination
+                updated_fields.append(f"목적지: {intent.destination}")
+
+            if intent.start_date is not None:
+                try:
+                    plan.start_date = date.fromisoformat(intent.start_date)
+                    updated_fields.append(f"시작일: {intent.start_date}")
+                except ValueError:
+                    pass
+
+            if intent.end_date is not None:
+                try:
+                    plan.end_date = date.fromisoformat(intent.end_date)
+                    updated_fields.append(f"종료일: {intent.end_date}")
+                except ValueError:
+                    pass
+
+            if not updated_fields:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": "수정할 내용을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": "수정할 내용을 명확히 알려주세요. (예: '예산을 200만원으로 바꿔줘', '날짜를 6월로 변경해줘')"},
+                }
+                return
+
+            db.commit()
+            db.refresh(plan)
+
+            plan_data = {
+                "id": plan.id,
+                "destination": plan.destination,
+                "start_date": plan.start_date.isoformat() if plan.start_date else None,
+                "end_date": plan.end_date.isoformat() if plan.end_date else None,
+                "budget": plan.budget,
+                "interests": plan.interests,
+                "status": plan.status,
+                "days": [],
+            }
+
+            # Update session state
+            session.last_plan = plan_data
+            session.last_saved_plan_id = plan.id
+
+            yield {"type": "plan_update", "data": plan_data}
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "done", "message": "수정 완료!"},
+            }
+            changes_text = ", ".join(updated_fields)
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"여행 계획(#{plan_id})이 수정되었습니다. 변경 사항: {changes_text}"},
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "계획 수정 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"여행 계획 수정 중 오류가 발생했습니다: {exc}"},
             }
 
 

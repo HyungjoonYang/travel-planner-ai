@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T01:00:00Z (Evolve Run #86)
-Run count: 93
+Last run: 2026-04-05T05:46:29Z (Evolve Run #87)
+Run count: 94
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 62
+Tasks completed: 63
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #64 Chat: update_plan intent handler — edit plan metadata via chat
+Next planned: #65 Chat: get_expense_summary intent — expense breakdown via chat
 
 ## LTES Snapshot
 
-- Latency: ~20960ms (pytest 1285 tests)
-- Traffic: 40 commits/24h
-- Errors: 0 test failures (1285/1285 pass), error_rate=0.0%
-- Saturation: 4 tasks ready
+- Latency: ~19900ms (pytest 1303 tests)
+- Traffic: 41 commits/24h
+- Errors: 0 test failures (1303/1303 pass), error_rate=0.0%
+- Saturation: 3 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #64 Chat: update_plan intent handler — edit plan metadata via ch
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #87 — 2026-04-05T05:46:29Z
+- **Task**: #64 - Chat: `update_plan` intent handler — edit plan metadata via chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1303/1303 passed (+18 new: TestUpdatePlanIntent class, tests/test_chat.py:2534+)
+- **Files changed**: src/app/chat.py (+183/-1), tests/test_chat.py (+17 tests)
+- **Builder note**: Implemented update_plan intent handler (_handle_update_plan). Supports budget, destination/title, and start/end date updates via natural language. Emits plan_update SSE after successful DB update. Secretary agent: working→done. Falls back to session.last_saved_plan_id when no intent.plan_id provided. 17 new tests covering: 3 field types (budget, title/destination, dates), plan_update SSE shape, session state update, error cases (no DB, no plan_id, plan not found, no changes).
+- **LTES**: L=19900ms T=1 commit E=0.0% S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #86 — 2026-04-05T01:00:00Z
 - **Task**: #63 - Chat: `add_expense` intent handler + `expense_added` SSE frontend
