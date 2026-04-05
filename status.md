@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T00:00:00Z (Evolve Run #85)
-Run count: 92
+Last run: 2026-04-05T01:00:00Z (Evolve Run #86)
+Run count: 93
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 61
+Tasks completed: 62
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #63 Chat: add_expense intent handler + expense_added SSE frontend
+Next planned: #64 Chat: update_plan intent handler — edit plan metadata via chat
 
 ## LTES Snapshot
 
-- Latency: ~19830ms (pytest 1274 tests)
-- Traffic: 39 commits/24h
-- Errors: 0 test failures (1274/1274 pass), error_rate=0.0%
-- Saturation: 5 tasks ready
+- Latency: ~20960ms (pytest 1285 tests)
+- Traffic: 40 commits/24h
+- Errors: 0 test failures (1285/1285 pass), error_rate=0.0%
+- Saturation: 4 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #63 Chat: add_expense intent handler + expense_added SSE frontend
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #86 — 2026-04-05T01:00:00Z
+- **Task**: #63 - Chat: `add_expense` intent handler + `expense_added` SSE frontend
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1285/1285 passed (+11 new: TestAddExpense class, tests/test_chat.py:2202-2463)
+- **Files changed**: src/app/chat.py (+220/-3), src/app/static/chat.js, tests/test_chat.py (+11 tests)
+- **Builder note**: Implemented add_expense intent handler in chat.py: parses expense_name/expense_amount/expense_category from Intent, resolves plan_id from intent.plan_id or session.last_saved_plan_id, persists Expense via SQLAlchemy, emits expense_added SSE event with expense data and updated budget_summary. Frontend handler in chat.js updates the budget bar and upserts an expense list section in plan-panel.
+- **LTES**: L=20960ms T=1 commit E=0.0% S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #85 — 2026-04-05T00:00:00Z
 - **Task**: #62 - Chat dashboard: Hotels & Flights dedicated result sections

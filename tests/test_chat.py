@@ -2177,6 +2177,290 @@ class TestViewPlan:
             db.close()
             Base.metadata.drop_all(bind=engine)
 
+
+# ---------------------------------------------------------------------------
+# Task #63: add_expense intent handler
+# ---------------------------------------------------------------------------
+
+def _seed_plan_for_expense(db):
+    """Insert a TravelPlan row and return its id."""
+    from app.models import TravelPlan as TravelPlanModel
+    from datetime import date
+
+    plan = TravelPlanModel(
+        destination="도쿄",
+        start_date=date(2026, 5, 1),
+        end_date=date(2026, 5, 5),
+        budget=500000.0,
+    )
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+    return plan.id
+
+
+class TestAddExpense:
+    """_handle_add_expense must persist an Expense row and emit expense_added SSE."""
+
+    def test_add_expense_activates_secretary(self):
+        """add_expense intent activates the secretary agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_expense", expense_name="식사", expense_amount=50000.0,
+            raw_message="식사 5만원 추가"
+        )):
+            events = _collect_events(svc, session.session_id, "식사 5만원 추가")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "secretary" in agent_names
+
+    def test_add_expense_no_db_emits_error(self):
+        """add_expense without a DB session emits error because there is no plan to attach to."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_expense", expense_name="택시", expense_amount=15000.0,
+            raw_message="택시 15000원 추가"
+        )):
+            events = _collect_events(svc, session.session_id, "택시 15000원 추가")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_add_expense_no_saved_plan_emits_error(self):
+        """add_expense without session.last_saved_plan_id emits error."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # Do NOT set session.last_saved_plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="식사", expense_amount=30000.0,
+                raw_message="식사 3만원 추가"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 3만원 추가", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_expense_missing_amount_emits_error(self):
+        """add_expense without an amount emits error agent_status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="식사", expense_amount=None,
+                raw_message="식사 추가"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 추가", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_expense_persists_to_db(self):
+        """add_expense intent creates an Expense row in the database."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="식사", expense_amount=50000.0,
+                expense_category="food", raw_message="식사 5만원 추가"
+            )):
+                _collect_events_with_db(svc, session.session_id, "식사 5만원 추가", db)
+
+            expenses = db.query(ExpenseModel).filter(ExpenseModel.travel_plan_id == plan_id).all()
+            assert len(expenses) == 1
+            assert expenses[0].name == "식사"
+            assert expenses[0].amount == 50000.0
+            assert expenses[0].category == "food"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_expense_emits_expense_added_event(self):
+        """add_expense must emit an expense_added SSE event."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="택시", expense_amount=15000.0,
+                expense_category="transport", raw_message="택시 15000원"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "택시 15000원", db)
+
+            expense_events = [e for e in events if e["type"] == "expense_added"]
+            assert len(expense_events) == 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_expense_event_has_expense_and_budget_summary(self):
+        """expense_added event must contain 'expense' and 'budget_summary' keys."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="입장료", expense_amount=10000.0,
+                raw_message="입장료 1만원"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "입장료 1만원", db)
+
+            evt = next(e for e in events if e["type"] == "expense_added")
+            assert "expense" in evt["data"]
+            assert "budget_summary" in evt["data"]
+            assert evt["data"]["expense"]["name"] == "입장료"
+            assert evt["data"]["expense"]["amount"] == 10000.0
+            assert evt["data"]["budget_summary"]["total_spent"] == 10000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_expense_budget_summary_over_budget(self):
+        """When total expenses exceed budget, budget_summary.over_budget must be True."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)  # budget=500000
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="호텔", expense_amount=600000.0,
+                raw_message="호텔 60만원"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "호텔 60만원", db)
+
+            evt = next(e for e in events if e["type"] == "expense_added")
+            assert evt["data"]["budget_summary"]["over_budget"] is True
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_expense_emits_chat_chunk(self):
+        """add_expense must emit a chat_chunk with confirmation text."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="커피", expense_amount=5000.0,
+                raw_message="커피 5000원"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "커피 5000원", db)
+
+            chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chunk_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_expense_intent_has_new_fields(self):
+        """Intent model must accept expense_name, expense_amount, expense_category fields."""
+        intent = Intent(
+            action="add_expense",
+            expense_name="식사",
+            expense_amount=50000.0,
+            expense_category="food",
+            raw_message="식사 5만원 추가",
+        )
+        assert intent.expense_name == "식사"
+        assert intent.expense_amount == 50000.0
+        assert intent.expense_category == "food"
+
+    def test_add_expense_uses_session_plan_id_when_no_intent_plan_id(self):
+        """add_expense falls back to session.last_saved_plan_id when intent.plan_id is None."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id  # set via session, not intent
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_expense", expense_name="식사", expense_amount=25000.0,
+                plan_id=None, raw_message="식사 2.5만원"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "식사 2.5만원", db)
+
+            expense_events = [e for e in events if e["type"] == "expense_added"]
+            assert len(expense_events) == 1
+            expenses = db.query(ExpenseModel).filter(ExpenseModel.travel_plan_id == plan_id).all()
+            assert len(expenses) == 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
     def test_view_plan_secretary_done_status(self):
         """view_plan must emit a secretary done agent_status event on success."""
         from app.database import Base

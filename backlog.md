@@ -11,11 +11,6 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-- [ ] #63 - Chat: `add_expense` intent handler + `expense_added` SSE frontend [feature]
-  - ref: CLAUDE.md User Story #5 (비용 관리)
-  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
-  - done: "식사 5만원 추가" persists expense via existing API; expense_added SSE emitted; frontend shows new row in budget section; tests pass
-  - gh: #54
 - [ ] #64 - Chat: `update_plan` intent handler — edit plan metadata via chat [feature]
   - ref: CLAUDE.md User Story #2 (계획 관리)
   - depends: #48 (save_plan)
@@ -115,6 +110,7 @@ _(없음)_
 - [x] #60 - Chat: `view_plan` intent handler — load saved plan into dashboard by name/ID [feature] — 2026-04-04
 - [x] #61 - Reporter: weekly Discussion summary — auto-post Phase progress as GitHub Discussion [infra] — 2026-04-04
 - [x] #62 - Chat dashboard: Hotels & Flights dedicated result sections [feature] — 2026-04-05
+- [x] #63 - Chat: `add_expense` intent handler + `expense_added` SSE frontend [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -126,5 +122,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 61 done, 5 ready
+- Total tasks: 62 done, 4 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
