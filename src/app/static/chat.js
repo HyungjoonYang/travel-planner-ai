@@ -27,7 +27,28 @@ let _sseRetryCount = 0;
 // Session management
 // ---------------------------------------------------------------------------
 
+const _SESSION_STORAGE_KEY = 'chatSessionId';
+
 async function initChatSession() {
+  // 1. Check localStorage for a previously saved session ID.
+  const savedId = typeof localStorage !== 'undefined'
+    ? localStorage.getItem(_SESSION_STORAGE_KEY) : null;
+  if (savedId) {
+    try {
+      const verifyRes = await fetch(`/chat/sessions/${savedId}`);
+      if (verifyRes.ok) {
+        chatSessionId = savedId;
+        return; // Reuse the existing session.
+      }
+      // Session expired or not found on the server — remove stale entry.
+      localStorage.removeItem(_SESSION_STORAGE_KEY);
+    } catch (_e) {
+      // Network error during verify — fall through to create a new session.
+      localStorage.removeItem(_SESSION_STORAGE_KEY);
+    }
+  }
+
+  // 2. Create a new session and persist its ID.
   try {
     const res = await fetch('/chat/sessions', {
       method: 'POST',
@@ -36,6 +57,9 @@ async function initChatSession() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     chatSessionId = data.session_id;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(_SESSION_STORAGE_KEY, chatSessionId);
+    }
   } catch (e) {
     console.error('[chat] session init failed:', e);
     chatSessionId = null;
