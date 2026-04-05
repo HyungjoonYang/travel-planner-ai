@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 125,
-    "successful_runs": 120,
+    "total_runs": 126,
+    "successful_runs": 121,
     "failed_runs": 0,
     "success_rate": 0.96,
     "budget_remaining": 1.0,
@@ -653,10 +653,10 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "monitor-2026-04-05-2600",
-    "task": "monitor",
+    "run_id": "2026-04-05-2700",
+    "task": "#87 - Chat frontend: plan_suggestions SSE handler — render improvement suggestions panel",
     "result": "success",
-    "tests_passed": 1461,
-    "tests_total": 1461
+    "tests_passed": 1473,
+    "tests_total": 1473
   }
 }

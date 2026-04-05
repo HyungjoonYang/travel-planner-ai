@@ -1,6 +1,7 @@
 """ChatService: session management + intent extraction + SSE agent-status events."""
 
 import asyncio
+import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING, AsyncGenerator, Optional
@@ -2289,6 +2290,36 @@ Return a JSON object with these fields:
                 "data": {"text": "노트를 추가하려면 먼저 여행 계획을 만들거나 저장해주세요."},
             }
 
+    @staticmethod
+    def _parse_suggestions(text: str) -> list[str]:
+        """Parse numbered/bulleted suggestions from AI text into a list of strings."""
+        suggestions: list[str] = []
+        current: list[str] = []
+        for line in text.strip().split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                if current:
+                    suggestions.append(" ".join(current).strip())
+                    current = []
+                continue
+            # New numbered item (e.g. "1. " or "1) ")
+            if re.match(r"^\d+[.)]\s", stripped):
+                if current:
+                    suggestions.append(" ".join(current).strip())
+                    current = []
+                current = [re.sub(r"^\d+[.)]\s+", "", stripped)]
+            # New bullet item (-, *, •)
+            elif re.match(r"^[-*•]\s", stripped):
+                if current:
+                    suggestions.append(" ".join(current).strip())
+                    current = []
+                current = [re.sub(r"^[-*•]\s+", "", stripped)]
+            else:
+                current.append(stripped)
+        if current:
+            suggestions.append(" ".join(current).strip())
+        return [s for s in suggestions if s]
+
     async def _handle_suggest_improvements(
         self,
         intent: Intent,
@@ -2333,6 +2364,11 @@ Return a JSON object with these fields:
                     "status": "done",
                     "message": "예산 분석 완료",
                 },
+            }
+            parsed = self._parse_suggestions(suggestions)
+            yield {
+                "type": "plan_suggestions",
+                "data": {"suggestions": parsed, "raw": suggestions},
             }
             yield {
                 "type": "chat_chunk",

@@ -15,6 +15,9 @@ let _lastHotels = null;
 let _lastFlights = null;
 let _lastPlaces = null;
 
+// Persisted suggestions — survive plan updates
+let _lastSuggestions = null;
+
 // ---------------------------------------------------------------------------
 // SSE reconnect — exponential backoff configuration
 // ---------------------------------------------------------------------------
@@ -320,6 +323,9 @@ function handleSseEvent(event) {
       break;
     case 'expense_list':
       if (event.data) handleExpenseList(event.data);
+      break;
+    case 'plan_suggestions':
+      if (event.data) handlePlanSuggestions(event.data);
       break;
     case 'session_reset':
       _handleSessionReset();
@@ -1047,6 +1053,57 @@ function handleExpenseList(data) {
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+// ---------------------------------------------------------------------------
+// Plan suggestions panel — rendered by plan_suggestions SSE event
+// ---------------------------------------------------------------------------
+
+function handlePlanSuggestions(data) {
+  const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+  _lastSuggestions = suggestions;
+
+  const dashboardCol = document.querySelector('.dashboard-col');
+  if (!dashboardCol) return;
+
+  // Find or create the suggestions panel
+  let panel = document.getElementById('suggestions-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'suggestions-panel';
+    panel.className = 'suggestions-panel card';
+    dashboardCol.appendChild(panel);
+  }
+
+  const cards = suggestions.map(s =>
+    `<div class="suggestion-card">${escHtml(s)}</div>`
+  ).join('');
+
+  panel.innerHTML =
+    `<div class="suggestions-header" onclick="toggleSuggestionsPanel()" role="button" tabindex="0" aria-expanded="true">` +
+    `<span class="section-title suggestions-title">💡 Suggestions</span>` +
+    `<span class="suggestions-toggle">▴</span>` +
+    `</div>` +
+    `<div class="suggestions-body">${cards || '<div class="meta">제안 없음</div>'}</div>`;
+
+  // Auto-expand on new suggestions
+  panel.dataset.collapsed = 'false';
+  const body = panel.querySelector('.suggestions-body');
+  if (body) body.style.display = '';
+}
+
+function toggleSuggestionsPanel() {
+  const panel = document.getElementById('suggestions-panel');
+  if (!panel) return;
+  const body = panel.querySelector('.suggestions-body');
+  const toggle = panel.querySelector('.suggestions-toggle');
+  const header = panel.querySelector('.suggestions-header');
+  if (!body) return;
+  const collapsed = panel.dataset.collapsed === 'true';
+  panel.dataset.collapsed = collapsed ? 'false' : 'true';
+  body.style.display = collapsed ? '' : 'none';
+  if (toggle) toggle.textContent = collapsed ? '▴' : '▾';
+  if (header) header.setAttribute('aria-expanded', String(collapsed));
 }
 
 // ---------------------------------------------------------------------------
