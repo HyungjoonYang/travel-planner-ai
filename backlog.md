@@ -12,17 +12,43 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #85 - Chat: budget bar auto-refresh on expense changes [improvement]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: after add/update/delete_expense, re-emit plan_update with refreshed budget_used + budget_pct; budget_analyst agent briefly activates; 2+ tests
-  - gh: #101
-
 - [ ] #86 - Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
   - done: intent recognized from "any suggestions?" / "how to improve?"; Gemini reviews plan + history; streams response via chat_chunk; place_scout + budget_analyst activate; read-only (no plan changes); 2+ tests
   - gh: #102
+
+- [ ] #87 - Chat frontend: `plan_suggestions` SSE handler — render improvement suggestions panel [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #86
+  - files: src/app/static/chat.js, src/app/static/index.html
+  - done: plan_suggestions SSE event renders a collapsible "💡 Suggestions" panel in the dashboard; each suggestion shown as a card; panel auto-expands on new suggestions; 2+ tests
+  - gh: #108
+
+- [ ] #88 - Chat: `remove_place` intent — remove a place from a day's itinerary via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: "1일차 첫 번째 장소 삭제" / "Day 2에서 센소지 빼줘" extracts day_number + place name/index; removes from in-memory plan; emits day_update; planner agent working→done; graceful fallback if no plan; 2+ tests
+  - gh: #109
+
+- [ ] #89 - Chat: `add_place` intent — append a custom place to a specific day via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: "1일차에 서울숲 추가해줘" extracts day_number + place name + optional category; appends to in-memory plan day; emits day_update; place_scout agent working→done; graceful fallback; 2+ tests
+  - gh: #110
+
+- [ ] #90 - E2E: suggest_improvements + budget auto-refresh Playwright scenarios [test]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #85, #86, #87
+  - files: e2e/chat.spec.ts
+  - done: Playwright scenario "any suggestions?" → suggestions panel appears; place_scout + budget_analyst activate; add_expense → budget bar percentage updates in plan overview; 2+ scenarios pass
+  - gh: #111
+
+- [ ] #91 - Chat: `share_plan` intent — generate shareable plan link via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: "이 계획 공유해줘" → secretary emits plan_shared event with share_url + share_token; frontend shows copiable URL in chat/dashboard; graceful error if no saved plan; 2+ tests
+  - gh: #112
 
 ## Blocked
 
@@ -124,6 +150,7 @@ _(없음)_
 - [x] #82 - Chat frontend: Weather forecast panel [feature] — 2026-04-05
 - [x] #83 - E2E: weather forecast + conversation reset Playwright scenarios [test] — 2026-04-05
 - [x] #84 - Chat: `add_day_note` intent handler — append note to a specific day [feature] — 2026-04-05
+- [x] #85 - Chat: budget bar auto-refresh on expense changes [improvement] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -136,5 +163,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 84 done, 2 ready (0 in progress)
+- Total tasks: 85 done, 6 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

@@ -1196,6 +1196,43 @@ Return a JSON object with these fields:
             }
 
 
+    async def _emit_budget_plan_update(
+        self,
+        session: "ChatSession",
+        plan_id: int,
+        plan_budget: float,
+        total_spent: float,
+    ) -> AsyncGenerator[dict, None]:
+        """Briefly activate budget_analyst and re-emit plan_update with budget_used + budget_pct."""
+        budget_pct = round(total_spent / plan_budget * 100, 1) if plan_budget > 0 else 0.0
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "budget_analyst", "status": "thinking", "message": "예산 현황 업데이트 중..."},
+        }
+        await asyncio.sleep(0)
+
+        # Build plan_update payload — merge into session.last_plan if available
+        if session.last_plan is not None:
+            plan_data = dict(session.last_plan)
+        else:
+            plan_data = {"id": plan_id, "budget": plan_budget, "days": []}
+
+        plan_data["budget_used"] = round(total_spent, 2)
+        plan_data["budget_pct"] = budget_pct
+
+        yield {"type": "plan_update", "data": plan_data}
+
+        yield {
+            "type": "agent_status",
+            "data": {
+                "agent": "budget_analyst",
+                "status": "done",
+                "message": f"예산 {budget_pct:.1f}% 사용 ({total_spent:,.0f}원 / {plan_budget:,.0f}원)",
+            },
+        }
+
+
     async def _handle_add_expense(
         self,
         intent: Intent,
@@ -1299,6 +1336,8 @@ Return a JSON object with these fields:
                 "type": "expense_added",
                 "data": {"expense": expense_data, "budget_summary": budget_summary},
             }
+            async for evt in self._emit_budget_plan_update(session, plan_id, plan.budget, total_spent):
+                yield evt
             over_msg = " (예산 초과!)" if budget_summary["over_budget"] else ""
             yield {
                 "type": "chat_chunk",
@@ -1652,6 +1691,8 @@ Return a JSON object with these fields:
                 "type": "expense_updated",
                 "data": {"expense": expense_data, "budget_summary": budget_summary},
             }
+            async for evt in self._emit_budget_plan_update(session, plan_id, plan.budget, total_spent):
+                yield evt
             yield {"type": "expense_summary", "data": budget_summary}
             over_msg = " (예산 초과!)" if budget_summary["over_budget"] else ""
             yield {
@@ -1795,6 +1836,8 @@ Return a JSON object with these fields:
                 "type": "expense_deleted",
                 "data": {"name": deleted_name, "budget_summary": summary},
             }
+            async for evt in self._emit_budget_plan_update(session, plan_id, plan.budget, total_spent):
+                yield evt
             yield {"type": "expense_summary", "data": summary}
             yield {
                 "type": "chat_chunk",
