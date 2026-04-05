@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #86 - Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: intent recognized from "any suggestions?" / "how to improve?"; Gemini reviews plan + history; streams response via chat_chunk; place_scout + budget_analyst activate; read-only (no plan changes); 2+ tests
-  - gh: #102
-
 - [ ] #87 - Chat frontend: `plan_suggestions` SSE handler — render improvement suggestions panel [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #86
@@ -151,6 +145,7 @@ _(없음)_
 - [x] #83 - E2E: weather forecast + conversation reset Playwright scenarios [test] — 2026-04-05
 - [x] #84 - Chat: `add_day_note` intent handler — append note to a specific day [feature] — 2026-04-05
 - [x] #85 - Chat: budget bar auto-refresh on expense changes [improvement] — 2026-04-05
+- [x] #86 - Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -163,5 +158,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 85 done, 6 ready (0 in progress)
+- Total tasks: 86 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

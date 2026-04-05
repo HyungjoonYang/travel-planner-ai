@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T24:00:00Z (Evolve Run #109)
-Run count: 122
+Last run: 2026-04-05T25:00:00Z (Evolve Run #110)
+Run count: 123
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 85
+Tasks completed: 86
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #86 Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions
+Next planned: #87 Chat frontend: plan_suggestions SSE handler — render improvement suggestions panel
 
 ## LTES Snapshot
 
-- Latency: 23430ms (pytest 1452 tests in 23.43s)
+- Latency: 22660ms (pytest 1461 tests in 22.66s)
 - Traffic: 1 commit (this run)
-- Errors: 0 test failures (1452/1452 pass), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Errors: 0 test failures (1461/1461 pass), error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #86 Chat: `suggest_improvements` intent — AI-powered plan improv
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #110 — 2026-04-05T25:00:00Z
+- **Task**: #86 - Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1461/1461 passed (9 new: TestSuggestImprovements — place_scout activation, budget_analyst activation, chat_chunk emission, read-only constraint, Gemini called with correct args, both agents reach done on success, error handling, empty plan handling, intent model validity)
+- **Files changed**: src/app/chat.py (+137/-0), src/app/ai.py, tests/test_chat.py
+- **Builder note**: Added GeminiService.suggest_improvements() in ai.py — takes current plan dict + conversation history, calls Gemini for plain-text suggestions. Added Intent.action value + extract_intent prompt description. Added _handle_suggest_improvements handler: activates place_scout (thinking→done) and budget_analyst (thinking→done), calls Gemini, streams result via chat_chunk; read-only (no plan_update).
+- **LTES**: L=22660ms T=1 commit E=0.0% S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #109 — 2026-04-05T24:00:00Z
 - **Task**: #85 - Chat: budget bar auto-refresh on expense changes
