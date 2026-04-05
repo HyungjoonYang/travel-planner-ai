@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #89 - Chat: `add_place` intent — append a custom place to a specific day via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: "1일차에 서울숲 추가해줘" extracts day_number + place name + optional category; appends to in-memory plan day; emits day_update; place_scout agent working→done; graceful fallback; 2+ tests
-  - gh: #110
-
 - [ ] #90 - E2E: suggest_improvements + budget auto-refresh Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #85, #86, #87
@@ -135,6 +129,7 @@ _(없음)_
 - [x] #86 - Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions [feature] — 2026-04-05
 - [x] #87 - Chat frontend: `plan_suggestions` SSE handler — render improvement suggestions panel [feature] — 2026-04-05
 - [x] #88 - Chat: `remove_place` intent — remove a place from a day's itinerary via chat [feature] — 2026-04-05
+- [x] #89 - Chat: `add_place` intent — append a custom place to a specific day via chat [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -147,5 +142,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 88 done, 3 ready (0 in progress)
+- Total tasks: 89 done, 2 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

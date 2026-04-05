@@ -7,10 +7,10 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 128,
-    "successful_runs": 123,
+    "total_runs": 129,
+    "successful_runs": 124,
     "failed_runs": 0,
-    "success_rate": 0.96,
+    "success_rate": 0.961,
     "budget_remaining": 1.0,
     "status": "HEALTHY"
   },
@@ -653,15 +653,15 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "monitor-2026-04-05-2026",
-    "task": "monitor",
+    "run_id": "2026-04-05-2900",
+    "task": "#89 - Chat: add_place intent — append a custom place to a specific day via chat",
     "result": "success",
-    "tests_passed": 1482,
-    "tests_total": 1482
+    "tests_passed": 1491,
+    "tests_total": 1491
   },
   "history_tail_prev": {
-    "run_id": "2026-04-05-2800",
-    "task": "#88 - Chat: remove_place intent — remove a place from a day's itinerary via chat",
+    "run_id": "monitor-2026-04-05-2026",
+    "task": "monitor",
     "result": "success",
     "tests_passed": 1482,
     "tests_total": 1482

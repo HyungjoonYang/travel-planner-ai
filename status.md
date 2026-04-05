@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T20:25:59Z (Monitor Run #125)
-Run count: 128
+Last run: 2026-04-05T20:30:00Z (Evolve Run #113)
+Run count: 129
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 88
+Tasks completed: 89
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #89 Chat: add_place intent — append a custom place to a specific day via chat
+Next planned: #90 E2E: suggest_improvements + budget auto-refresh Playwright scenarios
 
 ## LTES Snapshot
 
-- Latency: 45000ms (monitor run total; pytest 1482 tests in 25.76s)
-- Traffic: 38 commits today (2026-04-05)
-- Errors: 0 test failures (1482/1482 pass), error_rate=0.0%
-- Saturation: 3 tasks ready
+- Latency: 24340ms (pytest 1491 tests in 24.34s)
+- Traffic: 44 commits today (2026-04-05)
+- Errors: 0 test failures (1491/1491 pass), error_rate=0.0%
+- Saturation: 2 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #89 Chat: add_place intent — append a custom place to a specific
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #113 — 2026-04-05T20:30:00Z
+- **Task**: #89 - Chat: `add_place` intent — append a custom place to a specific day via chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1491/1491 passed (9 new: TestAddPlace — intent_accepted_by_model, intent_with_category, activates_place_scout_agent, emits_day_update_with_new_place, place_scout_status_working_then_done, no_plan_emits_chat_chunk, no_query_emits_error, db_appends_place_and_emits_day_update, db_default_category_sightseeing)
+- **Files changed**: src/app/chat.py, tests/test_chat.py (+220/-2)
+- **Builder note**: Implemented _handle_add_place handler. Supports in-memory plan append, DB plan insert (Place row), place_scout working→done agent status, day_update emission, graceful fallback when no plan or empty place name. Added place_category Optional[str] field to Intent model. Updated intent extraction prompt with 서울숲/day examples.
+- **LTES**: L=24340ms T=1 commit E=0.0% S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #112 — 2026-04-05T28:00:00Z
 - **Task**: #88 - Chat: `remove_place` intent — remove a place from a day's itinerary via chat
