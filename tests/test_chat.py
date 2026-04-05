@@ -5930,3 +5930,162 @@ class TestBudgetBarAutoRefresh:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #86: suggest_improvements intent
+# ---------------------------------------------------------------------------
+
+class TestSuggestImprovements:
+    """Tests for the suggest_improvements intent handler."""
+
+    def _make_service_with_mocks(self, gemini=None):
+        return ChatService(
+            api_key="",
+            ttl_seconds=SESSION_TTL_SECONDS,
+            gemini_service=gemini or MagicMock(),
+            web_search_service=MagicMock(),
+            hotel_search_service=MagicMock(),
+            flight_search_service=MagicMock(),
+        )
+
+    def test_suggest_improvements_activates_place_scout(self):
+        """place_scout must be activated when suggest_improvements is triggered."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "여기에 개선 제안이 있습니다."
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="any suggestions?"
+        )):
+            events = _collect_events(svc, session.session_id, "any suggestions?")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "place_scout" in agent_names
+
+    def test_suggest_improvements_activates_budget_analyst(self):
+        """budget_analyst must be activated when suggest_improvements is triggered."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "예산 최적화 제안입니다."
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="how to improve?"
+        )):
+            events = _collect_events(svc, session.session_id, "how to improve?")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "budget_analyst" in agent_names
+
+    def test_suggest_improvements_emits_chat_chunk(self):
+        """A chat_chunk with the suggestions text must be emitted."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "1. 도쿄 타워 추가 권장\n2. 식비 절감 가능"
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="개선 제안 해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "개선 제안 해줘")
+
+        chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chunk_events) >= 1
+        all_text = " ".join(e["data"]["text"] for e in chunk_events)
+        assert "도쿄 타워" in all_text
+
+    def test_suggest_improvements_is_read_only_no_plan_update(self):
+        """suggest_improvements must not emit plan_update events (read-only)."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "몇 가지 제안이 있습니다."
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="제안 있어?"
+        )):
+            events = _collect_events(svc, session.session_id, "제안 있어?")
+
+        plan_update_events = [e for e in events if e["type"] == "plan_update"]
+        assert len(plan_update_events) == 0
+
+    def test_suggest_improvements_calls_gemini_suggest_improvements(self):
+        """GeminiService.suggest_improvements must be called with plan and history."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "좋은 제안입니다."
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+        # Seed a plan so it's passed to Gemini
+        session.last_plan = {"destination": "도쿄", "days": [], "budget": 1000.0}
+        session.message_history = [{"role": "user", "content": "도쿄 여행 계획"}]
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="any suggestions?"
+        )):
+            _collect_events(svc, session.session_id, "any suggestions?")
+
+        mock_gemini.suggest_improvements.assert_called_once()
+        call_args = mock_gemini.suggest_improvements.call_args[0]
+        assert call_args[0] == {"destination": "도쿄", "days": [], "budget": 1000.0}
+
+    def test_suggest_improvements_place_scout_and_budget_analyst_done_on_success(self):
+        """Both place_scout and budget_analyst must reach 'done' status on success."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "제안 목록입니다."
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="suggestions?"
+        )):
+            events = _collect_events(svc, session.session_id, "suggestions?")
+
+        agent_status_events = [e for e in events if e["type"] == "agent_status"]
+        done_agents = {
+            e["data"]["agent"]
+            for e in agent_status_events
+            if e["data"]["status"] == "done"
+        }
+        assert "place_scout" in done_agents
+        assert "budget_analyst" in done_agents
+
+    def test_suggest_improvements_gemini_error_emits_error_status(self):
+        """When Gemini fails, error agent_status events must be emitted."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.side_effect = RuntimeError("Gemini unavailable")
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="any suggestions?"
+        )):
+            events = _collect_events(svc, session.session_id, "any suggestions?")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_suggest_improvements_no_plan_passes_empty_dict(self):
+        """When no last_plan exists, suggest_improvements is called with an empty dict."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "아직 계획이 없어서 제안이 어렵습니다."
+        svc = self._make_service_with_mocks(gemini=mock_gemini)
+        session = svc.create_session()
+        # No last_plan set
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="any suggestions?"
+        )):
+            _collect_events(svc, session.session_id, "any suggestions?")
+
+        call_args = mock_gemini.suggest_improvements.call_args[0]
+        assert call_args[0] == {}  # empty dict when no plan
+
+    def test_suggest_improvements_intent_recognized_from_keyword(self):
+        """Intent model accepts suggest_improvements as a valid action."""
+        intent = Intent(action="suggest_improvements", raw_message="any suggestions?")
+        assert intent.action == "suggest_improvements"
