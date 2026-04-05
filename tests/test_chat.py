@@ -4830,3 +4830,293 @@ class TestListExpenses:
             raw_message="지출 목록 보여줘",
         )
         assert intent.action == "list_expenses"
+
+
+# ---------------------------------------------------------------------------
+# Task #77: copy_plan intent handler
+# ---------------------------------------------------------------------------
+
+def _seed_plan_with_itinerary(db):
+    """Insert a TravelPlan with one DayItinerary and one Place; return plan_id."""
+    from app.models import DayItinerary as DayItineraryModel, Place as PlaceModel, TravelPlan as TravelPlanModel
+    from datetime import date as date_type
+
+    plan = TravelPlanModel(
+        destination="오사카",
+        start_date=date_type(2026, 6, 1),
+        end_date=date_type(2026, 6, 3),
+        budget=600000.0,
+        interests="food",
+        status="confirmed",
+    )
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+
+    day = DayItineraryModel(
+        travel_plan_id=plan.id,
+        date=date_type(2026, 6, 1),
+        notes="첫째 날",
+        transport="지하철",
+    )
+    db.add(day)
+    db.flush()
+
+    db.add(PlaceModel(
+        day_itinerary_id=day.id,
+        name="도톤보리",
+        category="sightseeing",
+        address="오사카 도톤보리",
+        estimated_cost=0.0,
+        ai_reason="유명 관광지",
+        order=1,
+    ))
+    db.commit()
+    return plan.id
+
+
+class TestCopyPlan:
+    """_handle_copy_plan must duplicate a saved plan and emit plan_saved SSE."""
+
+    def test_copy_plan_intent_accepted_by_model(self):
+        """Intent model must accept action='copy_plan'."""
+        intent = Intent(action="copy_plan", raw_message="계획 복사해줘")
+        assert intent.action == "copy_plan"
+
+    def test_copy_plan_no_db_emits_error(self):
+        """copy_plan without a DB session emits an error agent_status."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="copy_plan", raw_message="계획 복사"
+        )):
+            events = _collect_events(svc, session.session_id, "계획 복사")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"].get("status") == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_copy_plan_no_plan_id_emits_error(self):
+        """copy_plan without a resolvable plan emits an error."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # No last_saved_plan_id, no destination, no plan_id in intent
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan", raw_message="계획 복사"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 복사", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"].get("status") == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_copy_plan_emits_plan_saved_event(self):
+        """copy_plan must emit a plan_saved SSE event."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_with_itinerary(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan", raw_message="이 계획 복사해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "이 계획 복사해줘", db)
+
+            saved_events = [e for e in events if e["type"] == "plan_saved"]
+            assert len(saved_events) == 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_copy_plan_creates_new_db_row(self):
+        """copy_plan must create a new TravelPlan row in the DB."""
+        from app.models import TravelPlan as TravelPlanModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_with_itinerary(db)
+            before_count = db.query(TravelPlanModel).count()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan", raw_message="계획 복제"
+            )):
+                _collect_events_with_db(svc, session.session_id, "계획 복제", db)
+
+            after_count = db.query(TravelPlanModel).count()
+            assert after_count == before_count + 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_copy_plan_new_plan_is_draft(self):
+        """Copied plan must have status='draft'."""
+        from app.models import TravelPlan as TravelPlanModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_with_itinerary(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan", raw_message="계획 복사"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 복사", db)
+
+            saved_evt = next(e for e in events if e["type"] == "plan_saved")
+            new_id = saved_evt["data"]["plan_id"]
+            new_plan = db.get(TravelPlanModel, new_id)
+            assert new_plan.status == "draft"
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_copy_plan_plan_saved_has_required_fields(self):
+        """plan_saved event data must include plan_id, copied_from, and plan."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_with_itinerary(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan", raw_message="계획 복사"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 복사", db)
+
+            saved_evt = next(e for e in events if e["type"] == "plan_saved")
+            data = saved_evt["data"]
+            assert "plan_id" in data
+            assert "copied_from" in data
+            assert "plan" in data
+            assert data["copied_from"] == plan_id
+            assert data["plan_id"] != plan_id
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_copy_plan_by_destination(self):
+        """copy_plan can resolve a plan by destination substring."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            _seed_plan_with_itinerary(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # No last_saved_plan_id; resolve by destination
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan",
+                destination="오사카",
+                raw_message="오사카 계획 복사해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "오사카 계획 복사해줘", db)
+
+            saved_events = [e for e in events if e["type"] == "plan_saved"]
+            assert len(saved_events) == 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_copy_plan_updates_session_last_saved_plan_id(self):
+        """After copy_plan, session.last_saved_plan_id must point to the new plan."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_with_itinerary(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan", raw_message="계획 복사"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 복사", db)
+
+            saved_evt = next(e for e in events if e["type"] == "plan_saved")
+            new_id = saved_evt["data"]["plan_id"]
+            assert session.last_saved_plan_id == new_id
+            assert new_id != plan_id
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_copy_plan_secretary_working_then_done(self):
+        """secretary agent must transition working → done on successful copy."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_with_itinerary(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan", raw_message="계획 복사"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 복사", db)
+
+            sec_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+            ]
+            statuses = [e["data"]["status"] for e in sec_events]
+            assert "working" in statuses
+            assert "done" in statuses
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_copy_plan_emits_chat_chunk(self):
+        """copy_plan must emit a chat_chunk event."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_with_itinerary(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="copy_plan", raw_message="계획 복사"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 복사", db)
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)

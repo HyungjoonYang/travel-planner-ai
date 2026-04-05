@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #77 - Chat: `copy_plan` intent handler — duplicate a saved plan via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md (plan management)
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: copy_plan added to Intent.action + system prompt; _handle_copy_plan resolves plan by name/id then calls duplicate endpoint; emits plan_saved event with new plan data; Secretary agent emits working/done; 2+ tests
-  - gh: #89
-
 - [ ] #78 - Chat frontend: Expenses panel in dashboard — dedicated expense list section [feature]
   - ref: markdowns/feat-chat-dashboard.md (expense management dashboard)
   - depends: #76
@@ -135,6 +129,7 @@ _(없음)_
 - [x] #74 - Chat: update_expense intent handler — edit existing expense via chat [feature] — 2026-04-05
 - [x] #75 - E2E: SSE reconnect + session state restore Playwright scenarios [test] — 2026-04-05
 - [x] #76 - Chat: list_expenses intent — refresh full expense list from DB [feature] — 2026-04-05
+- [x] #77 - Chat: `copy_plan` intent handler — duplicate a saved plan via chat [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -147,5 +142,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 76 done, 5 ready (0 in progress)
+- Total tasks: 77 done, 4 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

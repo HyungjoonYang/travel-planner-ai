@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -134,7 +134,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -150,6 +150,7 @@ Return a JSON object with these fields:
 - Use action "delete_expense" when user wants to delete/remove an expense item (e.g. "마지막 지출 삭제", "식비 항목 삭제", "택시 지출 취소")
 - Use action "update_expense" when user wants to edit/modify an existing expense item's amount or category (e.g. "택시 비용 30000원으로 수정", "식사 지출 금액 변경", "교통비 카테고리 변경")
 - Use action "list_expenses" when user wants to see all expenses / spending items for the current plan (e.g. "지출 목록 보여줘", "지출 내역 전체", "모든 지출 보기", "지출 항목 리스트")
+- Use action "copy_plan" when user wants to duplicate/copy a saved travel plan (e.g. "이 계획 복사해줘", "3번 계획 복제", "도쿄 여행 계획 복사", "계획 복사")
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -296,6 +297,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "list_expenses":
             async for event in self._handle_list_expenses(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "copy_plan":
+            async for event in self._handle_copy_plan(intent, session, db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -1889,6 +1893,138 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"지출 목록 조회 중 오류가 발생했습니다: {exc}"},
+            }
+
+    async def _handle_copy_plan(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Duplicate a saved travel plan and emit plan_saved event with the new plan data."""
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "working", "message": "여행 계획 복사 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if db is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "DB가 연결되지 않았습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "여행 계획을 복사하려면 DB 연결이 필요합니다."},
+            }
+            return
+
+        try:
+            from app.models import DayItinerary as DayItineraryModel, Place as PlaceModel, TravelPlan as TravelPlanModel
+
+            original: Optional[TravelPlanModel] = None
+
+            # 1. Try exact ID lookup first (intent.plan_id or session's last saved plan)
+            plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+            if plan_id is not None:
+                original = db.get(TravelPlanModel, plan_id)
+
+            # 2. Fall back to destination substring search
+            if original is None and intent.destination:
+                original = (
+                    db.query(TravelPlanModel)
+                    .filter(TravelPlanModel.destination.ilike(f"%{intent.destination}%"))
+                    .order_by(TravelPlanModel.created_at.desc())
+                    .first()
+                )
+
+            if original is None:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": "복사할 계획을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": "복사할 여행 계획을 찾을 수 없습니다. 계획 ID나 목적지를 확인해주세요."},
+                }
+                return
+
+            # Duplicate the plan (mirror of the /duplicate REST endpoint logic)
+            copy = TravelPlanModel(
+                destination=original.destination,
+                start_date=original.start_date,
+                end_date=original.end_date,
+                budget=original.budget,
+                interests=original.interests,
+                notes=original.notes if hasattr(original, "notes") else None,
+                tags=original.tags if hasattr(original, "tags") else None,
+                status="draft",
+            )
+            db.add(copy)
+            db.flush()
+
+            for day in original.itineraries:
+                day_copy = DayItineraryModel(
+                    travel_plan_id=copy.id,
+                    date=day.date,
+                    notes=day.notes,
+                    transport=day.transport,
+                )
+                db.add(day_copy)
+                db.flush()
+
+                for place in day.places:
+                    db.add(PlaceModel(
+                        day_itinerary_id=day_copy.id,
+                        name=place.name,
+                        category=place.category,
+                        address=place.address,
+                        estimated_cost=place.estimated_cost,
+                        ai_reason=place.ai_reason,
+                        order=place.order,
+                    ))
+
+            db.commit()
+            db.refresh(copy)
+
+            # Update session to point to the new copy
+            session.last_saved_plan_id = copy.id
+
+            new_plan_data = {
+                "id": copy.id,
+                "destination": copy.destination,
+                "start_date": copy.start_date.isoformat() if copy.start_date else None,
+                "end_date": copy.end_date.isoformat() if copy.end_date else None,
+                "budget": copy.budget,
+                "status": copy.status,
+            }
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "done", "message": "복사 완료!"},
+            }
+            yield {
+                "type": "plan_saved",
+                "data": {
+                    "message": f"'{original.destination}' 여행 계획이 복사되었습니다.",
+                    "plan_id": copy.id,
+                    "plan": new_plan_data,
+                    "copied_from": original.id,
+                },
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"'{original.destination}' 여행 계획(#{original.id})이 복사되어 새 계획(#{copy.id})이 생성되었습니다."},
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "계획 복사 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"여행 계획 복사 중 오류가 발생했습니다: {exc}"},
             }
 
 
