@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 94,
-    "successful_runs": 89,
+    "total_runs": 95,
+    "successful_runs": 90,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -653,10 +653,10 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-05-0100",
-    "task": "#63 - Chat: add_expense intent handler + expense_added SSE frontend",
+    "run_id": "2026-04-05-0200",
+    "task": "#64 - Chat: update_plan intent handler — edit plan metadata via chat",
     "result": "success",
-    "tests_passed": 1285,
-    "tests_total": 1285
+    "tests_passed": 1303,
+    "tests_total": 1303
   }
 }
