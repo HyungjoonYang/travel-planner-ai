@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T16:00:00Z (Evolve Run #96)
-Run count: 104
+Last run: 2026-04-05T17:00:00Z (Evolve Run #97)
+Run count: 105
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 72
+Tasks completed: 73
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #73 Chat: expense_deleted SSE event + frontend expense row removal
+Next planned: #74 Chat: update_expense intent handler — edit existing expense via chat
 
 ## LTES Snapshot
 
-- Latency: ~21740ms (pytest 1384 tests)
-- Traffic: 12 commits/24h
-- Errors: 0 test failures (1384/1384 pass), error_rate=0.0%
-- Saturation: 4 tasks ready
+- Latency: ~20030ms (pytest 1388 tests)
+- Traffic: 13 commits/24h
+- Errors: 0 test failures (1388/1388 pass), error_rate=0.0%
+- Saturation: 3 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #73 Chat: expense_deleted SSE event + frontend expense row removal
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #97 — 2026-04-05T17:00:00Z
+- **Task**: #73 - Chat: expense_deleted SSE event + frontend expense row removal
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1388/1388 passed (+4 new: TestExpenseDeletedEventShape in tests/test_chat_dashboard.py)
+- **Files changed**: src/app/chat.py, src/app/static/chat.js, tests/test_chat_dashboard.py (+137/-0)
+- **Builder note**: Backend: _handle_delete_expense now emits {type: 'expense_deleted', data: {name, budget_summary}} before expense_summary (chat.py:1622-1623). Frontend: handleExpenseDeleted() removes last matching row from .expense-list by name (reverse scan) and updates the budget bar; case 'expense_deleted' wired in SSE switch (chat.js:306-307). 4 new tests verify event shape, budget_summary fields, total_spent accuracy, and ordering before expense_summary.
+- **LTES**: L=20030ms T=1 commit E=0.0% S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #96 — 2026-04-05T16:00:00Z
 - **Task**: #72 - Chat frontend: localStorage session ID persistence

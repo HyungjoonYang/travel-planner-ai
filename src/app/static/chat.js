@@ -303,6 +303,9 @@ function handleSseEvent(event) {
     case 'expense_added':
       if (event.data) handleExpenseAdded(event.data);
       break;
+    case 'expense_deleted':
+      if (event.data) handleExpenseDeleted(event.data);
+      break;
     case 'expense_summary':
       if (event.data) handleExpenseSummary(event.data);
       break;
@@ -787,6 +790,41 @@ function handleExpenseAdded(data) {
     row.innerHTML = `<div><span>${escHtml(String(expense.name))}</span>${cat}</div>` +
       `<span class="price-tag">${Number(expense.amount).toLocaleString()}원</span>`;
     listEl.appendChild(row);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Expense deleted — remove matching row from expense list + update budget bar
+// ---------------------------------------------------------------------------
+
+function handleExpenseDeleted(data) {
+  const name    = data.name;
+  const summary = data.budget_summary || {};
+  const panel   = document.getElementById('plan-panel');
+  if (!panel) return;
+
+  // Remove the last row in .expense-list whose name span matches
+  const listEl = panel.querySelector('.expense-list');
+  if (listEl && name != null) {
+    const rows = listEl.querySelectorAll('.place-item');
+    // Walk in reverse to remove the most-recently-added matching row
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const nameSpan = rows[i].querySelector('div > span:first-child');
+      if (nameSpan && nameSpan.textContent === String(name)) {
+        rows[i].remove();
+        break;
+      }
+    }
+  }
+
+  // Update budget bar
+  const budget = summary.budget || _currentPlanBudget;
+  const spent  = summary.total_spent || 0;
+  if (budget > 0) {
+    const budgetDiv = panel.querySelector('.plan-budget');
+    if (budgetDiv) {
+      budgetDiv.innerHTML = _budgetBarHtml(spent, budget);
+    }
   }
 }
 

@@ -662,3 +662,139 @@ class TestFlightsDedicatedSection:
             and e["data"]["status"] == "done"
         )
         assert done["data"]["result_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Task #73: expense_deleted SSE event shape
+# ---------------------------------------------------------------------------
+
+def _make_test_db_dashboard():
+    """In-memory SQLite DB for dashboard tests."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from app.database import Base
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    return engine, sessionmaker(bind=engine)
+
+
+def _seed_expenses_dashboard(db, expenses):
+    from app.models import Expense as ExpenseModel, TravelPlan as TravelPlanModel
+    from datetime import date as date_type
+
+    plan = TravelPlanModel(
+        destination="도쿄",
+        start_date=date_type(2026, 5, 1),
+        end_date=date_type(2026, 5, 5),
+        budget=500000.0,
+    )
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+    for exp in expenses:
+        db.add(ExpenseModel(
+            travel_plan_id=plan.id,
+            name=exp["name"],
+            amount=exp["amount"],
+            category=exp.get("category", "other"),
+        ))
+    db.commit()
+    return plan.id
+
+
+class TestExpenseDeletedEventShape:
+    """_handle_delete_expense must emit expense_deleted with {name, budget_summary}."""
+
+    def _get_expense_deleted_event(self):
+        engine, Session = _make_test_db_dashboard()
+        db = Session()
+        try:
+            plan_id = _seed_expenses_dashboard(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+            svc = _make_svc()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="식사", raw_message="식사 지출 삭제"
+            )):
+                events = _collect_db(svc, session.session_id, "식사 지출 삭제", db)
+            deleted = [e for e in events if e["type"] == "expense_deleted"]
+            assert len(deleted) == 1, f"Expected 1 expense_deleted event, got {len(deleted)}"
+            return deleted[0]["data"]
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_expense_deleted_event_has_name(self):
+        """expense_deleted data must include the deleted expense name."""
+        data = self._get_expense_deleted_event()
+        assert "name" in data
+        assert data["name"] == "식사"
+
+    def test_expense_deleted_event_has_budget_summary(self):
+        """expense_deleted data must include budget_summary for frontend bar update."""
+        data = self._get_expense_deleted_event()
+        assert "budget_summary" in data
+        summary = data["budget_summary"]
+        assert "budget" in summary
+        assert "total_spent" in summary
+        assert "remaining" in summary
+
+    def test_expense_deleted_budget_summary_reflects_remaining_expenses(self):
+        """budget_summary total_spent after delete equals sum of remaining expenses."""
+        engine, Session = _make_test_db_dashboard()
+        db = Session()
+        try:
+            plan_id = _seed_expenses_dashboard(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+            svc = _make_svc()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", expense_name="식사", raw_message="식사 지출 삭제"
+            )):
+                events = _collect_db(svc, session.session_id, "식사 지출 삭제", db)
+            deleted = next(e for e in events if e["type"] == "expense_deleted")
+            summary = deleted["data"]["budget_summary"]
+            # Only 택시 (15000) should remain
+            assert summary["total_spent"] == 15000.0
+            assert summary["expense_count"] == 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_expense_deleted_emitted_before_expense_summary(self):
+        """expense_deleted must be emitted before expense_summary in the SSE stream."""
+        engine, Session = _make_test_db_dashboard()
+        db = Session()
+        try:
+            plan_id = _seed_expenses_dashboard(db, [
+                {"name": "입장료", "amount": 20000.0, "category": "activities"},
+            ])
+            svc = _make_svc()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="delete_expense", raw_message="마지막 지출 삭제"
+            )):
+                events = _collect_db(svc, session.session_id, "마지막 지출 삭제", db)
+            types = [e["type"] for e in events]
+            assert "expense_deleted" in types
+            assert "expense_summary" in types
+            assert types.index("expense_deleted") < types.index("expense_summary")
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)

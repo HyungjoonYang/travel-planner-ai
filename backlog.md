@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #73 - Chat: expense_deleted SSE event + frontend expense row removal [improvement]
-  - ref: markdowns/feat-chat-dashboard.md (expense section in plan panel)
-  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat_dashboard.py
-  - done: _handle_delete_expense emits {type: "expense_deleted", data: {name, budget_summary}}; chat.js handleExpenseDeleted removes matching row from .expense-list; budget bar updates; 2+ new tests
-  - gh: #74
-
 - [ ] #74 - Chat: update_expense intent handler — edit existing expense via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md (expense management via chat)
   - files: src/app/chat.py, tests/test_chat.py
@@ -124,6 +118,7 @@ _(없음)_
 - [x] #70 - Chat: restore message bubbles from DB after SSE reconnect [improvement] — 2026-04-05
 - [x] #71 - E2E: Chat expense workflow + update_plan Playwright scenarios [test] — 2026-04-05
 - [x] #72 - Chat frontend: localStorage session ID persistence [improvement] — 2026-04-05
+- [x] #73 - Chat: expense_deleted SSE event + frontend expense row removal [improvement] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -136,5 +131,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 72 done, 4 ready (0 in progress)
+- Total tasks: 73 done, 3 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
