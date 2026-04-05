@@ -902,3 +902,248 @@ test.describe("localStorage session ID persistence", () => {
     expect(storedId).toBe(FRESH_ID);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SSE reconnect + session state restore (Task #75)
+// ---------------------------------------------------------------------------
+
+test.describe("SSE reconnect + session state restore", () => {
+  /**
+   * Helper: register routes that simulate one failed SSE attempt (no chat_done)
+   * followed by a successful one. The failed attempt triggers the retry path
+   * in _sendMessageWithRetry which calls restoreSessionState() before re-sending.
+   */
+  async function mockSseWithRetry(
+    page: Page,
+    sessionId: string,
+    secondAttemptEvents: object[]
+  ): Promise<void> {
+    let sseCallCount = 0;
+    await page.route(
+      `**/chat/sessions/${sessionId}/messages`,
+      async (route) => {
+        sseCallCount++;
+        if (sseCallCount === 1) {
+          // First attempt: stream ends without chat_done → chatDoneReceived = false → retry
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse({
+              type: "agent_status",
+              data: {
+                agent: "coordinator",
+                status: "thinking",
+                message: "분석 중...",
+              },
+            }),
+            // Intentionally no chat_done — causes retry
+          });
+        } else {
+          // Second attempt: complete stream
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(...secondAttemptEvents),
+          });
+        }
+      }
+    );
+  }
+
+  /**
+   * Scenario: GET /chat/sessions/{id} returns last_plan + agent_states.
+   * After an SSE reconnect, the plan panel and agent cards must be restored.
+   */
+  test("restores plan panel and agent cards after SSE reconnect", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-restore-plan-session";
+
+    // Pre-seed localStorage
+    await page.goto(BASE_URL);
+    await page.evaluate(
+      ([key, id]) => localStorage.setItem(key, id),
+      ["chatSessionId", SESSION_ID]
+    );
+
+    // Mock GET /chat/sessions/{id} — always returns agent_states + last_plan
+    await page.route(`**/chat/sessions/${SESSION_ID}`, async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {
+              coordinator: {
+                agent: "coordinator",
+                status: "done",
+                message: "create_plan 파악",
+              },
+              planner: {
+                agent: "planner",
+                status: "done",
+                message: "일정 완성!",
+              },
+            },
+            last_plan: {
+              destination: "교토",
+              start_date: "2026-08-01",
+              end_date: "2026-08-03",
+              budget: 1_200_000,
+              total_estimated_cost: 600_000,
+              days: [
+                {
+                  day: 1,
+                  date: "2026-08-01",
+                  theme: "금각사",
+                  places: [
+                    {
+                      name: "금각사",
+                      category: "문화",
+                      address: "교토 기타쿠",
+                      estimated_cost: 500,
+                      ai_reason: "세계 유산 금각사",
+                      order: 1,
+                    },
+                  ],
+                  notes: "",
+                },
+              ],
+            },
+            message_history: [],
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // First SSE fails (no chat_done) → retry → restoreSessionState() → second SSE succeeds
+    await mockSseWithRetry(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "general 파악" },
+      },
+      { type: "chat_chunk", data: { text: "안녕하세요!" } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await page.click('a[data-page="chat"]');
+    await expect(page.locator(".chat-layout")).toBeVisible({ timeout: 5_000 });
+
+    await page.fill("#chat-input", "안녕");
+    await page.click('button:has-text("전송")');
+
+    // After reconnect + restore: plan panel shows the saved plan's destination and dates
+    // Timeout is generous to accommodate the 1-second exponential backoff before retry
+    await expect(page.locator("#plan-panel")).toContainText("교토", {
+      timeout: 15_000,
+    });
+    await expect(page.locator("#plan-panel")).toContainText("2026-08-01");
+
+    // Agent cards must reflect the restored agent_states
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 15_000 }
+    );
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/
+    );
+    await expect(
+      page.locator('[data-agent="coordinator"] .agent-message')
+    ).toContainText("create_plan 파악");
+  });
+
+  /**
+   * Scenario: GET /chat/sessions/{id} returns message_history.
+   * After an SSE reconnect, historical chat bubbles must be rendered in #chat-messages.
+   */
+  test("restores chat bubbles from message_history after SSE reconnect", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-restore-history-session";
+
+    await page.goto(BASE_URL);
+    await page.evaluate(
+      ([key, id]) => localStorage.setItem(key, id),
+      ["chatSessionId", SESSION_ID]
+    );
+
+    const MESSAGE_HISTORY = [
+      { role: "user", content: "도쿄 여행 계획 세워줘" },
+      { role: "assistant", content: "도쿄 3박4일 여행 계획을 세워드리겠습니다!" },
+      { role: "user", content: "예산은 200만원이야" },
+      {
+        role: "assistant",
+        content: "예산 200만원으로 계획을 수정하겠습니다.",
+      },
+    ];
+
+    // Mock GET — returns message_history (no plan, no agent_states)
+    await page.route(`**/chat/sessions/${SESSION_ID}`, async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+            message_history: MESSAGE_HISTORY,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // First SSE fails (no chat_done) → retry → restoreSessionState() → bubbles prepended
+    await mockSseWithRetry(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "general 파악" },
+      },
+      { type: "chat_chunk", data: { text: "네, 무엇을 도와드릴까요?" } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await page.click('a[data-page="chat"]');
+    await expect(page.locator(".chat-layout")).toBeVisible({ timeout: 5_000 });
+
+    await page.fill("#chat-input", "안녕");
+    await page.click('button:has-text("전송")');
+
+    // After reconnect + restore: historical chat bubbles are prepended with data-restored="1"
+    // 4 messages in history → 4 restored bubbles
+    await expect(page.locator(".chat-bubble[data-restored]")).toHaveCount(4, {
+      timeout: 15_000,
+    });
+
+    // Verify content of the restored bubbles
+    await expect(page.locator("#chat-messages")).toContainText(
+      "도쿄 여행 계획 세워줘"
+    );
+    await expect(page.locator("#chat-messages")).toContainText(
+      "도쿄 3박4일 여행 계획을 세워드리겠습니다!"
+    );
+    await expect(page.locator("#chat-messages")).toContainText(
+      "예산은 200만원이야"
+    );
+    await expect(page.locator("#chat-messages")).toContainText(
+      "예산 200만원으로 계획을 수정하겠습니다."
+    );
+
+    // Confirm user vs AI bubble classes
+    const userBubbles = page.locator(".chat-bubble.chat-user[data-restored]");
+    const aiBubbles = page.locator(".chat-bubble.chat-ai[data-restored]");
+    await expect(userBubbles).toHaveCount(2);
+    await expect(aiBubbles).toHaveCount(2);
+  });
+});

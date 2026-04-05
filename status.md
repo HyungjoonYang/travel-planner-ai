@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T12:00:00Z (Monitor)
-Run count: 107
+Last run: 2026-04-05T13:01:00Z (Evolve Run #99)
+Run count: 108
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 74
+Tasks completed: 75
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #75 E2E: SSE reconnect + session state restore Playwright scenarios
+Next planned: #76 Chat: list_expenses intent — refresh full expense list from DB
 
 ## LTES Snapshot
 
-- Latency: ~23470ms (pytest 1399 tests)
-- Traffic: 37 commits/day
+- Latency: ~22860ms (pytest 1399 tests)
+- Traffic: 38 commits/day
 - Errors: 0 test failures (1399/1399 pass), error_rate=0.0%
-- Saturation: 2 tasks ready
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #75 E2E: SSE reconnect + session state restore Playwright scenario
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #99 — 2026-04-05T13:01:00Z
+- **Task**: #75 - E2E: SSE reconnect + session state restore Playwright scenarios
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1399/1399 passed (2 new Playwright E2E tests added to e2e/chat.spec.ts under 'SSE reconnect + session state restore' describe block)
+- **Files changed**: e2e/chat.spec.ts (+190/-0)
+- **Builder note**: Test 1 mocks GET /chat/sessions/{id} returning last_plan (교토, 2026-08-01) + agent_states (coordinator/planner both agent-done); verifies plan panel destination/date and agent cards restored via restoreSessionState(). Test 2 mocks message_history with 4 messages; verifies 4 .chat-bubble[data-restored] elements with correct user/AI class split and content. Both use shared mockSseWithRetry helper (first call returns incomplete SSE, second returns stream with chat_done to force retry path).
+- **LTES**: L=22860ms T=1 commit E=0.0% S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor — 2026-04-05T12:00:00Z
 - **Task**: health check
