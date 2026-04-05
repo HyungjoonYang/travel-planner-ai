@@ -12,13 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #82 - Chat frontend: Weather forecast panel [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - depends: #79
-  - files: src/app/chat.py, src/app/static/chat.js, src/app/static/index.html, tests/test_chat.py
-  - done: backend emits `weather_data` SSE event type (separate from search_results); `.weather-panel` renders city name + forecast rows; persists across messages; 2+ unit tests
-  - gh: #98
-
 - [ ] #83 - E2E: weather forecast + conversation reset Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #81, #82
@@ -141,6 +134,7 @@ _(없음)_
 - [x] #79 - Chat: `get_weather` intent handler — fetch weather forecast for trip destination [feature] — 2026-04-05
 - [x] #80 - E2E: copy_plan + list_expenses + expense panel Playwright scenarios [test] — 2026-04-05
 - [x] #81 - Chat: conversation reset — clear history without new session [improvement] — 2026-04-05
+- [x] #82 - Chat frontend: Weather forecast panel [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -153,5 +147,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 81 done, 5 ready (0 in progress)
+- Total tasks: 82 done, 4 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

@@ -2082,6 +2082,10 @@ Return a JSON object with these fields:
                 "type": "search_results",
                 "data": {"type": "weather", "results": result.model_dump()},
             }
+            yield {
+                "type": "weather_data",
+                "data": result.model_dump(),
+            }
             summary_text = result.summary or f"{dest} 날씨 정보를 가져왔습니다."
             yield {
                 "type": "chat_chunk",

@@ -850,6 +850,40 @@ class TestServiceHandlerIntegration:
         ]
         assert any(e["data"]["agent"] == "place_scout" for e in error_events)
 
+    def test_get_weather_emits_weather_data_event(self):
+        """weather_data SSE event is emitted separately from search_results."""
+        mock_web = MagicMock()
+        mock_web.search_weather.return_value = _make_fake_weather_result()
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄 날씨")
+
+        weather_events = [e for e in events if e["type"] == "weather_data"]
+        assert len(weather_events) == 1
+
+    def test_weather_data_event_contains_forecast_and_destination(self):
+        """weather_data payload includes destination, forecast list, and summary."""
+        mock_web = MagicMock()
+        mock_web.search_weather.return_value = _make_fake_weather_result()
+        svc = self._make_service_with_mocks(web=mock_web)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+        )):
+            events = _collect_events(svc, session.session_id, "도쿄 날씨")
+
+        weather_event = next(e for e in events if e["type"] == "weather_data")
+        payload = weather_event["data"]
+        assert payload["destination"] == "도쿄"
+        assert isinstance(payload["forecast"], list)
+        assert len(payload["forecast"]) == 2
+        assert "summary" in payload
+
 
 # ---------------------------------------------------------------------------
 # Task #46: Session state persistence — agent_states + last_plan
