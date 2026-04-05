@@ -29,7 +29,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -43,6 +43,7 @@ class Intent(BaseModel):
     expense_amount: Optional[float] = None
     expense_category: Optional[str] = None
     place_index: Optional[int] = None  # 1-based place index for remove_place
+    place_category: Optional[str] = None  # category for add_place (e.g. "sightseeing", "food", "cafe")
     raw_message: str = ""
 
 
@@ -145,7 +146,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -166,7 +167,9 @@ Return a JSON object with these fields:
 - Use action "add_day_note" when user wants to append a note or memo to a specific day of the itinerary (e.g. "1일차에 메모 추가해줘", "Day 2에 '우산 챙기기' 노트 달아줘", "3일차 노트: 환전 필요", "add note to day 1"); set day_number to the referenced day number and query to the note text
 - Use action "suggest_improvements" when user asks for suggestions, improvements, or feedback on their current travel plan (e.g. "개선할 점 있어?", "추천 사항 있어?", "어떻게 더 좋게 할 수 있을까?", "any suggestions?", "how to improve?", "what would you recommend changing?", "더 좋은 방법 있어?", "계획 피드백 줘")
 - Use action "remove_place" when user wants to remove/delete a specific place from a day's itinerary (e.g. "1일차 첫 번째 장소 삭제", "Day 2에서 센소지 빼줘", "3일차에서 루브르 박물관 제거", "remove Senso-ji from day 2", "day 1 first place delete"); set day_number to the referenced day, query to the place name if mentioned, and place_index to the 1-based position if an ordinal is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2, "마지막" → -1)
+- Use action "add_place" when user wants to add/append a custom place to a specific day (e.g. "1일차에 서울숲 추가해줘", "Day 2에 경복궁 넣어줘", "3일차에 맛집 추가", "add Gyeongbokgung to day 1", "Day 3에 카페 추가"); set day_number to the referenced day, query to the place name, and place_category to the category if mentioned (e.g. "맛집" → "food", "카페" → "cafe", "관광지" → "sightseeing"), else null
 - place_index: 1-based index of the place to remove within the day's places list, if an ordinal position is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2); null if removing by name or unspecified
+- place_category: category for the place to add (e.g. "sightseeing", "food", "cafe", "museum", "park", "landmark"); null if not specified
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -331,6 +334,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "remove_place":
             async for event in self._handle_remove_place(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "add_place":
+            async for event in self._handle_add_place(intent, session, db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -2486,6 +2492,180 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": "장소를 제거하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
+
+    async def _handle_add_place(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Append a custom place to a specific day's itinerary.
+
+        Extracts day_number + place name (query) + optional category (place_category).
+        Emits place_scout working→done and day_update. Graceful fallback when no plan.
+        """
+        day_number = intent.day_number or 1
+        place_name = intent.query or ""
+        category = intent.place_category or "sightseeing"
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "place_scout", "status": "working", "message": f"Day {day_number}에 장소 추가 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if not place_name:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "place_scout", "status": "error", "message": "추가할 장소 이름을 알 수 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "추가할 장소 이름을 알려주세요."},
+            }
+            return
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    Place as PlaceModel,
+                    TravelPlan as TravelPlanModel,
+                )
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is None:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "place_scout", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                    }
+                    return
+
+                days = (
+                    db.query(DayItineraryModel)
+                    .filter(DayItineraryModel.travel_plan_id == plan_id)
+                    .order_by(DayItineraryModel.date)
+                    .all()
+                )
+
+                day_idx = day_number - 1
+                if not days or day_idx >= len(days) or day_idx < 0:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "place_scout", "status": "error", "message": f"Day {day_number}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획에 Day {day_number}이 없습니다."},
+                    }
+                    return
+
+                day = days[day_idx]
+                next_order = max((p.order for p in day.places), default=-1) + 1
+                new_place = PlaceModel(
+                    day_itinerary_id=day.id,
+                    name=place_name,
+                    category=category,
+                    estimated_cost=0.0,
+                    order=next_order,
+                )
+                db.add(new_place)
+                db.commit()
+                db.refresh(day)
+
+                places_data = [
+                    {
+                        "name": p.name,
+                        "category": p.category,
+                        "address": p.address,
+                        "estimated_cost": p.estimated_cost,
+                        "ai_reason": p.ai_reason,
+                        "order": p.order,
+                    }
+                    for p in sorted(day.places, key=lambda x: x.order)
+                ]
+                day_data = {
+                    "day_number": day_number,
+                    "date": day.date.isoformat(),
+                    "notes": day.notes,
+                    "transport": day.transport,
+                    "places": places_data,
+                }
+
+                yield {"type": "day_update", "data": day_data}
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "place_scout", "status": "done", "message": f"Day {day_number}에 '{place_name}' 추가 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_number}에 '{place_name}'을 추가했습니다."},
+                }
+
+            except Exception as exc:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "place_scout", "status": "error", "message": "장소 추가 실패"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"장소 추가 중 오류가 발생했습니다: {exc}"},
+                }
+        else:
+            # In-memory plan update
+            last_plan = session.last_plan
+            if last_plan:
+                days = last_plan.get("days", [])
+                day_idx = day_number - 1
+                if 0 <= day_idx < len(days):
+                    day = days[day_idx]
+                    places = day.get("places", [])
+                    new_place = {
+                        "name": place_name,
+                        "category": category,
+                        "address": "",
+                        "estimated_cost": 0.0,
+                        "ai_reason": "",
+                        "order": len(places),
+                    }
+                    places.append(new_place)
+                    day["places"] = places
+
+                    yield {"type": "day_update", "data": day}
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "place_scout", "status": "done", "message": f"Day {day_number}에 '{place_name}' 추가 완료!"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_number}에 '{place_name}'을 추가했습니다 (미저장 — 저장 후 영구 보관됩니다)."},
+                    }
+                    return
+                else:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "place_scout", "status": "error", "message": f"Day {day_number}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획에 Day {day_number}이 없습니다."},
+                    }
+                    return
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "place_scout", "status": "done", "message": "장소 추가 완료"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "장소를 추가하려면 먼저 여행 계획을 만들거나 저장해주세요."},
             }
 
     @staticmethod

@@ -6525,3 +6525,241 @@ class TestRemovePlace:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #89: add_place intent handler
+# ---------------------------------------------------------------------------
+
+
+class TestAddPlace:
+    """_handle_add_place: day_number + place name + optional category → appends to plan, emits day_update."""
+
+    def test_add_place_intent_accepted_by_model(self):
+        """Intent model must accept add_place as a valid action."""
+        intent = Intent(
+            action="add_place",
+            day_number=1,
+            query="서울숲",
+            raw_message="1일차에 서울숲 추가해줘",
+        )
+        assert intent.action == "add_place"
+        assert intent.day_number == 1
+        assert intent.query == "서울숲"
+
+    def test_add_place_intent_with_category(self):
+        """Intent model must accept place_category field."""
+        intent = Intent(
+            action="add_place",
+            day_number=2,
+            query="경복궁",
+            place_category="sightseeing",
+            raw_message="2일차에 경복궁 추가해줘",
+        )
+        assert intent.place_category == "sightseeing"
+
+    def test_add_place_activates_place_scout_agent(self):
+        """add_place must activate the place_scout agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([[{"name": "기존 장소", "category": "sightseeing", "estimated_cost": 0}]])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_place", day_number=1, query="서울숲", raw_message="1일차에 서울숲 추가해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차에 서울숲 추가해줘")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "place_scout" in agent_names
+
+    def test_add_place_emits_day_update_with_new_place(self):
+        """add_place emits day_update containing the newly added place."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([[
+            {"name": "기존 장소", "category": "sightseeing", "estimated_cost": 0},
+        ]])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_place", day_number=1, query="서울숲", raw_message="1일차에 서울숲 추가해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차에 서울숲 추가해줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) >= 1
+        place_names = [p["name"] for p in day_updates[0]["data"]["places"]]
+        assert "서울숲" in place_names
+        assert "기존 장소" in place_names  # existing place preserved
+
+    def test_add_place_place_scout_status_working_then_done(self):
+        """place_scout must transition working → done for add_place."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([[{"name": "경복궁", "category": "sightseeing", "estimated_cost": 0}]])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_place", day_number=1, query="서울숲", raw_message="서울숲 추가"
+        )):
+            events = _collect_events(svc, session.session_id, "서울숲 추가")
+
+        scout_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "place_scout"
+        ]
+        assert "working" in scout_statuses
+        assert "done" in scout_statuses
+
+    def test_add_place_no_plan_emits_chat_chunk(self):
+        """add_place with no plan returns a helpful chat_chunk message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_place", day_number=1, query="서울숲", raw_message="서울숲 추가"
+        )):
+            events = _collect_events(svc, session.session_id, "서울숲 추가")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+    def test_add_place_no_query_emits_error(self):
+        """add_place with no place name (empty query) returns an error agent_status."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([[{"name": "기존", "category": "sightseeing", "estimated_cost": 0}]])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_place", day_number=1, raw_message="장소 추가해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "장소 추가해줘")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_add_place_db_appends_place_and_emits_day_update(self):
+        """add_place with saved plan inserts Place into DB and emits day_update."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="서울",
+                start_date=date_type(2026, 7, 1),
+                end_date=date_type(2026, 7, 2),
+                budget=1000000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day = DayItineraryModel(
+                travel_plan_id=plan.id,
+                date=date_type(2026, 7, 1),
+                notes="",
+            )
+            db.add(day)
+            db.commit()
+            db.refresh(day)
+
+            existing = PlaceModel(
+                day_itinerary_id=day.id,
+                name="경복궁",
+                category="sightseeing",
+                estimated_cost=0.0,
+                order=0,
+            )
+            db.add(existing)
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_place", day_number=1, query="서울숲", place_category="park",
+                raw_message="1일차에 서울숲 추가해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "1일차에 서울숲 추가해줘", db)
+
+            # DB: 서울숲 inserted, 경복궁 remains
+            db.expire_all()
+            all_places = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day.id).all()
+            names = [p.name for p in all_places]
+            assert "서울숲" in names
+            assert "경복궁" in names
+
+            new_place = next(p for p in all_places if p.name == "서울숲")
+            assert new_place.category == "park"
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) >= 1
+            assert any(p["name"] == "서울숲" for p in day_updates[0]["data"]["places"])
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_place_db_default_category_sightseeing(self):
+        """add_place without category defaults to 'sightseeing'."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="부산",
+                start_date=date_type(2026, 8, 1),
+                end_date=date_type(2026, 8, 2),
+                budget=500000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day = DayItineraryModel(
+                travel_plan_id=plan.id,
+                date=date_type(2026, 8, 1),
+                notes="",
+            )
+            db.add(day)
+            db.commit()
+            db.refresh(day)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_place", day_number=1, query="해운대 해수욕장",
+                raw_message="1일차에 해운대 추가"
+            )):
+                _collect_events_with_db(svc, session.session_id, "1일차에 해운대 추가", db)
+
+            db.expire_all()
+            places = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day.id).all()
+            new_place = next((p for p in places if p.name == "해운대 해수욕장"), None)
+            assert new_place is not None
+            assert new_place.category == "sightseeing"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
