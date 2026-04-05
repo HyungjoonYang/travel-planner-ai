@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 106,
-    "successful_runs": 101,
+    "total_runs": 107,
+    "successful_runs": 102,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -653,8 +653,8 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-05-1800",
-    "task": "#74 - Chat: update_expense intent handler — edit existing expense via chat",
+    "run_id": "monitor-2026-04-05-1200",
+    "task": "monitor",
     "result": "success",
     "tests_passed": 1399,
     "tests_total": 1399
