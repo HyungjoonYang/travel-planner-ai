@@ -4294,3 +4294,295 @@ class TestGetSessionMessageHistoryFromDB:
         # Last user message should be in history
         contents = [m["content"] for m in history if m["role"] == "user"]
         assert any("메시지5" in c for c in contents)
+
+
+# ---------------------------------------------------------------------------
+# Task #74: update_expense intent handler
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateExpense:
+    """_handle_update_expense must update an Expense row and emit expense_updated SSE."""
+
+    def test_update_expense_activates_secretary(self):
+        """update_expense intent activates the secretary agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="update_expense", expense_name="택시", expense_amount=30000.0,
+            raw_message="택시 비용 30000원으로 수정"
+        )):
+            events = _collect_events(svc, session.session_id, "택시 비용 30000원으로 수정")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "secretary" in agent_names
+
+    def test_update_expense_no_db_emits_error(self):
+        """update_expense without a DB session emits error."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="update_expense", expense_name="택시", expense_amount=30000.0,
+            raw_message="택시 수정"
+        )):
+            events = _collect_events(svc, session.session_id, "택시 수정")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_update_expense_no_name_emits_error(self):
+        """update_expense without expense_name emits error."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_amount=30000.0,
+                raw_message="지출 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "지출 수정", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_updates_amount_in_db(self):
+        """update_expense updates the expense amount in the database."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_name="택시", expense_amount=30000.0,
+                raw_message="택시 30000원으로 수정"
+            )):
+                _collect_events_with_db(svc, session.session_id, "택시 30000원으로 수정", db)
+
+            updated = db.query(ExpenseModel).filter(
+                ExpenseModel.travel_plan_id == plan_id,
+                ExpenseModel.name == "택시",
+            ).first()
+            assert updated is not None
+            assert updated.amount == 30000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_updates_category_in_db(self):
+        """update_expense updates the expense category in the database."""
+        from app.database import Base
+        from app.models import Expense as ExpenseModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_name="식사", expense_category="activities",
+                raw_message="식사 카테고리 변경"
+            )):
+                _collect_events_with_db(svc, session.session_id, "식사 카테고리 변경", db)
+
+            updated = db.query(ExpenseModel).filter(
+                ExpenseModel.travel_plan_id == plan_id,
+                ExpenseModel.name == "식사",
+            ).first()
+            assert updated is not None
+            assert updated.category == "activities"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_emits_expense_updated_event(self):
+        """update_expense must emit an expense_updated SSE event."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "입장료", "amount": 20000.0, "category": "activities"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_name="입장료", expense_amount=25000.0,
+                raw_message="입장료 25000원으로 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "입장료 25000원으로 수정", db)
+
+            updated_events = [e for e in events if e["type"] == "expense_updated"]
+            assert len(updated_events) == 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_event_has_expense_and_budget_summary(self):
+        """expense_updated event must contain 'expense' and 'budget_summary' keys."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "숙소", "amount": 100000.0, "category": "accommodation"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_name="숙소", expense_amount=120000.0,
+                raw_message="숙소 12만원으로 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "숙소 12만원으로 수정", db)
+
+            updated_event = next(e for e in events if e["type"] == "expense_updated")
+            assert "expense" in updated_event["data"]
+            assert "budget_summary" in updated_event["data"]
+            assert updated_event["data"]["expense"]["amount"] == 120000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_not_found_emits_error(self):
+        """update_expense for a non-existent name emits error agent_status."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 50000.0, "category": "food"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_name="없는항목", expense_amount=10000.0,
+                raw_message="없는항목 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "없는항목 수정", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_reemits_expense_summary(self):
+        """After update, an expense_summary SSE event must be emitted."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "교통비", "amount": 40000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_name="교통비", expense_amount=50000.0,
+                raw_message="교통비 50000원으로 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "교통비 50000원으로 수정", db)
+
+            summary_events = [e for e in events if e["type"] == "expense_summary"]
+            assert len(summary_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_secretary_working_then_done(self):
+        """Secretary agent must transition working → done on successful update."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="update_expense", expense_name="택시", expense_amount=20000.0,
+                raw_message="택시 2만원으로 수정"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "택시 2만원으로 수정", db)
+
+            sec_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+            ]
+            statuses = [e["data"]["status"] for e in sec_events]
+            assert "working" in statuses
+            assert "done" in statuses
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_update_expense_intent_accepted_by_model(self):
+        """Intent model must accept action='update_expense'."""
+        intent = Intent(
+            action="update_expense",
+            expense_name="식사",
+            expense_amount=60000.0,
+            expense_category="food",
+            raw_message="식사 6만원으로 수정",
+        )
+        assert intent.action == "update_expense"
+        assert intent.expense_name == "식사"
+        assert intent.expense_amount == 60000.0

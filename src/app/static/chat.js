@@ -303,6 +303,9 @@ function handleSseEvent(event) {
     case 'expense_added':
       if (event.data) handleExpenseAdded(event.data);
       break;
+    case 'expense_updated':
+      if (event.data) handleExpenseUpdated(event.data);
+      break;
     case 'expense_deleted':
       if (event.data) handleExpenseDeleted(event.data);
       break;
@@ -812,6 +815,42 @@ function handleExpenseDeleted(data) {
       const nameSpan = rows[i].querySelector('div > span:first-child');
       if (nameSpan && nameSpan.textContent === String(name)) {
         rows[i].remove();
+        break;
+      }
+    }
+  }
+
+  // Update budget bar
+  const budget = summary.budget || _currentPlanBudget;
+  const spent  = summary.total_spent || 0;
+  if (budget > 0) {
+    const budgetDiv = panel.querySelector('.plan-budget');
+    if (budgetDiv) {
+      budgetDiv.innerHTML = _budgetBarHtml(spent, budget);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Expense updated — update matching row in expense list + update budget bar
+// ---------------------------------------------------------------------------
+
+function handleExpenseUpdated(data) {
+  const expense = data.expense || {};
+  const summary = data.budget_summary || {};
+  const panel   = document.getElementById('plan-panel');
+  if (!panel) return;
+
+  // Update the matching row (find by name)
+  const listEl = panel.querySelector('.expense-list');
+  if (listEl && expense.name != null) {
+    const rows = listEl.querySelectorAll('.place-item');
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const nameSpan = rows[i].querySelector('div > span:first-child');
+      if (nameSpan && nameSpan.textContent === String(expense.name)) {
+        const cat = expense.category ? ` <span class="meta">(${escHtml(expense.category)})</span>` : '';
+        rows[i].innerHTML = `<div><span>${escHtml(String(expense.name))}</span>${cat}</div>` +
+          `<span class="price-tag">${Number(expense.amount).toLocaleString()}원</span>`;
         break;
       }
     }

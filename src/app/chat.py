@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_plan | get_expense_summary | delete_expense | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -134,7 +134,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_plan", "get_expense_summary", "delete_expense", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -144,10 +144,11 @@ Return a JSON object with these fields:
 - plan_id: integer plan ID if deleting, viewing, or updating a specific plan (e.g. "3번 계획 삭제" → 3, "3번 계획 수정" → 3), else null
 - For update_plan: destination = new destination/title if user wants to rename, budget = new budget value, start_date/end_date = new dates
 - query: search query string if searching, else null
-- expense_name: expense item name if adding or deleting an expense (e.g. "식사", "택시", "입장료"), else null; for "마지막 지출 삭제" leave null
-- expense_amount: expense amount as a number if adding an expense (e.g. "5만원" → 50000, "$30" → 30), else null
-- expense_category: expense category if adding or deleting an expense (e.g. "food", "transport", "accommodation", "activities"), infer from context, else null; for "식비 삭제" set to "food"
+- expense_name: expense item name if adding, updating, or deleting an expense (e.g. "식사", "택시", "입장료"), else null; for "마지막 지출 삭제" leave null
+- expense_amount: expense amount as a number if adding or updating an expense (e.g. "5만원" → 50000, "$30" → 30), else null
+- expense_category: expense category if adding, updating, or deleting an expense (e.g. "food", "transport", "accommodation", "activities"), infer from context, else null; for "식비 삭제" set to "food"
 - Use action "delete_expense" when user wants to delete/remove an expense item (e.g. "마지막 지출 삭제", "식비 항목 삭제", "택시 지출 취소")
+- Use action "update_expense" when user wants to edit/modify an existing expense item's amount or category (e.g. "택시 비용 30000원으로 수정", "식사 지출 금액 변경", "교통비 카테고리 변경")
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -279,6 +280,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "add_expense":
             async for event in self._handle_add_expense(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "update_expense":
+            async for event in self._handle_update_expense(intent, session, db):
                 yield _track_and_collect(event)
         elif intent.action == "update_plan":
             async for event in self._handle_update_plan(intent, session, db):
@@ -1499,6 +1503,147 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"지출 내역 조회 중 오류가 발생했습니다: {exc}"},
+            }
+
+
+    async def _handle_update_expense(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Update an existing expense's amount and/or category by name."""
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "working", "message": "지출 항목 수정 중..."},
+        }
+        await asyncio.sleep(0)
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is None or plan_id is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "수정할 여행 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "지출을 수정하려면 먼저 여행 계획을 저장해주세요."},
+            }
+            return
+
+        if not intent.expense_name:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "수정할 지출 항목명을 알려주세요"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "어떤 지출 항목을 수정할까요? 항목 이름을 알려주세요."},
+            }
+            return
+
+        try:
+            from app.models import Expense as ExpenseModel, TravelPlan as TravelPlanModel
+
+            plan = db.get(TravelPlanModel, plan_id)
+            if plan is None:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                }
+                return
+
+            expense_to_update: Optional[ExpenseModel] = (
+                db.query(ExpenseModel)
+                .filter(
+                    ExpenseModel.travel_plan_id == plan_id,
+                    ExpenseModel.name == intent.expense_name,
+                )
+                .order_by(ExpenseModel.id.desc())
+                .first()
+            )
+
+            if expense_to_update is None:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": f"'{intent.expense_name}' 항목을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"'{intent.expense_name}' 지출 항목을 찾을 수 없습니다."},
+                }
+                return
+
+            # Apply updates — only fields provided in the intent
+            if intent.expense_amount is not None and intent.expense_amount > 0:
+                expense_to_update.amount = intent.expense_amount
+            if intent.expense_category is not None:
+                expense_to_update.category = intent.expense_category
+            db.commit()
+            db.refresh(expense_to_update)
+
+            # Compute updated budget summary
+            all_expenses = (
+                db.query(ExpenseModel)
+                .filter(ExpenseModel.travel_plan_id == plan_id)
+                .all()
+            )
+            total_spent = round(sum(e.amount for e in all_expenses), 2)
+            by_category: dict[str, float] = {}
+            for e in all_expenses:
+                key = e.category or "other"
+                by_category[key] = round(by_category.get(key, 0.0) + e.amount, 2)
+
+            expense_data = {
+                "id": expense_to_update.id,
+                "name": expense_to_update.name,
+                "amount": expense_to_update.amount,
+                "category": expense_to_update.category,
+                "travel_plan_id": plan_id,
+            }
+            budget_summary = {
+                "plan_id": plan_id,
+                "budget": plan.budget,
+                "total_spent": total_spent,
+                "remaining": round(plan.budget - total_spent, 2),
+                "by_category": by_category,
+                "expense_count": len(all_expenses),
+                "over_budget": total_spent > plan.budget,
+            }
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "done", "message": "지출 수정 완료!"},
+            }
+            yield {
+                "type": "expense_updated",
+                "data": {"expense": expense_data, "budget_summary": budget_summary},
+            }
+            yield {"type": "expense_summary", "data": budget_summary}
+            over_msg = " (예산 초과!)" if budget_summary["over_budget"] else ""
+            yield {
+                "type": "chat_chunk",
+                "data": {
+                    "text": (
+                        f"'{expense_to_update.name}' 지출을 수정했습니다."
+                        f" 금액: {expense_to_update.amount:,.0f}원. 총 지출: {total_spent:,.0f}원{over_msg}"
+                    )
+                },
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "지출 수정 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"지출 수정 중 오류가 발생했습니다: {exc}"},
             }
 
 
