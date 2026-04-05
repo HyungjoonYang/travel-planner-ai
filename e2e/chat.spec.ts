@@ -1016,6 +1016,219 @@ test.describe("localStorage session ID persistence", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Weather forecast panel + Conversation reset (Task #83)
+// ---------------------------------------------------------------------------
+
+test.describe("Weather forecast panel + Conversation reset (Task #83)", () => {
+  /**
+   * Scenario 11: weather_data SSE event renders .weather-panel in the dashboard.
+   * The panel must show the city name, weather summary, and forecast rows.
+   */
+  test("weather_data SSE renders weather-panel with city and forecast", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "get_weather 파악" },
+      },
+      {
+        type: "weather_data",
+        data: {
+          destination: "도쿄",
+          summary: "맑고 쾌적한 봄 날씨",
+          forecast: [
+            {
+              date: "2026-05-01",
+              temperature_high: "22°C",
+              temperature_low: "14°C",
+              description: "맑음",
+            },
+            {
+              date: "2026-05-02",
+              temperature_high: "20°C",
+              temperature_low: "12°C",
+              description: "구름 조금",
+            },
+          ],
+        },
+      },
+      { type: "chat_chunk", data: { text: "도쿄 날씨를 조회했습니다." } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "도쿄 날씨 알려줘");
+    await page.click('button:has-text("전송")');
+
+    // .weather-panel must appear in the dashboard column
+    await expect(page.locator(".weather-panel")).toBeVisible({ timeout: 10_000 });
+
+    // City name must be displayed
+    await expect(page.locator(".weather-panel .weather-city")).toContainText("도쿄");
+
+    // Summary must be displayed
+    await expect(page.locator(".weather-panel .weather-summary")).toContainText(
+      "맑고 쾌적한 봄 날씨"
+    );
+
+    // Two forecast rows must be rendered
+    await expect(page.locator(".weather-forecast-row")).toHaveCount(2);
+
+    // First row date and condition must appear
+    await expect(page.locator(".weather-panel")).toContainText("2026-05-01");
+    await expect(page.locator(".weather-panel")).toContainText("맑음");
+
+    // Second row date and condition must appear
+    await expect(page.locator(".weather-panel")).toContainText("2026-05-02");
+    await expect(page.locator(".weather-panel")).toContainText("구름 조금");
+
+    // Panel title
+    await expect(page.locator(".weather-panel-title")).toContainText("날씨 예보");
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(/agent-done/);
+  });
+
+  /**
+   * Scenario 12: session_reset SSE event clears all chat bubbles and resets
+   * every agent card back to idle state.
+   */
+  test("session_reset SSE clears chat history and resets agents to idle", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-session-reset-test";
+    let sseCallCount = 0;
+
+    // Mock session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // Mock SSE: first call returns a normal response; second call returns session_reset
+    await page.route(
+      `**/chat/sessions/${SESSION_ID}/messages`,
+      async (route) => {
+        sseCallCount++;
+        if (sseCallCount === 1) {
+          // First message: normal assistant response with coordinator done
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "general 파악",
+                },
+              },
+              { type: "chat_chunk", data: { text: "안녕하세요! 도쿄 여행을 도와드릴게요." } },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        } else {
+          // Second message: coordinator done then session_reset
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "대화 내역 초기화 완료",
+                },
+              },
+              {
+                type: "session_reset",
+                data: { message: "대화 내역이 초기화되었습니다." },
+              },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        }
+      }
+    );
+
+    await goToChat(page);
+
+    // --- First message: populate chat with at least one AI bubble ---
+    await page.fill("#chat-input", "도쿄 여행 추천해줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for coordinator to reach done + input re-enabled (stream finished)
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(page.locator("#chat-input")).not.toBeDisabled({
+      timeout: 5_000,
+    });
+
+    // Verify the AI response from the first message is present
+    await expect(page.locator("#chat-messages")).toContainText(
+      "도쿄 여행을 도와드릴게요."
+    );
+
+    // --- Second message: trigger conversation reset ---
+    await page.fill("#chat-input", "대화 초기화해줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for the SSE stream to finish (input re-enabled)
+    await expect(page.locator("#chat-input")).not.toBeDisabled({
+      timeout: 10_000,
+    });
+
+    // session_reset clears #chat-messages (innerHTML = '')
+    // — the first message's AI text must no longer be present
+    await expect(page.locator("#chat-messages")).not.toContainText(
+      "도쿄 여행을 도와드릴게요."
+    );
+
+    // All agent cards must be idle (resetAgentCards() was called by _handleSessionReset)
+    await expandAgentPanel(page);
+    const agentIds = [
+      "coordinator",
+      "planner",
+      "place_scout",
+      "hotel_finder",
+      "flight_finder",
+      "budget_analyst",
+      "secretary",
+    ];
+    for (const id of agentIds) {
+      await expect(page.locator(`[data-agent="${id}"]`)).toHaveClass(
+        /agent-idle/,
+        { timeout: 5_000 }
+      );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SSE reconnect + session state restore (Task #75)
 // ---------------------------------------------------------------------------
 

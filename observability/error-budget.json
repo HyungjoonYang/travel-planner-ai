@@ -7,10 +7,10 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 119,
-    "successful_runs": 114,
+    "total_runs": 120,
+    "successful_runs": 115,
     "failed_runs": 0,
-    "success_rate": 1.0,
+    "success_rate": 0.9583,
     "budget_remaining": 1.0,
     "status": "HEALTHY"
   },
@@ -653,8 +653,8 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "monitor-2026-04-05-1726",
-    "task": "monitor",
+    "run_id": "2026-04-05-2200",
+    "task": "#83 - E2E: weather forecast + conversation reset Playwright scenarios",
     "result": "success",
     "tests_passed": 1438,
     "tests_total": 1438
