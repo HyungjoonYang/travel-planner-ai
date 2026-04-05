@@ -29,7 +29,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -42,6 +42,7 @@ class Intent(BaseModel):
     expense_name: Optional[str] = None
     expense_amount: Optional[float] = None
     expense_category: Optional[str] = None
+    place_index: Optional[int] = None  # 1-based place index for remove_place
     raw_message: str = ""
 
 
@@ -144,7 +145,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -164,6 +165,8 @@ Return a JSON object with these fields:
 - Use action "get_weather" when user wants to know the weather forecast for a destination or trip dates (e.g. "도쿄 날씨 어때?", "여행 기간 날씨 알려줘", "파리 날씨 예보", "weather forecast for Tokyo")
 - Use action "add_day_note" when user wants to append a note or memo to a specific day of the itinerary (e.g. "1일차에 메모 추가해줘", "Day 2에 '우산 챙기기' 노트 달아줘", "3일차 노트: 환전 필요", "add note to day 1"); set day_number to the referenced day number and query to the note text
 - Use action "suggest_improvements" when user asks for suggestions, improvements, or feedback on their current travel plan (e.g. "개선할 점 있어?", "추천 사항 있어?", "어떻게 더 좋게 할 수 있을까?", "any suggestions?", "how to improve?", "what would you recommend changing?", "더 좋은 방법 있어?", "계획 피드백 줘")
+- Use action "remove_place" when user wants to remove/delete a specific place from a day's itinerary (e.g. "1일차 첫 번째 장소 삭제", "Day 2에서 센소지 빼줘", "3일차에서 루브르 박물관 제거", "remove Senso-ji from day 2", "day 1 first place delete"); set day_number to the referenced day, query to the place name if mentioned, and place_index to the 1-based position if an ordinal is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2, "마지막" → -1)
+- place_index: 1-based index of the place to remove within the day's places list, if an ordinal position is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2); null if removing by name or unspecified
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -325,6 +328,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "suggest_improvements":
             async for event in self._handle_suggest_improvements(intent, session):
+                yield _track_and_collect(event)
+        elif intent.action == "remove_place":
+            async for event in self._handle_remove_place(intent, session, db):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -2288,6 +2294,198 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": "노트를 추가하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
+
+    async def _handle_remove_place(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Remove a place from a specific day's itinerary.
+
+        Matches by place name (query, partial case-insensitive) or 1-based index
+        (place_index). Emits day_update after removal. Graceful fallback when no
+        plan exists or place is not found.
+        """
+        day_number = intent.day_number or 1
+        place_name = intent.query
+        place_index = intent.place_index  # 1-based
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": f"Day {day_number}에서 장소 제거 중..."},
+        }
+        await asyncio.sleep(0)
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    TravelPlan as TravelPlanModel,
+                )
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is None:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                    }
+                    return
+
+                days = (
+                    db.query(DayItineraryModel)
+                    .filter(DayItineraryModel.travel_plan_id == plan_id)
+                    .order_by(DayItineraryModel.date)
+                    .all()
+                )
+
+                day_idx = day_number - 1
+                if not days or day_idx >= len(days) or day_idx < 0:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_number}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획에 Day {day_number}이 없습니다."},
+                    }
+                    return
+
+                day = days[day_idx]
+                places = sorted(day.places, key=lambda x: x.order)
+
+                target_place = None
+                if place_name:
+                    name_lower = place_name.lower()
+                    for p in places:
+                        if name_lower in p.name.lower():
+                            target_place = p
+                            break
+                elif place_index is not None:
+                    actual_idx = len(places) + place_index if place_index < 0 else place_index - 1
+                    if 0 <= actual_idx < len(places):
+                        target_place = places[actual_idx]
+                elif places:
+                    target_place = places[0]
+
+                if target_place is None:
+                    not_found = place_name or (f"#{place_index}" if place_index else "장소")
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"'{not_found}' 장소를 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_number}에서 '{not_found}'을 찾을 수 없습니다."},
+                    }
+                    return
+
+                removed_name = target_place.name
+                db.delete(target_place)
+                db.commit()
+                db.refresh(day)
+
+                places_data = [
+                    {
+                        "name": p.name,
+                        "category": p.category,
+                        "address": p.address,
+                        "estimated_cost": p.estimated_cost,
+                        "ai_reason": p.ai_reason,
+                        "order": p.order,
+                    }
+                    for p in sorted(day.places, key=lambda x: x.order)
+                ]
+                day_data = {
+                    "day_number": day_number,
+                    "date": day.date.isoformat(),
+                    "notes": day.notes,
+                    "transport": day.transport,
+                    "places": places_data,
+                }
+
+                yield {"type": "day_update", "data": day_data}
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_number}에서 '{removed_name}' 제거 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_number}에서 '{removed_name}'을 제거했습니다."},
+                }
+
+            except Exception as exc:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "error", "message": "장소 제거 실패"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"장소 제거 중 오류가 발생했습니다: {exc}"},
+                }
+        else:
+            # In-memory plan update
+            last_plan = session.last_plan
+            if last_plan:
+                days = last_plan.get("days", [])
+                day_idx = day_number - 1
+                if 0 <= day_idx < len(days):
+                    day = days[day_idx]
+                    places = day.get("places", [])
+
+                    target_idx = None
+                    if place_name:
+                        name_lower = place_name.lower()
+                        for i, p in enumerate(places):
+                            if name_lower in p.get("name", "").lower():
+                                target_idx = i
+                                break
+                    elif place_index is not None:
+                        actual_idx = len(places) + place_index if place_index < 0 else place_index - 1
+                        if 0 <= actual_idx < len(places):
+                            target_idx = actual_idx
+                    elif places:
+                        target_idx = 0
+
+                    if target_idx is not None:
+                        removed = places.pop(target_idx)
+                        removed_name = removed.get("name", "장소")
+                        yield {"type": "day_update", "data": day}
+                        yield {
+                            "type": "agent_status",
+                            "data": {"agent": "planner", "status": "done", "message": f"Day {day_number}에서 '{removed_name}' 제거 완료!"},
+                        }
+                        yield {
+                            "type": "chat_chunk",
+                            "data": {"text": f"Day {day_number}에서 '{removed_name}'을 제거했습니다 (미저장 — 저장 후 영구 보관됩니다)."},
+                        }
+                        return
+                    else:
+                        not_found = place_name or (f"#{place_index}" if place_index else "장소")
+                        yield {
+                            "type": "agent_status",
+                            "data": {"agent": "planner", "status": "error", "message": f"'{not_found}' 장소를 찾을 수 없습니다"},
+                        }
+                        yield {
+                            "type": "chat_chunk",
+                            "data": {"text": f"Day {day_number}에서 '{not_found}'을 찾을 수 없습니다."},
+                        }
+                        return
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": "장소 제거 완료"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "장소를 제거하려면 먼저 여행 계획을 만들거나 저장해주세요."},
             }
 
     @staticmethod

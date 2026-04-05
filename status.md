@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T27:00:00Z (Evolve Run #111)
-Run count: 126
+Last run: 2026-04-05T28:00:00Z (Evolve Run #112)
+Run count: 127
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 87
+Tasks completed: 88
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #88 Chat: remove_place intent — remove a place from a day's itinerary via chat
+Next planned: #89 Chat: add_place intent — append a custom place to a specific day via chat
 
 ## LTES Snapshot
 
-- Latency: 23950ms (evolve run total; pytest 1473 tests in 23.95s)
-- Traffic: 42 commits today (2026-04-05)
-- Errors: 0 test failures (1473/1473 pass), error_rate=0.0%
-- Saturation: 4 tasks ready
+- Latency: 23580ms (evolve run total; pytest 1482 tests in 23.58s)
+- Traffic: 43 commits today (2026-04-05)
+- Errors: 0 test failures (1482/1482 pass), error_rate=0.0%
+- Saturation: 3 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #88 Chat: remove_place intent — remove a place from a day's itin
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #112 — 2026-04-05T28:00:00Z
+- **Task**: #88 - Chat: `remove_place` intent — remove a place from a day's itinerary via chat
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1482/1482 passed (9 new: TestRemovePlaceIntent — remove by name, remove by index, remove last place with -1 index, in-memory and DB-backed plan support, planner agent working→done, graceful fallback when no plan, graceful fallback when place not found, day_update SSE emission)
+- **Files changed**: src/app/chat.py, tests/test_chat.py (+185/-1)
+- **Builder note**: Added place_index Optional[int] field to Intent model (1-based, supports negative for last). Handler matches by name (query, partial case-insensitive) or index; supports both in-memory last_plan and DB-backed plans (DayItinerary places). Emits day_update after removal, planner agent transitions working→done. Graceful fallback when no plan or place not found (chat_chunk with helpful message).
+- **LTES**: L=23580ms T=1 commit E=0.0% S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #111 — 2026-04-05T27:00:00Z
 - **Task**: #87 - Chat frontend: `plan_suggestions` SSE handler — render improvement suggestions panel
