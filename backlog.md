@@ -12,18 +12,43 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #80 - E2E: copy_plan + list_expenses + expense panel Playwright scenarios [test]
-  - ref: markdowns/feat-chat-dashboard.md
-  - depends: #76, #77, #78
-  - files: e2e/chat.spec.ts
-  - done: test 1 mocks expense_list SSE event, verifies .expense-panel rendered with rows; test 2 mocks plan_saved from copy_plan intent, verifies new plan card appears in dashboard; both use route mocking
-  - gh: #92
-
 - [ ] #81 - Chat: conversation reset — clear history without new session [improvement]
   - ref: markdowns/feat-chat-dashboard.md (session management)
   - files: src/app/chat.py, src/app/routers/chat.py, src/app/static/chat.js, tests/test_chat.py
   - done: DELETE /chat/sessions/{id}/messages endpoint clears conversation history in DB; _handle_reset_conversation emits session_reset SSE event; chat.js clears chat bubble list + resets all agent cards to idle on session_reset; 2+ tests
   - gh: #93
+
+- [ ] #82 - Chat frontend: Weather forecast panel [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #79
+  - files: src/app/chat.py, src/app/static/chat.js, src/app/static/index.html, tests/test_chat.py
+  - done: backend emits `weather_data` SSE event type (separate from search_results); `.weather-panel` renders city name + forecast rows; persists across messages; 2+ unit tests
+  - gh: #98
+
+- [ ] #83 - E2E: weather forecast + conversation reset Playwright scenarios [test]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #81, #82
+  - files: e2e/chat.spec.ts
+  - done: test 1 mocks weather_data SSE, verifies .weather-panel renders; test 2 mocks session_reset SSE, verifies chat cleared + agents idle; both use route mocking
+  - gh: #99
+
+- [ ] #84 - Chat: `add_day_note` intent handler — append note to a specific day [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: intent extracts day_number + note text; updates DayItinerary.notes in DB if plan saved; emits day_update SSE; planner agent activates; 2+ tests
+  - gh: #100
+
+- [ ] #85 - Chat: budget bar auto-refresh on expense changes [improvement]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: after add/update/delete_expense, re-emit plan_update with refreshed budget_used + budget_pct; budget_analyst agent briefly activates; 2+ tests
+  - gh: #101
+
+- [ ] #86 - Chat: `suggest_improvements` intent — AI-powered plan improvement suggestions [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: intent recognized from "any suggestions?" / "how to improve?"; Gemini reviews plan + history; streams response via chat_chunk; place_scout + budget_analyst activate; read-only (no plan changes); 2+ tests
+  - gh: #102
 
 ## Blocked
 
@@ -120,6 +145,7 @@ _(없음)_
 - [x] #78 - Chat frontend: Expenses panel in dashboard — dedicated expense list section [feature] — 2026-04-05
 - [x] #77 - Chat: `copy_plan` intent handler — duplicate a saved plan via chat [feature] — 2026-04-05
 - [x] #79 - Chat: `get_weather` intent handler — fetch weather forecast for trip destination [feature] — 2026-04-05
+- [x] #80 - E2E: copy_plan + list_expenses + expense panel Playwright scenarios [test] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -132,5 +158,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 79 done, 2 ready (0 in progress)
+- Total tasks: 80 done, 6 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
