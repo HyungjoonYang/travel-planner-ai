@@ -4213,3 +4213,84 @@ class TestDeleteExpense:
         assert intent.action == "delete_expense"
         assert intent.expense_name == "식사"
         assert intent.expense_category == "food"
+
+
+# ---------------------------------------------------------------------------
+# Task #70: GET /chat/sessions/{id} returns last 10 messages from DB
+# ---------------------------------------------------------------------------
+
+class TestGetSessionMessageHistoryFromDB:
+    """GET /chat/sessions/{id} must return last 10 messages from DB in message_history."""
+
+    def test_get_session_message_history_field_present(self, client):
+        """GET /chat/sessions/{id} response has message_history field."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        resp = client.get(f"/chat/sessions/{session_id}")
+        assert "message_history" in resp.json()
+
+    def test_get_session_message_history_empty_before_messages(self, client):
+        """Fresh session with no DB messages returns empty message_history."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        resp = client.get(f"/chat/sessions/{session_id}")
+        assert resp.json()["message_history"] == []
+
+    def test_get_session_returns_db_messages_after_exchange(self, client):
+        """After a message exchange, GET session returns messages from DB."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "안녕하세요"},
+        )
+        resp = client.get(f"/chat/sessions/{session_id}")
+        history = resp.json()["message_history"]
+        # At least the user message should appear
+        assert any(m["role"] == "user" for m in history)
+
+    def test_get_session_message_history_has_role_and_content(self, client):
+        """Each entry in message_history has role and content keys."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "안녕하세요"},
+        )
+        history = client.get(f"/chat/sessions/{session_id}").json()["message_history"]
+        for msg in history:
+            assert "role" in msg
+            assert "content" in msg
+
+    def test_get_session_message_history_user_content_matches(self, client):
+        """User message content in history matches the sent message."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        client.post(
+            f"/chat/sessions/{session_id}/messages",
+            json={"message": "도쿄 여행 계획"},
+        )
+        history = client.get(f"/chat/sessions/{session_id}").json()["message_history"]
+        user_msgs = [m for m in history if m["role"] == "user"]
+        assert any("도쿄 여행 계획" in m["content"] for m in user_msgs)
+
+    def test_get_session_message_history_limited_to_10(self, client):
+        """GET /chat/sessions/{id} returns at most 10 messages from DB."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+
+        # Send 6 messages via endpoint (creates 12 DB rows: 6 user + 6 assistant)
+        for i in range(6):
+            client.post(
+                f"/chat/sessions/{session_id}/messages",
+                json={"message": f"메시지 {i}"},
+            )
+        history = client.get(f"/chat/sessions/{session_id}").json()["message_history"]
+        assert len(history) <= 10
+
+    def test_get_session_message_history_newest_messages_returned(self, client):
+        """When more than 10 DB messages exist, the newest are returned."""
+        session_id = client.post("/chat/sessions").json()["session_id"]
+        for i in range(6):
+            client.post(
+                f"/chat/sessions/{session_id}/messages",
+                json={"message": f"메시지{i}"},
+            )
+        history = client.get(f"/chat/sessions/{session_id}").json()["message_history"]
+        # Last user message should be in history
+        contents = [m["content"] for m in history if m["role"] == "user"]
+        assert any("메시지5" in c for c in contents)

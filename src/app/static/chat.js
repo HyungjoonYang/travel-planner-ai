@@ -62,9 +62,33 @@ async function restoreSessionState() {
     if (data.last_plan) {
       handlePlanUpdate(data.last_plan);
     }
+    // Restore message bubbles from DB history
+    if (data.message_history && data.message_history.length > 0) {
+      _restoreMessageBubbles(data.message_history);
+    }
   } catch (e) {
     console.warn('[chat] restoreSessionState failed:', e);
   }
+}
+
+// Prepend historical chat bubbles into #chat-messages.
+// Skips if already restored (idempotent via data-restored attribute).
+function _restoreMessageBubbles(history) {
+  const messagesEl = document.getElementById('chat-messages');
+  if (!messagesEl) return;
+  // Idempotent: skip if we already prepended restored bubbles
+  if (messagesEl.querySelector('.chat-bubble[data-restored]')) return;
+
+  const fragment = document.createDocumentFragment();
+  for (const msg of history) {
+    const bubble = document.createElement('div');
+    bubble.className = msg.role === 'user' ? 'chat-bubble chat-user' : 'chat-bubble chat-ai';
+    bubble.textContent = msg.content || '';
+    bubble.dataset.restored = '1';
+    fragment.appendChild(bubble);
+  }
+  messagesEl.insertBefore(fragment, messagesEl.firstChild);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 // ---------------------------------------------------------------------------
