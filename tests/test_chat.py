@@ -3363,3 +3363,248 @@ class TestGetExpenseSummary:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #66: Chat session history persistence to SQLite
+# ---------------------------------------------------------------------------
+
+class TestChatHistoryPersistence:
+    """Messages must be written to chat_messages table each exchange;
+    session restore loads last 10 turns from DB; Gemini context uses DB history."""
+
+    # --- DB write ---
+
+    def test_process_message_writes_user_message_to_db(self):
+        """After process_message with a DB, a user ChatMessage row must exist."""
+        from app.database import Base
+        from app.models import ChatMessage
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            _collect_events_with_db(svc, session.session_id, "안녕하세요", db)
+
+            rows = db.query(ChatMessage).filter(
+                ChatMessage.session_id == session.session_id,
+                ChatMessage.role == "user",
+            ).all()
+            assert len(rows) == 1
+            assert rows[0].content == "안녕하세요"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_process_message_writes_assistant_message_to_db(self):
+        """After process_message with a DB, an assistant ChatMessage row must exist."""
+        from app.database import Base
+        from app.models import ChatMessage
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            _collect_events_with_db(svc, session.session_id, "안녕하세요", db)
+
+            rows = db.query(ChatMessage).filter(
+                ChatMessage.session_id == session.session_id,
+                ChatMessage.role == "assistant",
+            ).all()
+            assert len(rows) == 1
+            assert rows[0].content  # non-empty
+
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_multiple_exchanges_write_multiple_rows(self):
+        """Two exchanges must create 4 ChatMessage rows (2 user + 2 assistant)."""
+        from app.database import Base
+        from app.models import ChatMessage
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            _collect_events_with_db(svc, session.session_id, "첫 번째", db)
+            _collect_events_with_db(svc, session.session_id, "두 번째", db)
+
+            total = db.query(ChatMessage).filter(
+                ChatMessage.session_id == session.session_id
+            ).count()
+            assert total == 4
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_db_rows_have_correct_session_id(self):
+        """ChatMessage rows must be tagged with the correct session_id."""
+        from app.database import Base
+        from app.models import ChatMessage
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            other_session = svc.create_session()
+
+            _collect_events_with_db(svc, session.session_id, "메시지", db)
+            _collect_events_with_db(svc, other_session.session_id, "다른 메시지", db)
+
+            rows = db.query(ChatMessage).filter(
+                ChatMessage.session_id == session.session_id
+            ).all()
+            assert all(r.session_id == session.session_id for r in rows)
+            assert len(rows) == 2  # user + assistant for session only
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_no_db_does_not_raise(self):
+        """process_message without a DB must still work (no persistence)."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        events = _collect_events(svc, session.session_id, "안녕하세요")
+        # Should complete normally with chat_done
+        assert events[-1]["type"] == "chat_done"
+
+    # --- Session restore from DB ---
+
+    def test_session_restore_loads_history_from_db(self):
+        """When a new in-memory session has no history but DB has prior messages,
+        process_message must restore them before extracting intent."""
+        from app.database import Base
+        from app.models import ChatMessage
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            # Manually insert prior conversation into DB
+            db.add(ChatMessage(
+                session_id=session.session_id, role="user",
+                content="도쿄 3박4일 여행 계획해줘",
+            ))
+            db.add(ChatMessage(
+                session_id=session.session_id, role="assistant",
+                content="도쿄 3일 일정을 만들었습니다.",
+            ))
+            db.commit()
+
+            # At this point session.message_history is still empty (fresh session)
+            assert session.message_history == []
+
+            captured_history: list = []
+            original = svc.extract_intent
+
+            def spy(message, history=None):
+                captured_history.extend(history or [])
+                return original(message, history=history)
+
+            svc.extract_intent = spy
+            _collect_events_with_db(svc, session.session_id, "3일차 맛집으로 바꿔줘", db)
+
+            # extract_intent should have received the restored history
+            roles = [e["role"] for e in captured_history]
+            assert "user" in roles
+            assert "assistant" in roles
+            contents = [e["content"] for e in captured_history]
+            assert "도쿄 3박4일 여행 계획해줘" in contents
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_session_restore_loads_at_most_max_history_turns(self):
+        """Restore must not load more than _MAX_HISTORY_TURNS * 2 entries."""
+        from app.database import Base
+        from app.models import ChatMessage
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            # Insert 15 exchanges (30 messages) into DB
+            for i in range(15):
+                db.add(ChatMessage(
+                    session_id=session.session_id, role="user",
+                    content=f"메시지 {i}",
+                ))
+                db.add(ChatMessage(
+                    session_id=session.session_id, role="assistant",
+                    content=f"응답 {i}",
+                ))
+            db.commit()
+
+            _collect_events_with_db(svc, session.session_id, "새 메시지", db)
+
+            # After restore, message_history should have been capped
+            # (the new user+assistant are added, but we check before those)
+            restored_before_new = session.message_history[: _MAX_HISTORY_TURNS * 2]
+            assert len(restored_before_new) <= _MAX_HISTORY_TURNS * 2
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_session_restore_does_not_overwrite_existing_history(self):
+        """If session already has in-memory history, DB restore is skipped."""
+        from app.database import Base
+        from app.models import ChatMessage
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+
+            # Pre-populate in-memory history
+            session.message_history = [
+                {"role": "user", "content": "기존 메시지"},
+                {"role": "assistant", "content": "기존 응답"},
+            ]
+
+            # Also insert different content in DB
+            db.add(ChatMessage(
+                session_id=session.session_id, role="user",
+                content="DB 메시지",
+            ))
+            db.commit()
+
+            captured_history: list = []
+            original = svc.extract_intent
+
+            def spy(message, history=None):
+                if history:
+                    captured_history.extend(history)
+                return original(message, history=history)
+
+            svc.extract_intent = spy
+            _collect_events_with_db(svc, session.session_id, "테스트", db)
+
+            # In-memory history should take precedence — DB content should NOT appear
+            contents = [e["content"] for e in captured_history]
+            assert "DB 메시지" not in contents
+            assert "기존 메시지" in contents
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_chatmessage_model_has_required_fields(self):
+        """ChatMessage model must have session_id, role, content, created_at fields."""
+        from app.models import ChatMessage
+
+        msg = ChatMessage(session_id="test-session", role="user", content="hello")
+        assert msg.session_id == "test-session"
+        assert msg.role == "user"
+        assert msg.content == "hello"

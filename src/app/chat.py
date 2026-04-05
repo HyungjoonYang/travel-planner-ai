@@ -180,6 +180,25 @@ Return a JSON object with these fields:
             yield {"type": "error", "data": {"message": "Session not found or expired"}}
             return
 
+        # Restore history from DB on first exchange (when in-memory history is empty)
+        if db is not None and not session.message_history:
+            from app.models import ChatMessage
+            try:
+                db_msgs = (
+                    db.query(ChatMessage)
+                    .filter(ChatMessage.session_id == session_id)
+                    .order_by(ChatMessage.created_at.desc())
+                    .limit(_MAX_HISTORY_TURNS * 2)
+                    .all()
+                )
+                if db_msgs:
+                    session.message_history = [
+                        {"role": m.role, "content": m.content}
+                        for m in reversed(db_msgs)
+                    ]
+            except Exception:
+                pass  # history restore is best-effort
+
         def _track(event: dict) -> dict:
             """Update session state and return the event unchanged."""
             if event["type"] == "agent_status":
@@ -272,11 +291,23 @@ Return a JSON object with these fields:
             }
 
         # Append assistant response to message_history and cap at _MAX_HISTORY_TURNS
-        if assistant_chunks:
-            session.message_history.append({"role": "assistant", "content": " ".join(assistant_chunks)})
+        assistant_text = " ".join(assistant_chunks) if assistant_chunks else ""
+        if assistant_text:
+            session.message_history.append({"role": "assistant", "content": assistant_text})
         max_entries = _MAX_HISTORY_TURNS * 2
         if len(session.message_history) > max_entries:
             session.message_history = session.message_history[-max_entries:]
+
+        # Persist messages to DB
+        if db is not None:
+            from app.models import ChatMessage
+            try:
+                db.add(ChatMessage(session_id=session_id, role="user", content=message))
+                if assistant_text:
+                    db.add(ChatMessage(session_id=session_id, role="assistant", content=assistant_text))
+                db.commit()
+            except Exception:
+                db.rollback()
 
         yield {"type": "chat_done", "data": {}}
 

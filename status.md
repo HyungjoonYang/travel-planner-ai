@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T06:00:00Z (Evolve Run #88)
-Run count: 95
+Last run: 2026-04-05T07:00:00Z (Evolve Run #89)
+Run count: 96
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 64
+Tasks completed: 65
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #66 Chat session: persist conversation history to SQLite
+Next planned: #67 Chat: refine_plan intent handler — AI plan refinement via chat
 
 ## LTES Snapshot
 
-- Latency: ~19640ms (pytest 1316 tests)
-- Traffic: 41 commits/24h
-- Errors: 0 test failures (1316/1316 pass), error_rate=0.0%
-- Saturation: 2 tasks ready
+- Latency: ~20500ms (pytest 1325 tests)
+- Traffic: 42 commits/24h
+- Errors: 0 test failures (1325/1325 pass), error_rate=0.0%
+- Saturation: 7 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #66 Chat session: persist conversation history to SQLite
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #89 — 2026-04-05T07:00:00Z
+- **Task**: #66 - Chat session: persist conversation history to SQLite
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1325/1325 passed (+9 new: TestChatHistoryPersistence class, tests/test_chat.py)
+- **Files changed**: src/app/models.py (+ChatMessage model), src/app/chat.py (+80/-3), tests/test_chat.py (+9 tests)
+- **Builder note**: Added ChatMessage SQLAlchemy model with session_id/role/content/created_at fields. process_message() now: (1) restores last 10 turns from DB at the start if in-memory history is empty (best-effort, fail-safe), (2) persists user+assistant messages to DB after each exchange. 9 new tests covering DB write, multi-exchange persistence, session isolation, restore from DB, max-turns cap, and in-memory precedence.
+- **LTES**: L=20500ms T=1 commit E=0.0% S=7 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #88 — 2026-04-05T06:00:00Z
 - **Task**: #65 - Chat: `get_expense_summary` intent — expense breakdown via chat

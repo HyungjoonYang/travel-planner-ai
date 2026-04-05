@@ -6,20 +6,43 @@
 
 ## In Progress
 
-_(없음)_
-
-## Ready (우선순위 순)
-
-### Phase 10: Chat + Multi-Agent Dashboard (continued)
-- [ ] #66 - Chat session: persist conversation history to SQLite [improvement]
-  - ref: markdowns/feat-chat-dashboard.md (SSE reconnect + session restore)
-  - files: src/app/models.py, src/app/chat.py, tests/test_chat.py
-  - done: messages written to DB each exchange; session restore loads last 10 from DB; Gemini context uses DB history; DB write/read tests
-  - gh: #57
-
 ### Phase 9: User Experience & Polish (remaining)
 - [ ] #38 - Bulk expense import via JSON (`POST /plans/{id}/expenses/bulk`; accepts list of ExpenseCreate; atomic — all or nothing; returns created list + count) [feature]
   - gh: #8
+
+## Ready
+
+### Phase 10: Chat + Multi-Agent Dashboard (continued)
+- [ ] #67 - Chat: `refine_plan` intent handler — AI plan refinement via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: `refine_plan` added to intent action list; calls GeminiService refine equivalent with current plan; Planner agent_status working→done; emits plan_update with refined plan; chat_chunk summary; tests for DB update + agent events
+  - gh: #63
+
+- [ ] #68 - Chat: `delete_expense` intent handler [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: intent extracted for "마지막 지출 삭제" / "식비 항목 삭제"; expense deleted from DB by name/category; expense_summary re-emitted; Secretary agent_status events; tests cover DB delete + error when not found
+  - gh: #64
+
+- [ ] #69 - Chat dashboard: Place Scout results dedicated persistent section [improvement]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/static/chat.js, src/app/static/index.html, tests/test_frontend.py
+  - done: `_lastPlaces` cache (mirrors `_lastHotels`/`_lastFlights`); `#places-section` rendered below Hotels/Flights; persists across plan_update calls; `_refreshPlanSearchSections` updated to include places; tests in test_frontend.py
+  - gh: #65
+
+- [ ] #70 - Chat: restore message bubbles from DB after SSE reconnect [improvement]
+  - ref: markdowns/feat-chat-dashboard.md (SSE reconnect + session restore)
+  - depends: #66
+  - files: src/app/routers/chat.py, src/app/static/chat.js
+  - done: GET /chat/sessions/{id} returns last 10 messages from DB in `message_history` field; `restoreSessionState()` renders them as chat bubbles (user/assistant); tests for endpoint + frontend rendering
+  - gh: #66
+
+- [ ] #71 - E2E: Chat expense workflow + update_plan Playwright scenarios [test]
+  - ref: markdowns/feat-chat-dashboard.md (e2e test cases)
+  - files: e2e/chat.spec.ts
+  - done: SSE-mocked scenario for `expense_added` event renders expense row in plan panel; `expense_summary` event renders budget breakdown; `plan_update` after `update_plan` reflects new metadata (destination/dates); 3+ new test scenarios added
+  - gh: #67
 
 ## Blocked
 
@@ -101,6 +124,7 @@ _(없음)_
 - [x] #63 - Chat: `add_expense` intent handler + `expense_added` SSE frontend [feature] — 2026-04-05
 - [x] #64 - Chat: `update_plan` intent handler — edit plan metadata via chat [feature] — 2026-04-05
 - [x] #65 - Chat: `get_expense_summary` intent — expense breakdown via chat [feature] — 2026-04-05
+- [x] #66 - Chat session: persist conversation history to SQLite [improvement] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -112,5 +136,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 64 done, 2 ready
+- Total tasks: 65 done, 7 ready (1 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
