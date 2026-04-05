@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -103,6 +103,15 @@ class ChatService:
             return True
         return False
 
+    def reset_conversation(self, session_id: str) -> bool:
+        """Clear in-memory message history for a session. Returns True if session exists."""
+        session = self.get_session(session_id)
+        if session is None:
+            return False
+        session.history.clear()
+        session.message_history.clear()
+        return True
+
     # ------------------------------------------------------------------
     # Intent extraction
     # ------------------------------------------------------------------
@@ -134,7 +143,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -304,6 +313,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "get_weather":
             async for event in self._handle_get_weather(intent, session):
+                yield _track_and_collect(event)
+        elif intent.action == "reset_conversation":
+            async for event in self._handle_reset_conversation(session):
                 yield _track_and_collect(event)
         else:
             _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
@@ -2085,6 +2097,26 @@ Return a JSON object with these fields:
                 "type": "chat_chunk",
                 "data": {"text": f"날씨 조회 중 오류가 발생했습니다: {exc}"},
             }
+
+
+    async def _handle_reset_conversation(
+        self, session: "ChatSession"
+    ) -> AsyncGenerator[dict, None]:
+        """Clear in-memory conversation history and emit session_reset event."""
+        session.history.clear()
+        session.message_history.clear()
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "coordinator", "status": "done", "message": "대화 내역 초기화 완료"},
+        }
+        yield {
+            "type": "session_reset",
+            "data": {"message": "대화 내역이 초기화되었습니다."},
+        }
+        yield {
+            "type": "chat_chunk",
+            "data": {"text": "대화 내역을 초기화했습니다. 새로운 여행 계획을 시작해보세요!"},
+        }
 
 
 # Module-level singleton used by the chat router

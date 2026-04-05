@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #81 - Chat: conversation reset — clear history without new session [improvement]
-  - ref: markdowns/feat-chat-dashboard.md (session management)
-  - files: src/app/chat.py, src/app/routers/chat.py, src/app/static/chat.js, tests/test_chat.py
-  - done: DELETE /chat/sessions/{id}/messages endpoint clears conversation history in DB; _handle_reset_conversation emits session_reset SSE event; chat.js clears chat bubble list + resets all agent cards to idle on session_reset; 2+ tests
-  - gh: #93
-
 - [ ] #82 - Chat frontend: Weather forecast panel [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #79
@@ -146,6 +140,7 @@ _(없음)_
 - [x] #77 - Chat: `copy_plan` intent handler — duplicate a saved plan via chat [feature] — 2026-04-05
 - [x] #79 - Chat: `get_weather` intent handler — fetch weather forecast for trip destination [feature] — 2026-04-05
 - [x] #80 - E2E: copy_plan + list_expenses + expense panel Playwright scenarios [test] — 2026-04-05
+- [x] #81 - Chat: conversation reset — clear history without new session [improvement] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -158,5 +153,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 80 done, 6 ready (0 in progress)
+- Total tasks: 81 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
