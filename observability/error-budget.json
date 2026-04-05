@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 118,
-    "successful_runs": 113,
+    "total_runs": 119,
+    "successful_runs": 114,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -653,8 +653,8 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-05-0400",
-    "task": "#82 - Chat frontend: Weather forecast panel",
+    "run_id": "monitor-2026-04-05-1726",
+    "task": "monitor",
     "result": "success",
     "tests_passed": 1438,
     "tests_total": 1438
