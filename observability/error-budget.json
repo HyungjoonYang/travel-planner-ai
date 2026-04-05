@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 113,
-    "successful_runs": 108,
+    "total_runs": 114,
+    "successful_runs": 109,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 1.0,
@@ -653,10 +653,10 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "monitor-2026-04-05-1746",
-    "task": "monitor",
+    "run_id": "2026-04-05-1800",
+    "task": "#79 - Chat: get_weather intent handler — fetch weather forecast for trip destination",
     "result": "success",
-    "tests_passed": 1423,
-    "tests_total": 1423
+    "tests_passed": 1427,
+    "tests_total": 1427
   }
 }

@@ -24,6 +24,14 @@ class DestinationSearchResult(BaseModel):
     summary: str = ""
 
 
+class WeatherSearchResult(BaseModel):
+    destination: str
+    start_date: str = ""
+    end_date: str = ""
+    summary: str = ""
+    forecast: list[dict] = []
+
+
 class WebSearchService:
     MODEL = "gemini-3.0-flash"
 
@@ -101,4 +109,56 @@ Return ONLY the JSON object, no markdown, no extra text."""
             query=query,
             places=data.get("places", []),
             summary=data.get("summary", ""),
+        )
+
+    def search_weather(
+        self,
+        destination: str,
+        start_date: str = "",
+        end_date: str = "",
+    ) -> WeatherSearchResult:
+        """Search for weather forecast for a destination and date range."""
+        if not self._api_key:
+            raise ValueError("GEMINI_API_KEY is not configured")
+
+        date_clause = ""
+        if start_date and end_date:
+            date_clause = f" from {start_date} to {end_date}"
+        elif start_date:
+            date_clause = f" around {start_date}"
+
+        prompt = f"""Search the web for the weather forecast for {destination}{date_clause}.
+
+Return a JSON object with this exact structure:
+{{
+  "summary": "Overall weather summary for the trip period",
+  "forecast": [
+    {{
+      "date": "YYYY-MM-DD or date range",
+      "condition": "sunny|cloudy|rainy|snowy|etc",
+      "temperature_high": "high temperature with unit",
+      "temperature_low": "low temperature with unit",
+      "description": "Brief weather description"
+    }}
+  ]
+}}
+
+Return ONLY the JSON object, no markdown, no extra text."""
+
+        client = genai.Client(api_key=self._api_key)
+        response = client.models.generate_content(
+            model=self.MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+            ),
+        )
+
+        data = self._extract_json(response.text)
+        return WeatherSearchResult(
+            destination=destination,
+            start_date=start_date,
+            end_date=end_date,
+            summary=data.get("summary", ""),
+            forecast=data.get("forecast", []),
         )
