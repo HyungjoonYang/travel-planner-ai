@@ -2992,3 +2992,374 @@ class TestUpdatePlan:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #65: get_expense_summary intent handler
+# ---------------------------------------------------------------------------
+
+def _seed_plan_and_expenses(db, expenses):
+    """Insert a TravelPlan and a list of expenses; return plan_id."""
+    from app.models import Expense as ExpenseModel, TravelPlan as TravelPlanModel
+    from datetime import date as date_type
+
+    plan = TravelPlanModel(
+        destination="도쿄",
+        start_date=date_type(2026, 5, 1),
+        end_date=date_type(2026, 5, 5),
+        budget=500000.0,
+    )
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+
+    for exp in expenses:
+        row = ExpenseModel(
+            travel_plan_id=plan.id,
+            name=exp["name"],
+            amount=exp["amount"],
+            category=exp.get("category", ""),
+        )
+        db.add(row)
+    db.commit()
+    return plan.id
+
+
+class TestGetExpenseSummary:
+    """_handle_get_expense_summary must query DB expenses and emit expense_summary SSE."""
+
+    def test_get_expense_summary_activates_budget_analyst(self):
+        """get_expense_summary intent activates the budget_analyst agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="get_expense_summary", raw_message="얼마 썼어"
+        )):
+            events = _collect_events(svc, session.session_id, "얼마 썼어")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "budget_analyst" in agent_names
+
+    def test_get_expense_summary_no_db_emits_error(self):
+        """get_expense_summary without a DB session emits error."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="get_expense_summary", raw_message="얼마 썼어"
+        )):
+            events = _collect_events(svc, session.session_id, "얼마 썼어")
+
+        error_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["status"] == "error"
+        ]
+        assert len(error_events) >= 1
+
+    def test_get_expense_summary_no_saved_plan_emits_error(self):
+        """get_expense_summary without session.last_saved_plan_id emits error."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # Do NOT set session.last_saved_plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            error_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["status"] == "error"
+            ]
+            assert len(error_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_zero_expenses(self):
+        """When no expenses exist, emits expense_summary with total_spent=0 and expense_count=0."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            summary_events = [e for e in events if e["type"] == "expense_summary"]
+            assert len(summary_events) == 1
+            summary = summary_events[0]["data"]
+            assert summary["total_spent"] == 0
+            assert summary["expense_count"] == 0
+            assert summary["by_category"] == {}
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_emits_expense_summary_event(self):
+        """get_expense_summary emits exactly one expense_summary SSE event."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 30000.0, "category": "food"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            summary_events = [e for e in events if e["type"] == "expense_summary"]
+            assert len(summary_events) == 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_required_fields(self):
+        """expense_summary event must include plan_id, budget, total_spent, remaining, by_category, expense_count, over_budget."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            summary = next(e["data"] for e in events if e["type"] == "expense_summary")
+            for field in ("plan_id", "budget", "total_spent", "remaining", "by_category", "expense_count", "over_budget"):
+                assert field in summary, f"Missing field: {field}"
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_multi_expense_total(self):
+        """With multiple expenses, total_spent equals their sum."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 30000.0, "category": "food"},
+                {"name": "택시", "amount": 15000.0, "category": "transport"},
+                {"name": "입장료", "amount": 10000.0, "category": "activities"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            summary = next(e["data"] for e in events if e["type"] == "expense_summary")
+            assert summary["total_spent"] == 55000.0
+            assert summary["expense_count"] == 3
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_by_category_correct(self):
+        """by_category must aggregate amounts per category."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "점심", "amount": 20000.0, "category": "food"},
+                {"name": "저녁", "amount": 30000.0, "category": "food"},
+                {"name": "지하철", "amount": 5000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="카테고리별 지출"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "카테고리별 지출", db)
+
+            summary = next(e["data"] for e in events if e["type"] == "expense_summary")
+            assert summary["by_category"]["food"] == 50000.0
+            assert summary["by_category"]["transport"] == 5000.0
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_remaining_budget_correct(self):
+        """remaining must equal budget minus total_spent."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 100000.0, "category": "food"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 남았어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 남았어", db)
+
+            summary = next(e["data"] for e in events if e["type"] == "expense_summary")
+            # budget is 500000, spent is 100000
+            assert summary["remaining"] == 400000.0
+            assert summary["over_budget"] is False
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_over_budget_flag(self):
+        """over_budget must be True when total_spent > budget."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "호텔", "amount": 600000.0, "category": "accommodation"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            summary = next(e["data"] for e in events if e["type"] == "expense_summary")
+            assert summary["over_budget"] is True
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_budget_analyst_working_then_done(self):
+        """Budget analyst must transition working → done."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            ba_statuses = [
+                e["data"]["status"]
+                for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+            ]
+            assert "working" in ba_statuses
+            assert "done" in ba_statuses
+            assert ba_statuses.index("working") < ba_statuses.index("done")
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_emits_chat_chunk(self):
+        """get_expense_summary must emit at least one chat_chunk."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_for_expense(db)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            chunk_events = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chunk_events) >= 1
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_get_expense_summary_done_has_result_count(self):
+        """Budget analyst done event must include result_count equal to expense_count."""
+        from app.database import Base
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_plan_and_expenses(db, [
+                {"name": "식사", "amount": 20000.0, "category": "food"},
+                {"name": "교통", "amount": 10000.0, "category": "transport"},
+            ])
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="get_expense_summary", raw_message="얼마 썼어"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "얼마 썼어", db)
+
+            ba_done = next(
+                (e for e in events
+                 if e["type"] == "agent_status"
+                 and e["data"]["agent"] == "budget_analyst"
+                 and e["data"]["status"] == "done"),
+                None,
+            )
+            assert ba_done is not None
+            assert "result_count" in ba_done["data"]
+            assert ba_done["data"]["result_count"] == 2
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)

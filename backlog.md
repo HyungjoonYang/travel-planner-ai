@@ -11,12 +11,6 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-- [ ] #65 - Chat: `get_expense_summary` intent — expense breakdown via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md (Budget Analyst role)
-  - depends: #63
-  - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
-  - done: "얼마 썼어" returns total/remaining/category breakdown; Budget Analyst shows working→done; zero/multi-expense cases tested
-  - gh: #56
 - [ ] #66 - Chat session: persist conversation history to SQLite [improvement]
   - ref: markdowns/feat-chat-dashboard.md (SSE reconnect + session restore)
   - files: src/app/models.py, src/app/chat.py, tests/test_chat.py
@@ -106,6 +100,7 @@ _(없음)_
 - [x] #62 - Chat dashboard: Hotels & Flights dedicated result sections [feature] — 2026-04-05
 - [x] #63 - Chat: `add_expense` intent handler + `expense_added` SSE frontend [feature] — 2026-04-05
 - [x] #64 - Chat: `update_plan` intent handler — edit plan metadata via chat [feature] — 2026-04-05
+- [x] #65 - Chat: `get_expense_summary` intent — expense breakdown via chat [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -117,5 +112,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 63 done, 3 ready
+- Total tasks: 64 done, 2 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)
