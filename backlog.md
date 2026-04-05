@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #69 - Chat dashboard: Place Scout results dedicated persistent section [improvement]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/static/chat.js, src/app/static/index.html, tests/test_frontend.py
-  - done: `_lastPlaces` cache (mirrors `_lastHotels`/`_lastFlights`); `#places-section` rendered below Hotels/Flights; persists across plan_update calls; `_refreshPlanSearchSections` updated to include places; tests in test_frontend.py
-  - gh: #65
-
 - [ ] #70 - Chat: restore message bubbles from DB after SSE reconnect [improvement]
   - ref: markdowns/feat-chat-dashboard.md (SSE reconnect + session restore)
   - depends: #66
@@ -114,6 +108,7 @@ _(없음)_
 - [x] #66 - Chat session: persist conversation history to SQLite [improvement] — 2026-04-05
 - [x] #67 - Chat: `refine_plan` intent handler — AI plan refinement via chat [feature] — 2026-04-05
 - [x] #68 - Chat: `delete_expense` intent handler [feature] — 2026-04-05
+- [x] #69 - Chat dashboard: Place Scout results dedicated persistent section [improvement] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -126,5 +121,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 68 done, 4 ready (0 in progress)
+- Total tasks: 69 done, 2 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
