@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #68 - Chat: `delete_expense` intent handler [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: intent extracted for "마지막 지출 삭제" / "식비 항목 삭제"; expense deleted from DB by name/category; expense_summary re-emitted; Secretary agent_status events; tests cover DB delete + error when not found
-  - gh: #64
-
 - [ ] #69 - Chat dashboard: Place Scout results dedicated persistent section [improvement]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/static/chat.js, src/app/static/index.html, tests/test_frontend.py
@@ -119,6 +113,7 @@ _(없음)_
 - [x] #65 - Chat: `get_expense_summary` intent — expense breakdown via chat [feature] — 2026-04-05
 - [x] #66 - Chat session: persist conversation history to SQLite [improvement] — 2026-04-05
 - [x] #67 - Chat: `refine_plan` intent handler — AI plan refinement via chat [feature] — 2026-04-05
+- [x] #68 - Chat: `delete_expense` intent handler [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -131,5 +126,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 67 done, 4 ready (0 in progress)
+- Total tasks: 68 done, 4 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
