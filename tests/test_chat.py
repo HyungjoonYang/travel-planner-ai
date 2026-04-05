@@ -5547,3 +5547,218 @@ class TestClearSessionMessagesEndpoint:
         finally:
             app.dependency_overrides.clear()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #84: add_day_note intent handler
+# ---------------------------------------------------------------------------
+
+class TestAddDayNote:
+    """_handle_add_day_note: day_number + note text → updates DB notes, emits day_update."""
+
+    def test_add_day_note_activates_planner_agent(self):
+        """add_day_note must activate the planner agent (thinking then working)."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_day_note", day_number=1, query="우산 챙기기", raw_message="1일차에 우산 챙기기 노트 추가"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차에 우산 챙기기 노트 추가")
+
+        agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+        assert "planner" in agent_names
+
+    def test_add_day_note_planner_thinking_then_working_then_done(self):
+        """Planner must transition thinking → working → done for add_day_note."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_day_note", day_number=2, query="환전 필요", raw_message="2일차 환전 필요 메모"
+        )):
+            events = _collect_events(svc, session.session_id, "2일차 환전 필요 메모")
+
+        planner_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert "thinking" in planner_statuses
+        assert "working" in planner_statuses
+
+    def test_add_day_note_emits_day_update_with_in_memory_plan(self):
+        """add_day_note emits day_update when session has an in-memory last_plan."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "notes": "", "transport": "", "places": []},
+                {"date": "2026-05-02", "notes": "기존 메모", "transport": "", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_day_note", day_number=1, query="우산 챙기기", raw_message="1일차 노트"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 노트")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) >= 1
+
+    def test_add_day_note_day_update_contains_note_text(self):
+        """day_update data must include the appended note in notes field."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "days": [
+                {"date": "2026-06-01", "notes": "", "transport": "", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_day_note", day_number=1, query="에펠탑 야경 보기", raw_message="메모"
+        )):
+            events = _collect_events(svc, session.session_id, "메모")
+
+        day_update = next((e for e in events if e["type"] == "day_update"), None)
+        assert day_update is not None
+        assert "에펠탑 야경 보기" in day_update["data"]["notes"]
+
+    def test_add_day_note_appends_to_existing_notes(self):
+        """add_day_note appends to existing notes with a newline separator."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "뉴욕",
+            "days": [
+                {"date": "2026-07-01", "notes": "기존 메모", "transport": "", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_day_note", day_number=1, query="새 메모", raw_message="메모 추가"
+        )):
+            events = _collect_events(svc, session.session_id, "메모 추가")
+
+        day_update = next((e for e in events if e["type"] == "day_update"), None)
+        assert day_update is not None
+        notes = day_update["data"]["notes"]
+        assert "기존 메모" in notes
+        assert "새 메모" in notes
+
+    def test_add_day_note_updates_db_notes(self):
+        """add_day_note must update DayItinerary.notes in the database."""
+        from app.database import Base
+        from app.models import DayItinerary as DayItineraryModel, TravelPlan as TravelPlanModel
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            # Create a plan with a day itinerary in DB
+            plan = TravelPlanModel(
+                destination="도쿄",
+                start_date=date_type(2026, 5, 1),
+                end_date=date_type(2026, 5, 3),
+                budget=2000000.0,
+                interests="food",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day = DayItineraryModel(
+                travel_plan_id=plan.id,
+                date=date_type(2026, 5, 1),
+                notes="",
+            )
+            db.add(day)
+            db.commit()
+            db.refresh(day)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_day_note", day_number=1, query="환전 필요", raw_message="메모"
+            )):
+                _collect_events_with_db(svc, session.session_id, "메모", db)
+
+            db.refresh(day)
+            assert "환전 필요" in day.notes
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_day_note_db_emits_day_update(self):
+        """add_day_note with saved plan emits day_update SSE event."""
+        from app.database import Base
+        from app.models import DayItinerary as DayItineraryModel, TravelPlan as TravelPlanModel
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="바르셀로나",
+                start_date=date_type(2026, 8, 1),
+                end_date=date_type(2026, 8, 3),
+                budget=1500000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day = DayItineraryModel(
+                travel_plan_id=plan.id,
+                date=date_type(2026, 8, 1),
+                notes="",
+            )
+            db.add(day)
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="add_day_note", day_number=1, query="사그라다 파밀리아 예약 확인", raw_message="메모"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "메모", db)
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) >= 1
+            assert "사그라다 파밀리아 예약 확인" in day_updates[0]["data"]["notes"]
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_add_day_note_no_plan_emits_chat_chunk(self):
+        """add_day_note with no plan returns a helpful chat_chunk message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_day_note", day_number=1, query="메모", raw_message="메모"
+        )):
+            events = _collect_events(svc, session.session_id, "메모")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+    def test_add_day_note_intent_accepted_by_model(self):
+        """Intent model must accept add_day_note as a valid action."""
+        intent = Intent(action="add_day_note", day_number=3, query="메모 내용", raw_message="3일차 메모")
+        assert intent.action == "add_day_note"
+        assert intent.day_number == 3
+        assert intent.query == "메모 내용"

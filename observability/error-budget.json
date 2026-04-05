@@ -7,10 +7,10 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 120,
-    "successful_runs": 115,
+    "total_runs": 121,
+    "successful_runs": 116,
     "failed_runs": 0,
-    "success_rate": 0.9583,
+    "success_rate": 0.9587,
     "budget_remaining": 1.0,
     "status": "HEALTHY"
   },
@@ -653,10 +653,10 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-05-2200",
-    "task": "#83 - E2E: weather forecast + conversation reset Playwright scenarios",
+    "run_id": "2026-04-05-2300",
+    "task": "#84 - Chat: `add_day_note` intent handler — append note to a specific day",
     "result": "success",
-    "tests_passed": 1438,
-    "tests_total": 1438
+    "tests_passed": 1447,
+    "tests_total": 1447
   }
 }
