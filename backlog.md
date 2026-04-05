@@ -11,11 +11,6 @@ _(없음)_
 ## Ready (우선순위 순)
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-- [ ] #62 - Chat dashboard: Hotels & Flights dedicated result sections [feature]
-  - ref: markdowns/feat-chat-dashboard.md (Dashboard Layout § Hotels / Flights)
-  - files: src/app/static/index.html, src/app/static/chat.js
-  - done: Hotels/Flights sections appear in plan dashboard after search; cards show name/price/rating; sections hidden when empty; test covers rendering
-  - gh: #53
 - [ ] #63 - Chat: `add_expense` intent handler + `expense_added` SSE frontend [feature]
   - ref: CLAUDE.md User Story #5 (비용 관리)
   - files: src/app/chat.py, src/app/static/chat.js, tests/test_chat.py
@@ -119,6 +114,7 @@ _(없음)_
 - [x] #59 - Chat: `delete_plan` intent handler — delete a saved plan via chat [feature] — 2026-04-04
 - [x] #60 - Chat: `view_plan` intent handler — load saved plan into dashboard by name/ID [feature] — 2026-04-04
 - [x] #61 - Reporter: weekly Discussion summary — auto-post Phase progress as GitHub Discussion [infra] — 2026-04-04
+- [x] #62 - Chat dashboard: Hotels & Flights dedicated result sections [feature] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -130,5 +126,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 60 done, 6 ready
+- Total tasks: 61 done, 5 ready
 - Phase: 10 (Chat + Multi-Agent Dashboard)

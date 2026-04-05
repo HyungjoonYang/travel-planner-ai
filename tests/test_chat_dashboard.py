@@ -506,3 +506,159 @@ class TestCalendarExportedEventShape:
         data = self._get_calendar_exported_data()
         assert "plan_id" in data
         assert data["plan_id"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Task #62: Hotels & Flights dedicated result sections
+# Verify search_results event carries all fields the frontend card renderer needs.
+# ---------------------------------------------------------------------------
+
+class TestHotelsDedicatedSection:
+    """Hotels search_results event must include price_range and rating for card rendering."""
+
+    def _get_hotels_data(self):
+        mock_hotel = MagicMock()
+        mock_hotel.search_hotels.return_value = _fake_hotels()
+        svc = _make_svc(hotel=mock_hotel)
+        session = svc.create_session()
+        intent = Intent(action="search_hotels", destination="도쿄", raw_message="호텔 찾아줘")
+        with patch.object(svc, "extract_intent", return_value=intent):
+            events = _collect(svc, session.session_id, "호텔 찾아줘")
+        sr = [e for e in events if e["type"] == "search_results" and e["data"]["type"] == "hotels"]
+        assert len(sr) == 1
+        return sr[0]["data"]
+
+    def test_hotels_event_has_type_hotels(self):
+        data = self._get_hotels_data()
+        assert data["type"] == "hotels"
+
+    def test_hotels_event_has_results_key(self):
+        data = self._get_hotels_data()
+        assert "results" in data
+
+    def test_hotels_results_contains_hotels_list(self):
+        data = self._get_hotels_data()
+        assert "hotels" in data["results"]
+        assert len(data["results"]["hotels"]) == 2
+
+    def test_each_hotel_card_has_name(self):
+        """Frontend card needs 'name' for the title."""
+        data = self._get_hotels_data()
+        for h in data["results"]["hotels"]:
+            assert "name" in h
+            assert h["name"]  # non-empty
+
+    def test_each_hotel_card_has_price_range(self):
+        """Frontend card needs 'price_range' for the price-tag span."""
+        data = self._get_hotels_data()
+        for h in data["results"]["hotels"]:
+            assert "price_range" in h
+            assert h["price_range"]  # non-empty
+
+    def test_each_hotel_card_has_rating(self):
+        """Frontend card needs 'rating' for the star display."""
+        data = self._get_hotels_data()
+        for h in data["results"]["hotels"]:
+            assert "rating" in h
+            assert h["rating"]  # non-empty
+
+    def test_hotel_name_matches_fixture(self):
+        data = self._get_hotels_data()
+        names = [h["name"] for h in data["results"]["hotels"]]
+        assert "Hotel A" in names
+        assert "Hotel B" in names
+
+    def test_hotel_price_range_matches_fixture(self):
+        data = self._get_hotels_data()
+        hotel_a = next(h for h in data["results"]["hotels"] if h["name"] == "Hotel A")
+        assert hotel_a["price_range"] == "$100/night"
+
+    def test_hotel_rating_matches_fixture(self):
+        data = self._get_hotels_data()
+        hotel_a = next(h for h in data["results"]["hotels"] if h["name"] == "Hotel A")
+        assert hotel_a["rating"] == "4.5"
+
+
+class TestFlightsDedicatedSection:
+    """Flights search_results event must include price and airline for card rendering."""
+
+    def _get_flights_data(self):
+        mock_flight = MagicMock()
+        mock_flight.search_flights.return_value = _fake_flights()
+        svc = _make_svc(flight=mock_flight)
+        session = svc.create_session()
+        intent = Intent(action="search_flights", destination="도쿄", raw_message="항공편 찾아줘")
+        with patch.object(svc, "extract_intent", return_value=intent):
+            events = _collect(svc, session.session_id, "항공편 찾아줘")
+        sr = [e for e in events if e["type"] == "search_results" and e["data"]["type"] == "flights"]
+        assert len(sr) == 1
+        return sr[0]["data"]
+
+    def test_flights_event_has_type_flights(self):
+        data = self._get_flights_data()
+        assert data["type"] == "flights"
+
+    def test_flights_event_has_results_key(self):
+        data = self._get_flights_data()
+        assert "results" in data
+
+    def test_flights_results_contains_flights_list(self):
+        data = self._get_flights_data()
+        assert "flights" in data["results"]
+        assert len(data["results"]["flights"]) == 1
+
+    def test_each_flight_card_has_airline(self):
+        """Frontend card needs 'airline' for the title."""
+        data = self._get_flights_data()
+        for f in data["results"]["flights"]:
+            assert "airline" in f
+            assert f["airline"]  # non-empty
+
+    def test_each_flight_card_has_price(self):
+        """Frontend card needs 'price' for the price-tag span."""
+        data = self._get_flights_data()
+        for f in data["results"]["flights"]:
+            assert "price" in f
+            assert f["price"]  # non-empty
+
+    def test_flight_airline_matches_fixture(self):
+        data = self._get_flights_data()
+        assert data["results"]["flights"][0]["airline"] == "Korean Air"
+
+    def test_flight_price_matches_fixture(self):
+        data = self._get_flights_data()
+        assert data["results"]["flights"][0]["price"] == "$300"
+
+    def test_flights_result_count_in_agent_status(self):
+        """agent_status done event for flight_finder must carry result_count for expandable toggle."""
+        mock_flight = MagicMock()
+        mock_flight.search_flights.return_value = _fake_flights()
+        svc = _make_svc(flight=mock_flight)
+        session = svc.create_session()
+        intent = Intent(action="search_flights", destination="도쿄", raw_message="항공편")
+        with patch.object(svc, "extract_intent", return_value=intent):
+            events = _collect(svc, session.session_id, "항공편")
+        done = next(
+            e for e in events
+            if e["type"] == "agent_status"
+            and e["data"]["agent"] == "flight_finder"
+            and e["data"]["status"] == "done"
+        )
+        assert done["data"]["result_count"] == 1
+
+    def test_hotels_result_count_in_agent_status(self):
+        """agent_status done event for hotel_finder must carry result_count for expandable toggle."""
+        mock_hotel = MagicMock()
+        mock_hotel.search_hotels.return_value = _fake_hotels()
+        svc = _make_svc(hotel=mock_hotel)
+        session = svc.create_session()
+        intent = Intent(action="search_hotels", destination="도쿄", raw_message="호텔")
+        with patch.object(svc, "extract_intent", return_value=intent):
+            events = _collect(svc, session.session_id, "호텔")
+        done = next(
+            e for e in events
+            if e["type"] == "agent_status"
+            and e["data"]["agent"] == "hotel_finder"
+            and e["data"]["status"] == "done"
+        )
+        assert done["data"]["result_count"] == 2

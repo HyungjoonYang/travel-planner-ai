@@ -10,6 +10,10 @@ let currentStreamBubble = null;
 // Current plan state for real-time budget bar updates
 let _currentPlanBudget = 0;
 
+// Persisted search result data — survive plan updates so sections stay visible
+let _lastHotels = null;
+let _lastFlights = null;
+
 // ---------------------------------------------------------------------------
 // SSE reconnect — exponential backoff configuration
 // ---------------------------------------------------------------------------
@@ -361,6 +365,68 @@ function appendAiBubble(text) {
 // Dashboard panel renderers
 // ---------------------------------------------------------------------------
 
+function _hotelCardHtml(h) {
+  return `<div class="search-result-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>${escHtml(h.name)}</strong>
+      ${h.price_range ? `<span class="price-tag">${escHtml(h.price_range)}</span>` : ''}
+    </div>
+    ${h.rating ? `<div class="meta">⭐ ${escHtml(String(h.rating))}</div>` : ''}
+    ${h.address ? `<div class="meta" style="font-size:.75rem">${escHtml(h.address)}</div>` : ''}
+  </div>`;
+}
+
+function _flightCardHtml(f) {
+  const route = (f.departure_time && f.arrival_time)
+    ? `${escHtml(f.departure_time)} → ${escHtml(f.arrival_time)}` : '';
+  return `<div class="search-result-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>${escHtml(f.airline)}</strong>
+      ${f.price ? `<span class="price-tag">${escHtml(String(f.price))}</span>` : ''}
+    </div>
+    ${f.flight_number ? `<div class="meta">${escHtml(f.flight_number)}${f.stops ? ` · ${escHtml(f.stops)}` : ''}</div>` : ''}
+    ${route ? `<div class="meta">${route}${f.duration ? ` (${escHtml(f.duration)})` : ''}</div>` : ''}
+  </div>`;
+}
+
+// Appends or refreshes dedicated #plan-hotels-section / #plan-flights-section inside panel.
+// Each section is hidden when there is no data and visible when data is present.
+function _refreshPlanSearchSections(panel) {
+  if (!panel) return;
+
+  // Hotels section
+  let hotelsEl = panel.querySelector('#plan-hotels-section');
+  if (_lastHotels && _lastHotels.length) {
+    if (!hotelsEl) {
+      hotelsEl = document.createElement('div');
+      hotelsEl.id = 'plan-hotels-section';
+      hotelsEl.className = 'plan-search-section';
+      panel.appendChild(hotelsEl);
+    }
+    hotelsEl.innerHTML = `<div class="section-title">🏨 Hotels</div>` +
+      _lastHotels.map(h => _hotelCardHtml(h)).join('');
+    hotelsEl.style.display = '';
+  } else if (hotelsEl) {
+    hotelsEl.style.display = 'none';
+  }
+
+  // Flights section
+  let flightsEl = panel.querySelector('#plan-flights-section');
+  if (_lastFlights && _lastFlights.length) {
+    if (!flightsEl) {
+      flightsEl = document.createElement('div');
+      flightsEl.id = 'plan-flights-section';
+      flightsEl.className = 'plan-search-section';
+      panel.appendChild(flightsEl);
+    }
+    flightsEl.innerHTML = `<div class="section-title">✈️ Flights</div>` +
+      _lastFlights.map(f => _flightCardHtml(f)).join('');
+    flightsEl.style.display = '';
+  } else if (flightsEl) {
+    flightsEl.style.display = 'none';
+  }
+}
+
 function _budgetBarHtml(spent, budget) {
   if (!budget) return '';
   const pct = Math.min(100, (spent / budget) * 100).toFixed(1);
@@ -406,6 +472,9 @@ function handlePlanUpdate(data) {
     html += _dayCardHtml(day);
   }
   panel.innerHTML = html;
+
+  // Re-append hotels/flights sections (persist across plan updates)
+  _refreshPlanSearchSections(panel);
 }
 
 function _dayCardHtml(day) {
@@ -470,24 +539,11 @@ function handleSearchResults(data) {
 
   let itemsHtml = '';
   if (data.type === 'hotels' && results.hotels) {
-    itemsHtml = results.hotels.map(h =>
-      `<div class="search-result-card">
-        <div style="display:flex;justify-content:space-between">
-          <strong>${escHtml(h.name)}</strong>
-          ${h.price_range ? `<span class="price-tag">${escHtml(h.price_range)}</span>` : ''}
-        </div>
-        ${h.rating ? `<div class="meta">⭐ ${escHtml(String(h.rating))}</div>` : ''}
-      </div>`
-    ).join('');
+    _lastHotels = results.hotels;
+    itemsHtml = results.hotels.map(h => _hotelCardHtml(h)).join('');
   } else if (data.type === 'flights' && results.flights) {
-    itemsHtml = results.flights.map(f =>
-      `<div class="search-result-card">
-        <div style="display:flex;justify-content:space-between">
-          <strong>${escHtml(f.airline)}</strong>
-          ${f.price ? `<span class="price-tag">${escHtml(String(f.price))}</span>` : ''}
-        </div>
-      </div>`
-    ).join('');
+    _lastFlights = results.flights;
+    itemsHtml = results.flights.map(f => _flightCardHtml(f)).join('');
   } else if (data.type === 'places' && results.places) {
     itemsHtml = results.places.map(p =>
       `<div class="search-result-card">
@@ -525,13 +581,17 @@ function handleSearchResults(data) {
     detailEl.style.display = 'none'; // collapsed by default; toggle on ▾ click
   }
 
-  // Also show a summary section in plan-panel for search-only requests
+  // Update plan-panel: hotels/flights get dedicated persistent sections;
+  // other types (places) replace content when no day cards are present.
   const planPanel = document.getElementById('plan-panel');
-  const hasDayCards = planPanel && planPanel.querySelector('.day-card');
-  if (planPanel && !hasDayCards) {
-    const typeLabel = data.type === 'hotels' ? '🏨 Hotels' :
-                      data.type === 'flights' ? '✈️ Flights' : '📍 Places';
-    planPanel.innerHTML = `<div class="section-title">${typeLabel}</div>${itemsHtml}`;
+  if (data.type === 'hotels' || data.type === 'flights') {
+    _refreshPlanSearchSections(planPanel);
+  } else {
+    const hasDayCards = planPanel && planPanel.querySelector('.day-card');
+    if (planPanel && !hasDayCards) {
+      const typeLabel = data.type === 'places' ? '📍 Places' : data.type;
+      planPanel.innerHTML = `<div class="section-title">${typeLabel}</div>${itemsHtml}`;
+    }
   }
 }
 
@@ -603,4 +663,7 @@ function _activateSavedPlan(plan, cardEl) {
   const planLabel = plan.id != null ? ` #${plan.id}` : '';
   html += `<div class="meta" style="margin-top:.5rem">저장된 계획${escHtml(String(planLabel))} — 일정을 생성하려면 "일정 만들어줘"라고 입력하세요.</div>`;
   panel.innerHTML = html;
+
+  // Re-append hotels/flights sections if they exist from a prior search
+  _refreshPlanSearchSections(panel);
 }

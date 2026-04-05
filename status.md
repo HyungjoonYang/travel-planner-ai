@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-04T58:00Z (Evolve Run #84)
-Run count: 91
+Last run: 2026-04-05T00:00:00Z (Evolve Run #85)
+Run count: 92
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 60
+Tasks completed: 61
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #62 Chat dashboard: Hotels & Flights dedicated result sections
+Next planned: #63 Chat: add_expense intent handler + expense_added SSE frontend
 
 ## LTES Snapshot
 
-- Latency: ~21820ms (pytest 1256 tests)
-- Traffic: 38 commits/24h
-- Errors: 0 test failures (1256/1256 pass), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Latency: ~19830ms (pytest 1274 tests)
+- Traffic: 39 commits/24h
+- Errors: 0 test failures (1274/1274 pass), error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #62 Chat dashboard: Hotels & Flights dedicated result sections
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #85 — 2026-04-05T00:00:00Z
+- **Task**: #62 - Chat dashboard: Hotels & Flights dedicated result sections
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1274/1274 passed (+18 new: TestHotelsDedicatedSection and TestFlightsDedicatedSection classes, tests/test_chat_dashboard.py)
+- **Files changed**: src/app/static/chat.js (+lines), src/app/static/index.html (+lines), tests/test_chat_dashboard.py (+18 tests)
+- **Builder note**: Added _lastHotels/_lastFlights module state to persist search results across plan updates. _hotelCardHtml/_flightCardHtml helpers render name+price+rating/airline+price. _refreshPlanSearchSections appends/updates #plan-hotels-section and #plan-flights-section inside plan-panel — hidden when empty. handlePlanUpdate and _activateSavedPlan call _refreshPlanSearchSections to survive innerHTML resets. handleSearchResults stores results and always updates dedicated sections.
+- **LTES**: L=19830ms T=1 commit E=0.0% S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #84 — 2026-04-04T58:00Z
 - **Task**: #61 - Reporter: weekly Discussion summary — auto-post Phase progress as GitHub Discussion
