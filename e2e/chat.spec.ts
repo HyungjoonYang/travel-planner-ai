@@ -628,3 +628,277 @@ test.describe("Chat Page", () => {
     await expect(budgetToggle).not.toBeVisible();
   });
 });
+
+// ---------------------------------------------------------------------------
+// localStorage session ID persistence (Task #72)
+// ---------------------------------------------------------------------------
+
+test.describe("localStorage session ID persistence", () => {
+  const VALID_SESSION_ID = "e2e-valid-session";
+  const EXPIRED_SESSION_ID = "e2e-expired-session";
+
+  /**
+   * Happy-path: localStorage has a valid session ID.
+   * GET /chat/sessions/{id} returns 200 → that ID is reused (no POST).
+   */
+  test("reuses session from localStorage when still valid", async ({
+    page,
+  }) => {
+    // Pre-seed localStorage with a known session ID
+    await page.goto(BASE_URL);
+    await page.evaluate(
+      ([key, id]) => localStorage.setItem(key, id),
+      ["chatSessionId", VALID_SESSION_ID]
+    );
+
+    // Mock GET /chat/sessions/{id} to return 200 (session is alive)
+    let getVerifyHit = false;
+    let postCreateHit = false;
+    await page.route(`**/chat/sessions/${VALID_SESSION_ID}`, async (route) => {
+      if (route.request().method() === "GET") {
+        getVerifyHit = true;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: VALID_SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+            message_history: [],
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // Intercept POST /chat/sessions to detect if a new session was created
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        postCreateHit = true;
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: "should-not-be-used",
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // Navigate to chat page — initChatSession fires on first message
+    await page.click('a[data-page="chat"]');
+    await expect(page.locator(".chat-layout")).toBeVisible({ timeout: 5_000 });
+
+    // Mock the SSE stream for the first message
+    await page.route(
+      `**/chat/sessions/${VALID_SESSION_ID}/messages`,
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          body: buildSse(
+            {
+              type: "agent_status",
+              data: {
+                agent: "coordinator",
+                status: "done",
+                message: "general 파악",
+              },
+            },
+            { type: "chat_chunk", data: { text: "안녕하세요!" } },
+            { type: "chat_done", data: {} }
+          ),
+        });
+      }
+    );
+
+    await page.fill("#chat-input", "안녕");
+    await page.click('button:has-text("전송")');
+
+    // Wait for chat response
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // GET verify must have been called; POST must NOT have been called
+    expect(getVerifyHit).toBe(true);
+    expect(postCreateHit).toBe(false);
+
+    // localStorage must still hold the same session ID
+    const storedId = await page.evaluate(() =>
+      localStorage.getItem("chatSessionId")
+    );
+    expect(storedId).toBe(VALID_SESSION_ID);
+  });
+
+  /**
+   * Expired fallback: localStorage has a stale session ID.
+   * GET /chat/sessions/{id} returns 404 → a new session is created via POST
+   * and the new ID is saved to localStorage.
+   */
+  test("creates new session when localStorage ID is expired", async ({
+    page,
+  }) => {
+    const NEW_SESSION_ID = "e2e-fresh-session";
+
+    // Pre-seed localStorage with an expired session ID
+    await page.goto(BASE_URL);
+    await page.evaluate(
+      ([key, id]) => localStorage.setItem(key, id),
+      ["chatSessionId", EXPIRED_SESSION_ID]
+    );
+
+    // Mock GET /chat/sessions/{expired} → 404
+    await page.route(
+      `**/chat/sessions/${EXPIRED_SESSION_ID}`,
+      async (route) => {
+        if (route.request().method() === "GET") {
+          await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "Session not found or expired" }),
+          });
+        } else {
+          await route.continue();
+        }
+      }
+    );
+
+    // Mock POST /chat/sessions → returns a fresh session
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: NEW_SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.click('a[data-page="chat"]');
+    await expect(page.locator(".chat-layout")).toBeVisible({ timeout: 5_000 });
+
+    // Mock SSE for the new session
+    await page.route(
+      `**/chat/sessions/${NEW_SESSION_ID}/messages`,
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          body: buildSse(
+            {
+              type: "agent_status",
+              data: {
+                agent: "coordinator",
+                status: "done",
+                message: "general 파악",
+              },
+            },
+            { type: "chat_chunk", data: { text: "안녕하세요!" } },
+            { type: "chat_done", data: {} }
+          ),
+        });
+      }
+    );
+
+    await page.fill("#chat-input", "안녕");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // localStorage must now hold the NEW session ID (expired ID was replaced)
+    const storedId = await page.evaluate(() =>
+      localStorage.getItem("chatSessionId")
+    );
+    expect(storedId).toBe(NEW_SESSION_ID);
+  });
+
+  /**
+   * Missing key: localStorage has no chatSessionId entry.
+   * POST /chat/sessions creates a new session and it is saved to localStorage.
+   */
+  test("saves new session ID to localStorage when no prior session exists", async ({
+    page,
+  }) => {
+    const FRESH_ID = "e2e-brand-new-session";
+
+    await page.goto(BASE_URL);
+    // Ensure the key is absent
+    await page.evaluate(() => localStorage.removeItem("chatSessionId"));
+
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: FRESH_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.click('a[data-page="chat"]');
+    await expect(page.locator(".chat-layout")).toBeVisible({ timeout: 5_000 });
+
+    await page.route(`**/chat/sessions/${FRESH_ID}/messages`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: buildSse(
+          {
+            type: "agent_status",
+            data: {
+              agent: "coordinator",
+              status: "done",
+              message: "general 파악",
+            },
+          },
+          { type: "chat_chunk", data: { text: "안녕하세요!" } },
+          { type: "chat_done", data: {} }
+        ),
+      });
+    });
+
+    await page.fill("#chat-input", "안녕");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // localStorage must have been populated with the new session ID
+    const storedId = await page.evaluate(() =>
+      localStorage.getItem("chatSessionId")
+    );
+    expect(storedId).toBe(FRESH_ID);
+  });
+});
