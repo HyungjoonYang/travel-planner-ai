@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #71 - E2E: Chat expense workflow + update_plan Playwright scenarios [test]
-  - ref: markdowns/feat-chat-dashboard.md (e2e test cases)
-  - files: e2e/chat.spec.ts
-  - done: SSE-mocked scenario for `expense_added` event renders expense row in plan panel; `expense_summary` event renders budget breakdown; `plan_update` after `update_plan` reflects new metadata (destination/dates); 3+ new test scenarios added
-  - gh: #67
-
 - [ ] #72 - Chat frontend: localStorage session ID persistence [improvement]
   - ref: markdowns/feat-chat-dashboard.md (SSE reconnect + session state restore)
   - files: src/app/static/chat.js
@@ -134,6 +128,7 @@ _(없음)_
 - [x] #68 - Chat: `delete_expense` intent handler [feature] — 2026-04-05
 - [x] #69 - Chat dashboard: Place Scout results dedicated persistent section [improvement] — 2026-04-05
 - [x] #70 - Chat: restore message bubbles from DB after SSE reconnect [improvement] — 2026-04-05
+- [x] #71 - E2E: Chat expense workflow + update_plan Playwright scenarios [test] — 2026-04-05
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -146,5 +141,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 70 done, 6 ready (0 in progress)
+- Total tasks: 71 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

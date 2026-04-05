@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-05T14:00:00Z (Evolve Run #94)
-Run count: 102
+Last run: 2026-04-05T15:00:00Z (Evolve Run #95)
+Run count: 103
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 70
+Tasks completed: 71
 Current focus: Phase 10 (Chat + Multi-Agent Dashboard)
-Next planned: #71 E2E: Chat expense workflow + update_plan Playwright scenarios
+Next planned: #72 Chat frontend: localStorage session ID persistence
 
 ## LTES Snapshot
 
-- Latency: ~21050ms (pytest 1384 tests)
-- Traffic: 10 commits/24h
+- Latency: ~21590ms (pytest 1384 tests)
+- Traffic: 11 commits/24h
 - Errors: 0 test failures (1384/1384 pass), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #71 E2E: Chat expense workflow + update_plan Playwright scenarios
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #95 — 2026-04-05T15:00:00Z
+- **Task**: #71 - E2E: Chat expense workflow + update_plan Playwright scenarios
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1384/1384 passed (unit tests unchanged; 3 new Playwright E2E scenarios added to e2e/chat.spec.ts)
+- **Files changed**: e2e/chat.spec.ts (+169/-0)
+- **Builder note**: Scenarios 6–8 added: (6) expense_added SSE event creates .expense-section with .expense-list row showing name and amount; (7) expense_summary SSE event creates .expense-summary-section with total spent, remaining budget, and by-category breakdown; (8) plan_update after update_plan (with day card mock to avoid early return) reflects new destination and dates in #plan-panel. Note: backend _handle_update_plan currently emits days:[] — follow-up task should fix to include existing days in plan_update response.
+- **LTES**: L=21590ms T=1 commit E=0.0% S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #94 — 2026-04-05T14:00:00Z
 - **Task**: #70 - Chat: restore message bubbles from DB after SSE reconnect

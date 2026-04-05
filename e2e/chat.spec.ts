@@ -316,6 +316,196 @@ test.describe("Chat Page", () => {
   });
 
   /**
+   * Scenario 6: expense_added SSE event renders an expense row in the plan panel.
+   */
+  test("expense_added event renders expense row in plan panel", async ({ page }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "add_expense 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "working", message: "지출 추가 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "done", message: "지출 추가 완료!" },
+      },
+      {
+        type: "expense_added",
+        data: {
+          expense: {
+            id: 1,
+            name: "센소지 입장료",
+            amount: 2100,
+            category: "activities",
+            travel_plan_id: 1,
+          },
+          budget_summary: {
+            plan_id: 1,
+            budget: 2_000_000,
+            total_spent: 2100,
+            remaining: 1_997_900,
+            by_category: { activities: 2100 },
+            expense_count: 1,
+            over_budget: false,
+          },
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "'센소지 입장료' 2,100원 지출을 추가했습니다. 총 지출: 2,100원" },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "센소지 입장료 2100원 추가해줘");
+    await page.click('button:has-text("전송")');
+
+    // expense-section must appear in the plan panel with the new expense row
+    await expect(page.locator(".expense-section")).toBeVisible({ timeout: 10_000 });
+
+    const listEl = page.locator(".expense-section .expense-list");
+    await expect(listEl).toBeVisible();
+    await expect(listEl).toContainText("센소지 입장료");
+    await expect(listEl).toContainText("2,100");
+  });
+
+  /**
+   * Scenario 7: expense_summary SSE event renders a budget breakdown in the plan panel.
+   */
+  test("expense_summary event renders budget breakdown in plan panel", async ({ page }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "get_expense_summary 파악" },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "budget_analyst",
+          status: "working",
+          message: "지출 집계 중...",
+          result_count: 3,
+        },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "budget_analyst", status: "done", message: "집계 완료" },
+      },
+      {
+        type: "expense_summary",
+        data: {
+          budget: 2_000_000,
+          total_spent: 350_000,
+          remaining: 1_650_000,
+          over_budget: false,
+          expense_count: 3,
+          by_category: {
+            food: 150_000,
+            transport: 100_000,
+            activities: 100_000,
+          },
+        },
+      },
+      { type: "chat_chunk", data: { text: "지출 현황: 총 350,000원 사용" } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "지금까지 지출 얼마야?");
+    await page.click('button:has-text("전송")');
+
+    // expense-summary-section must appear in the plan panel
+    await expect(page.locator(".expense-summary-section")).toBeVisible({ timeout: 10_000 });
+
+    // Total spent and remaining budget must be shown
+    await expect(page.locator(".expense-summary-section")).toContainText("350,000");
+    await expect(page.locator(".expense-summary-section")).toContainText("1,650,000");
+
+    // Category breakdown rows must be present
+    await expect(page.locator(".expense-summary-section")).toContainText("food");
+    await expect(page.locator(".expense-summary-section")).toContainText("transport");
+  });
+
+  /**
+   * Scenario 8: plan_update event after update_plan intent reflects new destination and dates.
+   */
+  test("plan_update after update_plan reflects new metadata", async ({ page }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "update_plan 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "working", message: "여행 계획 수정 중..." },
+      },
+      // plan_update with new destination and dates (days included so the panel renders)
+      {
+        type: "plan_update",
+        data: {
+          id: 5,
+          destination: "오사카",
+          start_date: "2026-07-10",
+          end_date: "2026-07-14",
+          budget: 2_500_000,
+          total_estimated_cost: 0,
+          days: [
+            {
+              day: 1,
+              date: "2026-07-10",
+              theme: "도착",
+              places: [],
+              notes: "",
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "done", message: "수정 완료!" },
+      },
+      {
+        type: "chat_chunk",
+        data: {
+          text: "여행 계획(#5)이 수정되었습니다. 변경 사항: 목적지: 오사카, 시작일: 2026-07-10, 종료일: 2026-07-14",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill(
+      "#chat-input",
+      "계획 5번 목적지를 오사카로 바꾸고 날짜는 7월 10일부터 14일로 변경해줘"
+    );
+    await page.click('button:has-text("전송")');
+
+    // Plan panel must display the updated destination and dates
+    await expect(page.locator("#plan-panel")).toContainText("오사카", { timeout: 10_000 });
+    await expect(page.locator("#plan-panel")).toContainText("2026-07-10");
+    await expect(page.locator("#plan-panel")).toContainText("2026-07-14");
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(/agent-done/);
+  });
+
+  /**
    * Scenario 5: Agent "done" state with result_count shows the expand toggle.
    */
   test("agent done shows result toggle", async ({ page }) => {
