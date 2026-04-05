@@ -28,7 +28,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_plan | get_expense_summary | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_plan | get_expense_summary | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -134,7 +134,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_plan", "get_expense_summary", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_plan", "get_expense_summary", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -257,6 +257,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "modify_day":
             async for event in self._handle_modify_day(intent, session):
+                yield _track_and_collect(event)
+        elif intent.action == "refine_plan":
+            async for event in self._handle_refine_plan(intent, session):
                 yield _track_and_collect(event)
         elif intent.action == "save_plan":
             async for event in self._handle_save_plan(intent, session, db):
@@ -661,6 +664,105 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"일정 수정 중 오류가 발생했습니다: {exc}"},
+            }
+
+    async def _handle_refine_plan(
+        self, intent: Intent, session: "ChatSession"
+    ) -> AsyncGenerator[dict, None]:
+        """Refine the entire current plan with AI based on user's instruction."""
+        instruction = intent.query or intent.raw_message
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": "전체 일정 개선 중..."},
+        }
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "budget_analyst", "status": "working", "message": "예산 재계산 중..."},
+        }
+
+        try:
+            last_plan = session.last_plan
+            if last_plan:
+                dest = last_plan.get("destination", intent.destination or "목적지")
+                budget = last_plan.get("budget", intent.budget or 2000.0)
+                start_str = last_plan.get("start_date")
+                end_str = last_plan.get("end_date")
+                try:
+                    start = date.fromisoformat(start_str) if start_str else None
+                except ValueError:
+                    start = None
+                try:
+                    end = date.fromisoformat(end_str) if end_str else None
+                except ValueError:
+                    end = None
+                if start is None:
+                    start = date.today() + timedelta(days=30)
+                if end is None:
+                    end = start + timedelta(days=3)
+                current_days = last_plan.get("days", [])
+                interests = last_plan.get("interests", intent.interests or "")
+
+                result = await asyncio.to_thread(
+                    self._gemini.refine_itinerary,
+                    dest, start, end, float(budget), interests,
+                    current_days,
+                    instruction,
+                )
+            else:
+                dest = intent.destination or "목적지"
+                budget = intent.budget or 2000.0
+                interests = intent.interests or ""
+                start, end = self._parse_dates(intent)
+
+                result = await asyncio.to_thread(
+                    self._gemini.generate_itinerary,
+                    dest, start, end, budget, interests,
+                )
+
+            place_count = sum(len(day.places) for day in result.days)
+            breakdown = self._compute_budget_breakdown(result)
+
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "budget_analyst",
+                    "status": "done",
+                    "message": f"총 ${result.total_estimated_cost:.0f} 예산 재배분 완료",
+                    "result_count": len(breakdown) - 1,
+                },
+            }
+
+            plan_data = result.model_dump()
+            plan_data["destination"] = dest
+            plan_data["start_date"] = start.isoformat()
+            plan_data["end_date"] = end.isoformat()
+            plan_data["budget"] = budget
+            yield {"type": "plan_update", "data": plan_data}
+            for day in result.days:
+                yield {"type": "day_update", "data": day.model_dump()}
+
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "planner",
+                    "status": "done",
+                    "message": f"{len(result.days)}일 일정 개선 완료!",
+                },
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"{dest} 여행 계획을 개선했습니다. {place_count}개 장소, {len(result.days)}일 일정."},
+            }
+
+        except Exception as exc:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "일정 개선 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"일정 개선 중 오류가 발생했습니다: {exc}"},
             }
 
     async def _handle_save_plan(
