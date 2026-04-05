@@ -6089,3 +6089,157 @@ class TestSuggestImprovements:
         """Intent model accepts suggest_improvements as a valid action."""
         intent = Intent(action="suggest_improvements", raw_message="any suggestions?")
         assert intent.action == "suggest_improvements"
+
+
+# ---------------------------------------------------------------------------
+# Task #87: plan_suggestions SSE event + _parse_suggestions helper
+# ---------------------------------------------------------------------------
+
+class TestPlanSuggestionsEvent:
+    """Tests for plan_suggestions SSE event emission and _parse_suggestions helper."""
+
+    def _make_service(self, gemini=None):
+        return ChatService(
+            api_key="",
+            ttl_seconds=SESSION_TTL_SECONDS,
+            gemini_service=gemini or MagicMock(),
+            web_search_service=MagicMock(),
+            hotel_search_service=MagicMock(),
+            flight_search_service=MagicMock(),
+        )
+
+    # -- _parse_suggestions unit tests --
+
+    def test_parse_suggestions_numbered_list(self):
+        """Numbered suggestions are parsed into individual items."""
+        text = "1. Visit Tokyo Tower\n2. Try local ramen\n3. See Mt. Fuji"
+        result = ChatService._parse_suggestions(text)
+        assert result == ["Visit Tokyo Tower", "Try local ramen", "See Mt. Fuji"]
+
+    def test_parse_suggestions_bullet_list(self):
+        """Bullet-point suggestions are parsed into individual items."""
+        text = "- Add a day trip to Nikko\n- Budget more for food\n* Book accommodation early"
+        result = ChatService._parse_suggestions(text)
+        assert result == ["Add a day trip to Nikko", "Budget more for food", "Book accommodation early"]
+
+    def test_parse_suggestions_plain_paragraphs(self):
+        """Paragraph-separated text is split into individual suggestions."""
+        text = "Consider visiting Kyoto.\n\nThe budget allocation looks tight.\n\nAdd more food stops."
+        result = ChatService._parse_suggestions(text)
+        assert len(result) == 3
+
+    def test_parse_suggestions_empty_string(self):
+        """Empty input returns an empty list."""
+        assert ChatService._parse_suggestions("") == []
+
+    def test_parse_suggestions_single_item(self):
+        """A single suggestion line returns a one-element list."""
+        result = ChatService._parse_suggestions("1. Just one suggestion here")
+        assert result == ["Just one suggestion here"]
+
+    def test_parse_suggestions_strips_whitespace(self):
+        """Leading/trailing whitespace in items is stripped."""
+        text = "1.  First item with extra spaces  \n2. Second item"
+        result = ChatService._parse_suggestions(text)
+        assert result[0] == "First item with extra spaces"
+
+    # -- SSE event emission tests --
+
+    def test_plan_suggestions_event_emitted(self):
+        """plan_suggestions event must be emitted by suggest_improvements handler."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "1. Add Tokyo Tower\n2. Try ramen"
+        svc = self._make_service(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="any suggestions?"
+        )):
+            events = _collect_events(svc, session.session_id, "any suggestions?")
+
+        suggestion_events = [e for e in events if e["type"] == "plan_suggestions"]
+        assert len(suggestion_events) == 1
+
+    def test_plan_suggestions_event_contains_suggestions_list(self):
+        """plan_suggestions data.suggestions must be a non-empty list."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "1. Visit Asakusa\n2. Try sushi"
+        svc = self._make_service(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="suggestions please"
+        )):
+            events = _collect_events(svc, session.session_id, "suggestions please")
+
+        ev = next(e for e in events if e["type"] == "plan_suggestions")
+        assert isinstance(ev["data"]["suggestions"], list)
+        assert len(ev["data"]["suggestions"]) >= 1
+
+    def test_plan_suggestions_event_contains_raw_text(self):
+        """plan_suggestions data.raw must contain the original AI text."""
+        raw_text = "1. First suggestion\n2. Second suggestion"
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = raw_text
+        svc = self._make_service(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="how to improve?"
+        )):
+            events = _collect_events(svc, session.session_id, "how to improve?")
+
+        ev = next(e for e in events if e["type"] == "plan_suggestions")
+        assert ev["data"]["raw"] == raw_text
+
+    def test_plan_suggestions_parsed_items_match_input(self):
+        """Parsed suggestions list items correspond to the numbered input."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = (
+            "1. Book accommodation early\n2. Visit Nikko for a day trip\n3. Budget for transport"
+        )
+        svc = self._make_service(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="improve my plan"
+        )):
+            events = _collect_events(svc, session.session_id, "improve my plan")
+
+        ev = next(e for e in events if e["type"] == "plan_suggestions")
+        assert ev["data"]["suggestions"] == [
+            "Book accommodation early",
+            "Visit Nikko for a day trip",
+            "Budget for transport",
+        ]
+
+    def test_plan_suggestions_emitted_before_chat_chunk(self):
+        """plan_suggestions event must be emitted before the chat_chunk."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.return_value = "1. suggestion"
+        svc = self._make_service(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="any suggestions?"
+        )):
+            events = _collect_events(svc, session.session_id, "any suggestions?")
+
+        types_seq = [e["type"] for e in events]
+        ps_idx = types_seq.index("plan_suggestions")
+        cc_idx = types_seq.index("chat_chunk")
+        assert ps_idx < cc_idx
+
+    def test_plan_suggestions_not_emitted_on_gemini_error(self):
+        """plan_suggestions must NOT be emitted when Gemini raises an exception."""
+        mock_gemini = MagicMock()
+        mock_gemini.suggest_improvements.side_effect = RuntimeError("API down")
+        svc = self._make_service(gemini=mock_gemini)
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="suggest_improvements", raw_message="suggestions?"
+        )):
+            events = _collect_events(svc, session.session_id, "suggestions?")
+
+        assert not any(e["type"] == "plan_suggestions" for e in events)

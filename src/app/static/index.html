@@ -142,6 +142,17 @@
   .weather-forecast-date { color: var(--muted); flex: 0 0 6rem; }
   .weather-forecast-temps { font-weight: 600; white-space: nowrap; }
   .weather-forecast-condition { flex: 1; text-align: center; }
+  /* ── Suggestions panel (dashboard, plan_suggestions SSE event) ────────────── */
+  .suggestions-panel { margin-top: .75rem; }
+  .suggestions-header { display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; padding: .25rem 0; user-select: none; }
+  .suggestions-header:hover { opacity: .85; }
+  .suggestions-title { margin: 0 !important; }
+  .suggestions-toggle { font-size: .85rem; color: var(--primary); margin-left: .25rem; }
+  .suggestions-body { margin-top: .5rem; }
+  .suggestion-card { background: #fff8e1; border-radius: 4px; padding: .6rem .75rem;
+    margin-bottom: .5rem; font-size: .875rem; border-left: 3px solid #ffc107;
+    line-height: 1.45; }
 </style>
 </head>
 <body>
