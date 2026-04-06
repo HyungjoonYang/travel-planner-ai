@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 142,
-    "successful_runs": 136,
+    "total_runs": 143,
+    "successful_runs": 137,
     "failed_runs": 1,
     "success_rate": 0.958,
     "budget_remaining": 0.95,
@@ -653,17 +653,17 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
+    "run_id": "2026-04-06-2100",
+    "task": "#93 - Chat: reorder_days intent — swap/reorder days via chat",
+    "result": "success",
+    "tests_passed": 1525,
+    "tests_total": 1525
+  },
+  "history_tail_prev": {
     "run_id": "monitor-2026-04-06-2000",
     "task": "monitor",
     "result": "success",
     "tests_passed": 1517,
     "tests_total": 1517
-  },
-  "history_tail_prev": {
-    "run_id": "2026-04-06-1900",
-    "task": "#99 - Frontend: chat-first landing + modern UX redesign",
-    "result": "success",
-    "tests_passed": 1517,
-    "tests_total": 1522
   }
 }

@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-06T20:00:00Z (Monitor Run)
-Run count: 142
-Phase: Phase 10: Chat + Multi-Agent Dashboard — P0 Critical UX Fixes
+Last run: 2026-04-06T21:00:00Z (Evolve Run #120)
+Run count: 143
+Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 95 (#99 Frontend: chat-first landing + modern UX redesign — style.css created, chat default page, modern visuals)
-Current focus: #93 reorder_days intent
-Next planned: #94 clear_day intent
+Tasks completed: 96 (#93 Chat: reorder_days intent — swap/reorder days via chat, 8 tests added)
+Current focus: #94 clear_day intent
+Next planned: #95 message timestamp display
 
 ## LTES Snapshot
 
-- Latency: 40649ms (pytest run + overhead)
-- Traffic: 23 commits (last 24h)
-- Errors: 0 test failures (1517/1517 pass), 5 skipped, error_rate=0.0%
-- Saturation: 5 tasks ready
+- Latency: ~50000ms (pytest run + overhead)
+- Traffic: 30 commits (last 24h)
+- Errors: 0 test failures (1525/1525 pass), 5 skipped, error_rate=0.0%
+- Saturation: 4 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #94 clear_day intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #120 — 2026-04-06T21:00:00Z
+- **Task**: #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1525/1525 passed, 5 skipped; 8 new tests added (TestReorderDays class)
+- **Files changed**: src/app/chat.py (+220/-1), tests/test_chat.py (+8 tests) — day_number_2 added to Intent model, handler swaps Place rows via day_itinerary_id reassignment, emits day_update for both days, error on out-of-range day
+- **Builder note**: DB swap uses Place.day_itinerary_id reassignment (not bulk replace). Both day_update SSE emitted. In-memory session.last_plan also updated. 2 DB integration tests with real SQLite verify post-swap state.
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor Run — 2026-04-06T20:00:00Z
 - **Task**: monitor
