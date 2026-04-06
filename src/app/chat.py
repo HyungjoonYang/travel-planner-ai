@@ -33,7 +33,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -152,7 +152,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -179,6 +179,7 @@ Return a JSON object with these fields:
 - Use action "share_plan" when user wants to share or get a shareable link for the current or a specific travel plan (e.g. "이 계획 공유해줘", "공유 링크 만들어줘", "친구한테 공유하고 싶어", "share this plan", "get a shareable link", "링크 공유", "공유"); set plan_id if a specific plan is referenced
 - Use action "reorder_days" when user wants to swap or reorder two days in their itinerary (e.g. "1일차와 3일차 순서 바꿔줘", "Day 2랑 Day 4 교환해줘", "swap day 1 and day 3", "2일차와 4일차 바꿔줘"); set day_number to the first day and day_number_2 to the second day
 - day_number_2: second day number for reorder_days swap (e.g. "1일차와 3일차 바꿔줘" → day_number=1, day_number_2=3); null for all other actions
+- Use action "clear_day" when user wants to remove ALL places from a specific day (e.g. "3일차 일정 다 지워줘", "Day 2 일정 전부 삭제", "2일차 장소 모두 제거", "clear all places from day 3", "day 1 일정 비워줘"); set day_number to the referenced day
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -353,6 +354,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "reorder_days":
             async for event in self._handle_reorder_days(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "clear_day":
+            async for event in self._handle_clear_day(intent, session, db):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -2398,6 +2402,155 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": "일정을 교환하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
+
+    async def _handle_clear_day(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Remove ALL places from a specific day in the itinerary.
+
+        Reads day_number from intent. Deletes all Place rows for that day from DB
+        (if available) or empties the places list in session.last_plan. Emits
+        day_update with an empty places list and a confirming chat_chunk.
+        Returns an error chat_chunk when day_number is missing or out of range.
+        """
+        day_number = intent.day_number
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": "일정 초기화 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if not day_number:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "초기화할 날짜를 지정해주세요"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "초기화할 날짜(예: '3일차')를 알려주세요."},
+            }
+            return
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    Place as PlaceModel,
+                    TravelPlan as TravelPlanModel,
+                )
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is None:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                    }
+                    return
+
+                days = (
+                    db.query(DayItineraryModel)
+                    .filter(DayItineraryModel.travel_plan_id == plan_id)
+                    .order_by(DayItineraryModel.date)
+                    .all()
+                )
+
+                total = len(days)
+                if day_number < 1 or day_number > total:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_number}이 범위를 벗어났습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_number}은 이 계획에 없습니다 (총 {total}일)."},
+                    }
+                    return
+
+                day_obj = days[day_number - 1]
+
+                # Delete all places for this day
+                db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day_obj.id).delete()
+                db.commit()
+                db.refresh(day_obj)
+
+                yield {
+                    "type": "day_update",
+                    "data": {
+                        "day_number": day_number,
+                        "date": day_obj.date.isoformat(),
+                        "notes": day_obj.notes,
+                        "transport": day_obj.transport,
+                        "places": [],
+                    },
+                }
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 일정 초기화 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_number}의 모든 장소를 삭제했습니다."},
+                }
+
+            except Exception as exc:
+                logger.error("_handle_clear_day: failed — %s: %s", type(exc).__name__, exc, exc_info=True)
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "error", "message": "일정 초기화 실패"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"일정 초기화 중 오류가 발생했습니다: {exc}"},
+                }
+        else:
+            # In-memory plan clear
+            last_plan = session.last_plan
+            if last_plan:
+                days = last_plan.get("days", [])
+                total = len(days)
+                if day_number < 1 or day_number > total:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_number}이 범위를 벗어났습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_number}은 이 계획에 없습니다 (총 {total}일)."},
+                    }
+                    return
+
+                day_obj = days[day_number - 1]
+                day_obj["places"] = []
+
+                yield {"type": "day_update", "data": {**day_obj, "day_number": day_number}}
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 일정 초기화 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_number}의 모든 장소를 삭제했습니다 (미저장 — 저장 후 영구 보관됩니다)."},
+                }
+                return
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": "일정 초기화 완료"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "일정을 초기화하려면 먼저 여행 계획을 만들거나 저장해주세요."},
             }
 
     async def _handle_get_weather(

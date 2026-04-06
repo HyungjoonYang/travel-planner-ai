@@ -7293,3 +7293,253 @@ class TestReorderDays:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #94: clear_day intent handler
+# ---------------------------------------------------------------------------
+
+
+class TestClearDay:
+    """_handle_clear_day: day_number → removes ALL places from that day; emits day_update with empty list."""
+
+    def test_clear_day_intent_accepted_by_model(self):
+        """Intent model must accept clear_day as a valid action."""
+        intent = Intent(
+            action="clear_day",
+            day_number=3,
+            raw_message="3일차 일정 다 지워줘",
+        )
+        assert intent.action == "clear_day"
+        assert intent.day_number == 3
+
+    def test_clear_day_in_memory_emits_day_update_with_empty_places(self):
+        """clear_day removes all places from session.last_plan and emits day_update with empty list."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "센소지", "category": "sightseeing", "address": "", "estimated_cost": 0.0, "ai_reason": ""}],
+            [{"name": "도쿄 타워", "category": "landmark", "address": "", "estimated_cost": 0.0, "ai_reason": ""}],
+            [{"name": "신주쿠", "category": "shopping", "address": "", "estimated_cost": 0.0, "ai_reason": ""},
+             {"name": "시부야", "category": "shopping", "address": "", "estimated_cost": 0.0, "ai_reason": ""}],
+        ])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="clear_day", day_number=3, raw_message="3일차 일정 다 지워줘"
+        )):
+            events = _collect_events(svc, session.session_id, "3일차 일정 다 지워줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 1
+        assert day_updates[0]["data"]["day_number"] == 3
+        assert day_updates[0]["data"]["places"] == []
+
+    def test_clear_day_in_memory_modifies_last_plan(self):
+        """clear_day actually empties the places list in session.last_plan."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "A", "category": "sightseeing", "address": "", "estimated_cost": 0.0, "ai_reason": ""}],
+            [{"name": "B", "category": "food", "address": "", "estimated_cost": 0.0, "ai_reason": ""}],
+        ])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="clear_day", day_number=1, raw_message="1일차 비워줘"
+        )):
+            _collect_events(svc, session.session_id, "1일차 비워줘")
+
+        assert session.last_plan["days"][0]["places"] == []
+        # Day 2 must be untouched
+        assert len(session.last_plan["days"][1]["places"]) == 1
+
+    def test_clear_day_emits_chat_chunk_confirmation(self):
+        """clear_day emits a chat_chunk confirming the day was cleared."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "센소지", "category": "sightseeing", "address": "", "estimated_cost": 0.0, "ai_reason": ""}],
+        ])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="clear_day", day_number=1, raw_message="1일차 다 지워줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 다 지워줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        assert any("1" in e["data"]["text"] for e in chat_chunks)
+
+    def test_clear_day_out_of_range_emits_error_chunk(self):
+        """clear_day with out-of-range day emits chat_chunk describing the error, no day_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "센소지", "category": "sightseeing", "address": "", "estimated_cost": 0.0, "ai_reason": ""}],
+        ])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="clear_day", day_number=5, raw_message="5일차 비워줘"
+        )):
+            events = _collect_events(svc, session.session_id, "5일차 비워줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        assert any("5" in e["data"]["text"] for e in chat_chunks)
+
+    def test_clear_day_no_plan_emits_chat_chunk(self):
+        """clear_day with no plan returns a helpful message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # No last_plan set
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="clear_day", day_number=1, raw_message="1일차 비워줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 비워줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+    def test_clear_day_missing_day_number_emits_error(self):
+        """clear_day without day_number emits an instructional chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "센소지", "category": "sightseeing", "address": "", "estimated_cost": 0.0, "ai_reason": ""}],
+        ])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="clear_day", raw_message="일정 비워줘"
+        )):
+            events = _collect_events(svc, session.session_id, "일정 비워줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+    def test_clear_day_db_deletes_all_places_and_emits_day_update(self):
+        """clear_day with saved plan deletes all Place rows in DB and emits day_update with empty places."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="도쿄",
+                start_date=date_type(2026, 5, 1),
+                end_date=date_type(2026, 5, 3),
+                budget=2000000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 2), notes="")
+            day3 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 3), notes="")
+            db.add_all([day1, day2, day3])
+            db.commit()
+            db.refresh(day1)
+            db.refresh(day2)
+            db.refresh(day3)
+
+            # Add 2 places to day3
+            p1 = PlaceModel(day_itinerary_id=day3.id, name="신주쿠", category="shopping", estimated_cost=0.0, order=0)
+            p2 = PlaceModel(day_itinerary_id=day3.id, name="시부야", category="shopping", estimated_cost=0.0, order=1)
+            # Add 1 place to day1 (should remain untouched)
+            p3 = PlaceModel(day_itinerary_id=day1.id, name="센소지", category="sightseeing", estimated_cost=0.0, order=0)
+            db.add_all([p1, p2, p3])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="clear_day", day_number=3, raw_message="3일차 일정 다 지워줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "3일차 일정 다 지워줘", db)
+
+            # Verify DB: day3 must have no places
+            db.expire_all()
+            places_in_day3 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day3.id).all()
+            assert len(places_in_day3) == 0, "All Day 3 places must be deleted from DB"
+
+            # Day 1 must be untouched
+            places_in_day1 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day1.id).all()
+            assert len(places_in_day1) == 1
+
+            # day_update emitted with empty places
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 1
+            assert day_updates[0]["data"]["day_number"] == 3
+            assert day_updates[0]["data"]["places"] == []
+
+            # Confirm chat_chunk
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            assert any("3" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_clear_day_db_out_of_range_emits_error(self):
+        """clear_day with out-of-range day in DB path emits error chat_chunk, no day_update."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="파리",
+                start_date=date_type(2026, 6, 1),
+                end_date=date_type(2026, 6, 2),
+                budget=1500000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 2), notes="")
+            db.add_all([day1, day2])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="clear_day", day_number=5, raw_message="5일차 비워줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "5일차 비워줘", db)
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 0, "No day_update for out-of-range day"
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            assert any("5" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
