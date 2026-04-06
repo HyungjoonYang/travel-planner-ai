@@ -1969,3 +1969,422 @@ test.describe("suggest_improvements + budget auto-refresh (Task #90)", () => {
     expect(width).toBeCloseTo(68.0, 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// reorder_days E2E scenarios (Task #93 / Issue #118)
+// ---------------------------------------------------------------------------
+
+test.describe("reorder_days E2E (Task #93)", () => {
+  /**
+   * Helper: build a two-call session mock.
+   * - First call → plan_update with 3 days (each has distinct places)
+   * - Second call → the provided sseEvents (reorder response)
+   */
+  async function mockPlanThenReorder(
+    page: Page,
+    sessionId: string,
+    reorderEvents: object[]
+  ): Promise<void> {
+    // Session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: sessionId,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(`**/chat/sessions/${sessionId}/messages`, async (route) => {
+      callCount++;
+      if (callCount === 1) {
+        // First message: create a plan with 3 days
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+          body: buildSse(
+            {
+              type: "agent_status",
+              data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+            },
+            {
+              type: "plan_update",
+              data: {
+                destination: "도쿄",
+                start_date: "2026-05-01",
+                end_date: "2026-05-03",
+                budget: 1_500_000,
+                total_estimated_cost: 300_000,
+                days: [
+                  {
+                    day: 1,
+                    date: "2026-05-01",
+                    theme: "아사쿠사",
+                    places: [
+                      {
+                        name: "센소지",
+                        category: "문화",
+                        address: "도쿄 아사쿠사",
+                        estimated_cost: 0,
+                        ai_reason: "유명 사원",
+                        order: 1,
+                      },
+                    ],
+                    notes: "",
+                  },
+                  {
+                    day: 2,
+                    date: "2026-05-02",
+                    theme: "시부야",
+                    places: [
+                      {
+                        name: "스크램블 교차로",
+                        category: "관광",
+                        address: "도쿄 시부야",
+                        estimated_cost: 0,
+                        ai_reason: "유명 교차로",
+                        order: 1,
+                      },
+                    ],
+                    notes: "",
+                  },
+                  {
+                    day: 3,
+                    date: "2026-05-03",
+                    theme: "신주쿠",
+                    places: [
+                      {
+                        name: "신주쿠 쇼핑",
+                        category: "쇼핑",
+                        address: "도쿄 신주쿠",
+                        estimated_cost: 50_000,
+                        ai_reason: "쇼핑 명소",
+                        order: 1,
+                      },
+                    ],
+                    notes: "",
+                  },
+                ],
+              },
+            },
+            { type: "chat_chunk", data: { text: "도쿄 3일 여행 계획을 생성했습니다." } },
+            { type: "chat_done", data: {} }
+          ),
+        });
+      } else {
+        // Second message: reorder response
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+          body: buildSse(...reorderEvents),
+        });
+      }
+    });
+  }
+
+  /**
+   * Scenario A (happy path — swap day 1 and day 3):
+   * 1. Create a plan with 3 days via plan_update.
+   * 2. Send "1일차와 3일차 순서 바꿔줘".
+   * 3. SSE emits day_update for day 1 (now has day 3's places) and
+   *    day_update for day 3 (now has day 1's places).
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - day card for 2026-05-01 shows "신주쿠 쇼핑" (formerly day 3)
+   *   - day card for 2026-05-03 shows "센소지" (formerly day 1)
+   *   - chat confirms the swap
+   */
+  test("reorder_days: day_update events swap both day cards in dashboard", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-reorder-days-happy";
+
+    await mockPlanThenReorder(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "reorder_days 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "working", message: "일정 순서 변경 중..." },
+      },
+      // day_update for day 1 — now carries day 3's original places
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-05-01",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "신주쿠 쇼핑",
+              category: "쇼핑",
+              address: "도쿄 신주쿠",
+              estimated_cost: 50_000,
+              ai_reason: "쇼핑 명소",
+              order: 1,
+            },
+          ],
+        },
+      },
+      // day_update for day 3 — now carries day 1's original places
+      {
+        type: "day_update",
+        data: {
+          day_number: 3,
+          date: "2026-05-03",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "센소지",
+              category: "문화",
+              address: "도쿄 아사쿠사",
+              estimated_cost: 0,
+              ai_reason: "유명 사원",
+              order: 1,
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "done", message: "Day 1와 Day 3 교환 완료!" },
+      },
+      { type: "chat_chunk", data: { text: "Day 1와 Day 3의 일정을 교환했습니다." } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the plan ---
+    await page.fill("#chat-input", "도쿄 3일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render with 3 day cards
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(3);
+
+    // Day 1 must contain 센소지 before the swap
+    await expect(page.locator("#day-2026-05-01")).toContainText("센소지");
+    // Day 3 must contain 신주쿠 쇼핑 before the swap
+    await expect(page.locator("#day-2026-05-03")).toContainText("신주쿠 쇼핑");
+
+    // Wait for input to re-enable before second message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: reorder day 1 and day 3 ---
+    await page.fill("#chat-input", "1일차와 3일차 순서 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("교환 완료");
+
+    // Day 1 card must now show 신주쿠 쇼핑 (originally day 3)
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "신주쿠 쇼핑"
+    );
+
+    // Day 3 card must now show 센소지 (originally day 1)
+    await expect(page.locator("#day-2026-05-03 .day-places")).toContainText(
+      "센소지"
+    );
+
+    // Chat must confirm the swap
+    await expect(page.locator("#chat-messages")).toContainText(
+      "Day 1와 Day 3의 일정을 교환했습니다.",
+      { timeout: 10_000 }
+    );
+  });
+
+  /**
+   * Scenario B (out-of-range error):
+   * 1. Create a plan with 2 days.
+   * 2. Send "1일차와 5일차 바꿔줘" — day 5 does not exist.
+   * 3. SSE emits planner error → chat shows error guidance.
+   *
+   * Done criteria:
+   *   - planner reaches agent-error state
+   *   - planner card message contains "범위"
+   *   - chat shows "없습니다"
+   *   - no additional day_update events fired (no cards changed)
+   */
+  test("reorder_days error: out-of-range day makes planner error with guidance", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-reorder-days-out-of-range";
+
+    // Two-call mock but with only 2 days in the plan
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(`**/chat/sessions/${SESSION_ID}/messages`, async (route) => {
+      callCount++;
+      if (callCount === 1) {
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+          body: buildSse(
+            {
+              type: "agent_status",
+              data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+            },
+            {
+              type: "plan_update",
+              data: {
+                destination: "오사카",
+                start_date: "2026-06-01",
+                end_date: "2026-06-02",
+                budget: 1_000_000,
+                total_estimated_cost: 200_000,
+                days: [
+                  {
+                    day: 1,
+                    date: "2026-06-01",
+                    theme: "도톤보리",
+                    places: [
+                      {
+                        name: "도톤보리 거리",
+                        category: "관광",
+                        address: "오사카 도톤보리",
+                        estimated_cost: 0,
+                        ai_reason: "유명 거리",
+                        order: 1,
+                      },
+                    ],
+                    notes: "",
+                  },
+                  {
+                    day: 2,
+                    date: "2026-06-02",
+                    theme: "오사카성",
+                    places: [
+                      {
+                        name: "오사카성",
+                        category: "문화",
+                        address: "오사카 주오구",
+                        estimated_cost: 600,
+                        ai_reason: "역사 유적",
+                        order: 1,
+                      },
+                    ],
+                    notes: "",
+                  },
+                ],
+              },
+            },
+            { type: "chat_chunk", data: { text: "오사카 2일 여행 계획을 생성했습니다." } },
+            { type: "chat_done", data: {} }
+          ),
+        });
+      } else {
+        // Second message: out-of-range reorder attempt
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+          body: buildSse(
+            {
+              type: "agent_status",
+              data: { agent: "coordinator", status: "done", message: "reorder_days 파악" },
+            },
+            {
+              type: "agent_status",
+              data: { agent: "planner", status: "working", message: "일정 순서 변경 중..." },
+            },
+            {
+              type: "agent_status",
+              data: {
+                agent: "planner",
+                status: "error",
+                message: "Day 5이 범위를 벗어났습니다",
+              },
+            },
+            {
+              type: "chat_chunk",
+              data: { text: "Day 5은 이 계획에 없습니다 (총 2일)." },
+            },
+            { type: "chat_done", data: {} }
+          ),
+        });
+      }
+    });
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan ---
+    await page.fill("#chat-input", "오사카 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("오사카", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Original day 1 content (도톤보리) must be intact
+    await expect(page.locator("#day-2026-06-01")).toContainText("도톤보리 거리");
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: request out-of-range swap ---
+    await page.fill("#chat-input", "1일차와 5일차 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach error state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Planner error message must mention "범위"
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("범위");
+
+    // Chat must show the out-of-range guidance
+    await expect(page.locator("#chat-messages")).toContainText("없습니다", {
+      timeout: 10_000,
+    });
+
+    // Day 1 content must be UNCHANGED (no day_update was fired)
+    await expect(page.locator("#day-2026-06-01 .day-places")).toContainText(
+      "도톤보리 거리"
+    );
+  });
+});
