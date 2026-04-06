@@ -6,7 +6,15 @@
 
 ## In Progress
 
-_(없음)_
+- [ ] #91 - Chat: `share_plan` intent — generate shareable plan link via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py, src/app/static/chat.js (or index.html)
+  - done: "이 계획 공유해줘" → secretary emits plan_shared event with share_url + share_token; frontend shows copiable URL in chat/dashboard; graceful error if no saved plan; 2+ tests
+  - gh: #112
+  - ❌ QA fail (Run #116, 2026-04-06): Backend complete (plan_shared event + token), 10 tests pass. Blockers:
+    1. **[HIGH]** Frontend handler missing — no JS handles plan_shared SSE event; done criteria requires copiable URL in chat/dashboard
+    2. **[MEDIUM]** All 10 tests mock extract_intent (Constraint #10) — add ≥1 test with real intent extraction path
+    3. **[MEDIUM]** @playwright/test not installed — pre-existing E2E blocker
 
 ## Ready
   - **문제**: Plans 페이지가 빈 껍데기, "Create your first trip!" 링크만 존재. 사용자가 버튼을 조작하는 게 아니라 채팅만으로 모든 여행 관리가 되어야 함
@@ -15,12 +23,6 @@ _(없음)_
   - done: 사이트 접속 시 바로 채팅 인터페이스; 빈 상태에서 가이드/예시 표시; Plans 탭은 저장된 계획 목록만; 시각적으로 현대적; 기존 E2E 깨지지 않음
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-
-- [ ] #91 - Chat: `share_plan` intent — generate shareable plan link via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: "이 계획 공유해줘" → secretary emits plan_shared event with share_url + share_token; frontend shows copiable URL in chat/dashboard; graceful error if no saved plan; 2+ tests
-  - gh: #112
 
 - [ ] #92 - E2E: share_plan Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md

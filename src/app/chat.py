@@ -33,7 +33,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | general
+    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -151,7 +151,7 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "general"
+- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "general"
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -175,6 +175,7 @@ Return a JSON object with these fields:
 - Use action "add_place" when user wants to add/append a custom place to a specific day (e.g. "1일차에 서울숲 추가해줘", "Day 2에 경복궁 넣어줘", "3일차에 맛집 추가", "add Gyeongbokgung to day 1", "Day 3에 카페 추가"); set day_number to the referenced day, query to the place name, and place_category to the category if mentioned (e.g. "맛집" → "food", "카페" → "cafe", "관광지" → "sightseeing"), else null
 - place_index: 1-based index of the place to remove within the day's places list, if an ordinal position is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2); null if removing by name or unspecified
 - place_category: category for the place to add (e.g. "sightseeing", "food", "cafe", "museum", "park", "landmark"); null if not specified
+- Use action "share_plan" when user wants to share or get a shareable link for the current or a specific travel plan (e.g. "이 계획 공유해줘", "공유 링크 만들어줘", "친구한테 공유하고 싶어", "share this plan", "get a shareable link", "링크 공유", "공유"); set plan_id if a specific plan is referenced
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -343,6 +344,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "add_place":
             async for event in self._handle_add_place(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "share_plan":
+            async for event in self._handle_share_plan(intent, session, db):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -2108,6 +2112,97 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"여행 계획 복사 중 오류가 발생했습니다: {exc}"},
+            }
+
+    async def _handle_share_plan(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Generate a shareable link for the current or specified travel plan."""
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "secretary", "status": "working", "message": "공유 링크 생성 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if db is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "DB가 연결되지 않았습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "공유 링크를 생성하려면 DB 연결이 필요합니다."},
+            }
+            return
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+        if plan_id is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "저장된 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "공유할 여행 계획이 없습니다. 먼저 계획을 저장해주세요."},
+            }
+            return
+
+        try:
+            import secrets as _secrets
+
+            from app.models import TravelPlan as TravelPlanModel
+
+            plan: Optional[TravelPlanModel] = db.get(TravelPlanModel, plan_id)
+            if plan is None:
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "secretary", "status": "error", "message": "계획을 찾을 수 없습니다"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Plan #{plan_id}을 찾을 수 없습니다."},
+                }
+                return
+
+            if not plan.is_shared or not plan.share_token:
+                plan.share_token = _secrets.token_urlsafe(32)
+                plan.is_shared = True
+                db.commit()
+                db.refresh(plan)
+
+            import os as _os
+            base_url = _os.getenv("APP_BASE_URL", "").rstrip("/")
+            share_url = f"{base_url}/travel-plans/shared/{plan.share_token}"
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "done", "message": "공유 링크 생성 완료!"},
+            }
+            yield {
+                "type": "plan_shared",
+                "data": {
+                    "plan_id": plan.id,
+                    "share_token": plan.share_token,
+                    "share_url": share_url,
+                },
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"공유 링크가 생성되었습니다: {share_url}"},
+            }
+
+        except Exception as exc:
+            logger.error("_handle_share_plan: failed — %s: %s", type(exc).__name__, exc, exc_info=True)
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "secretary", "status": "error", "message": "공유 링크 생성 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"공유 링크 생성 중 오류가 발생했습니다: {exc}"},
             }
 
     async def _handle_get_weather(

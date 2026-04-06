@@ -1,0 +1,77 @@
+{
+  "trace": {
+    "run_id": "2026-04-06-1400",
+    "timestamp": "2026-04-06T14:00:00Z",
+    "phase": "Phase 10: Chat + Multi-Agent Dashboard",
+    "health": "YELLOW",
+    "task": "#91 - Chat: `share_plan` intent — generate shareable plan link via chat",
+    "agents": {
+      "coordinator": "completed",
+      "architect": "skipped",
+      "builder": "completed",
+      "qa": "fail",
+      "reporter": "running"
+    }
+  },
+  "spans": [
+    {
+      "agent": "coordinator",
+      "status": "completed",
+      "detail": "Selected task #91 share_plan intent; health GREEN; no fix/architect needed"
+    },
+    {
+      "agent": "architect",
+      "status": "skipped",
+      "detail": "backlog_ready_count=6 >= 2; skipped per policy"
+    },
+    {
+      "agent": "builder",
+      "status": "completed",
+      "detail": "Implemented share_plan intent: secretary emits plan_shared event with share_url + share_token. 10 new tests (TestSharePlan). 1509 passing total."
+    },
+    {
+      "agent": "qa",
+      "status": "fail",
+      "detail": "done_criteria_met=fail (frontend handler missing), integration_test_quality=fail (extract_intent mocked in all 10 new tests), e2e_integration=fail (playwright not installed — pre-existing). Tests 1509/1509 pass, lint clean."
+    },
+    {
+      "agent": "reporter",
+      "status": "running",
+      "detail": "Recording results, updating state files, creating PR"
+    }
+  ],
+  "ltes": {
+    "latency": {
+      "total_duration_ms": 26890
+    },
+    "traffic": {
+      "commits": 1,
+      "lines_added": 121,
+      "lines_removed": 2,
+      "files_changed": 2
+    },
+    "errors": {
+      "test_failures": 0,
+      "qa_failures": 3,
+      "fix_attempts": 0
+    },
+    "saturation": {
+      "backlog_remaining": 6
+    }
+  },
+  "qa_checks": {
+    "all_tests_pass": "pass",
+    "new_tests_exist": "pass",
+    "lint_clean": "pass",
+    "done_criteria_met": "fail",
+    "no_regressions": "pass",
+    "integration_test_quality": "fail",
+    "e2e_integration": "fail",
+    "no_secrets_leaked": "pass"
+  },
+  "issues": [
+    "Frontend handler for plan_shared event is missing — done criteria requires copiable URL in chat/dashboard",
+    "All 10 new tests mock extract_intent, bypassing real intent routing (Constraint #10)",
+    "E2E Playwright cannot run — @playwright/test not installed (pre-existing)"
+  ]
+}
