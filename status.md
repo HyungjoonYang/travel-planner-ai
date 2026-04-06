@@ -1,19 +1,19 @@
 # Status
 
-Last run: 2026-04-06T17:32:00Z (Monitor Run #130)
-Run count: 138
+Last run: 2026-04-06T18:00:00Z (Evolve Run #118)
+Run count: 139
 Phase: Phase 10: Chat + Multi-Agent Dashboard — P0 Critical UX Fixes
-Health: GREEN
+Health: YELLOW
 Error Budget: HEALTHY
 Tasks completed: 93 (#91 share_plan intent — frontend handler + real-intent test)
-Current focus: #92 E2E: share_plan Playwright scenarios
-Next planned: #93 reorder_days intent
+Current focus: #92 E2E: share_plan Playwright scenarios (QA fail — retry needed)
+Next planned: #92 retry → #93 reorder_days intent
 
 ## LTES Snapshot
 
-- Latency: 50000ms (pytest 25.76s + overhead)
-- Traffic: 25 commits/24h
-- Errors: 0 test failures (1510/1510 pass), 5 skipped, error_rate=0.0%
+- Latency: 50000ms (pytest ~25s + overhead)
+- Traffic: 26 commits/24h
+- Errors: 1 E2E test failure (Scenario A assertion wrong), pytest 1510/1510 pass, error_rate=0.07%
 - Saturation: 5 tasks ready
 
 ## Phase Transition
@@ -29,6 +29,18 @@ Next planned: #93 reorder_days intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #118 — 2026-04-06T18:00:00Z
+- **Task**: #92 - E2E: share_plan Playwright scenarios [test]
+- **Result**: YELLOW ✗ (QA fail)
+- **Tests**: 1510/1510 pytest passed (5 skipped), lint clean
+- **QA failures**:
+  - `done_criteria_met` FAIL — only 1/2 E2E scenarios pass (Scenario B passes, Scenario A fails)
+  - `e2e_integration` FAIL — e2e/chat.spec.ts:1567: `toContainText` used on `.plan-share-card` but share URL lives in `<input value='...'>`. Fix: use `toHaveValue` on `.plan-share-card input[aria-label='공유 링크 (대시보드)']`
+- **Files changed**: e2e/chat.spec.ts (+162/-0)
+- **Builder note**: 2 E2E scenarios added. Scenario B (graceful error, no plan loaded) passes. Scenario A (happy path) has wrong assertion type for input value.
+- **LTES**: L=50000ms T=1 commit E=1 E2E failure S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✗ → reporter ✓
 
 ### Monitor Run #130 — 2026-04-06T17:32:00Z
 - **Task**: monitor

@@ -6,7 +6,13 @@
 
 ## In Progress
 
-_(없음)_
+- [ ] #92 - E2E: share_plan Playwright scenarios [test]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #91
+  - files: e2e/chat.spec.ts
+  - done: "이 계획 공유해줘" → plan_shared SSE event fires → share URL rendered in chat; copy button visible; graceful error when no plan loaded; 2+ scenarios pass
+  - gh: #118
+  - ❌ QA fail (Run #118, 2026-04-06): Scenario A fails at line 1567 — `toContainText` used on `.plan-share-card` but share URL is in `<input value='...'>`. Fix: `await expect(page.locator('.plan-share-card input[aria-label="공유 링크 (대시보드)"]')).toHaveValue(SHARE_URL)`
 
 ## Ready
   - **문제**: Plans 페이지가 빈 껍데기, "Create your first trip!" 링크만 존재. 사용자가 버튼을 조작하는 게 아니라 채팅만으로 모든 여행 관리가 되어야 함
@@ -15,13 +21,6 @@ _(없음)_
   - done: 사이트 접속 시 바로 채팅 인터페이스; 빈 상태에서 가이드/예시 표시; Plans 탭은 저장된 계획 목록만; 시각적으로 현대적; 기존 E2E 깨지지 않음
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-
-- [ ] #92 - E2E: share_plan Playwright scenarios [test]
-  - ref: markdowns/feat-chat-dashboard.md
-  - depends: #91
-  - files: e2e/chat.spec.ts
-  - done: "이 계획 공유해줘" → plan_shared SSE event fires → share URL rendered in chat; copy button visible; graceful error when no plan loaded; 2+ scenarios pass
-  - gh: #118
 
 - [ ] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md
