@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-06T19:00:00Z (Evolve Run #119)
-Run count: 141
+Last run: 2026-04-06T20:00:00Z (Evolve Run #120)
+Run count: 142
 Phase: Phase 10: Chat + Multi-Agent Dashboard — P0 Critical UX Fixes
-Health: GREEN
-Error Budget: HEALTHY
-Tasks completed: 95 (#99 Frontend: chat-first landing + modern UX redesign — style.css created, chat default page, modern visuals)
-Current focus: #93 reorder_days intent
-Next planned: #94 clear_day intent
+Health: YELLOW
+Error Budget: HEALTHY (consecutive_qa_failures=1)
+Tasks completed: 95
+Current focus: #93 reorder_days intent (QA FAILED — backend not implemented + route-mock E2E rejected)
+Next planned: #93 retry (backend handler + integration tests required)
 
 ## LTES Snapshot
 
-- Latency: 48000ms (pytest run + overhead)
+- Latency: 50000ms (pytest run + overhead)
 - Traffic: 1 commit (this run)
-- Errors: 0 test failures (1517/1517 pass), 5 skipped, error_rate=0.0%
-- Saturation: 5 tasks ready
+- Errors: 3 QA check failures (done_criteria_met, integration_test_quality, e2e_integration), error_rate=QA fail
+- Saturation: 4 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,19 @@ Next planned: #94 clear_day intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #120 — 2026-04-06T20:00:00Z
+- **Task**: #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
+- **Result**: YELLOW ❌ (QA fail)
+- **Tests**: 1517/1517 Python tests passed (no regression), 5 skipped; 2 Playwright E2E scenarios added (+168 lines) but rejected by QA
+- **Files changed**: e2e/chat.spec.ts (+168/-0)
+- **QA failure reasons**:
+  1. `done_criteria_met` FAIL — backend `reorder_days` handler not implemented in `src/app/chat.py`; intent not in supported action list
+  2. `integration_test_quality` FAIL — CLAUDE.md constraint #9 requires integration tests; only route-mock Playwright added
+  3. `e2e_integration` FAIL — CLAUDE.md constraint #11: route-mock E2E (mockChatSession) does not count as integration test
+- **Fix required**: Implement `_handle_reorder_days` in `src/app/chat.py`; add `tests/test_chat_reorder_days.py` with real integration tests
+- **LTES**: L=50000ms T=1 commit E=3 QA failures S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ❌ → reporter ✓
 
 ### Evolve Run #119 — 2026-04-06T19:00:00Z
 - **Task**: #99 - Frontend: chat-first landing + modern UX redesign [improvement]

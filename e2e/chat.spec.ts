@@ -1969,3 +1969,220 @@ test.describe("suggest_improvements + budget auto-refresh (Task #90)", () => {
     expect(width).toBeCloseTo(68.0, 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// reorder_days E2E scenarios (Task #93 / Issue #118)
+// ---------------------------------------------------------------------------
+
+test.describe("reorder_days intent E2E (Task #93)", () => {
+  /**
+   * Scenario A (happy path):
+   * "1일차랑 3일차 바꿔줘" → coordinator done → planner working →
+   * two day_update SSE events (Day 1 ↔ Day 3 content swapped) →
+   * planner done → chat confirms swap.
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - day card #day-2026-05-01 shows Day 3's place content (신주쿠 교엔)
+   *   - day card #day-2026-05-03 shows Day 1's place content (센소지)
+   *   - chat reply contains confirmation of the swap
+   */
+  test("reorder_days: swap day 1 and day 3 updates both day cards", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "reorder_days 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "working",
+          message: "Day 1 ↔ Day 3 순서 변경 중...",
+        },
+      },
+      // day_update for 2026-05-01 — now receives Day 3's original content
+      {
+        type: "day_update",
+        data: {
+          day: 1,
+          date: "2026-05-01",
+          theme: "신주쿠",
+          places: [
+            {
+              name: "신주쿠 교엔",
+              category: "자연",
+              address: "도쿄 신주쿠",
+              estimated_cost: 500,
+              ai_reason: "대형 정원",
+              order: 1,
+            },
+          ],
+          notes: "",
+        },
+      },
+      // day_update for 2026-05-03 — now receives Day 1's original content
+      {
+        type: "day_update",
+        data: {
+          day: 3,
+          date: "2026-05-03",
+          theme: "아사쿠사",
+          places: [
+            {
+              name: "센소지",
+              category: "문화",
+              address: "도쿄 아사쿠사",
+              estimated_cost: 0,
+              ai_reason: "유명 사원",
+              order: 1,
+            },
+          ],
+          notes: "",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "done",
+          message: "Day 1 ↔ Day 3 순서 변경 완료!",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1과 Day 3의 일정을 교체했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "1일차랑 3일차 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Planner agent message must confirm the swap
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("순서 변경 완료");
+
+    // Day card for 2026-05-01 must be visible and contain Day 3's content
+    await expect(
+      page.locator("#day-2026-05-01")
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#day-2026-05-01")).toContainText("신주쿠 교엔");
+
+    // Day card for 2026-05-03 must be visible and contain Day 1's content
+    await expect(
+      page.locator("#day-2026-05-03")
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("#day-2026-05-03")).toContainText("센소지");
+
+    // Chat reply must confirm the swap
+    await expect(page.locator("#chat-messages")).toContainText(
+      "Day 1과 Day 3의 일정을 교체했습니다.",
+      { timeout: 10_000 }
+    );
+  });
+
+  /**
+   * Scenario B (error — out-of-range day):
+   * "10일차랑 2일차 바꿔줘" when the plan has only 3 days →
+   * planner reaches agent-error state + chat shows an error/guidance message.
+   *
+   * Done criteria:
+   *   - planner card carries agent-error class
+   *   - planner agent message contains the out-of-range error description
+   *   - chat contains guidance asking for a valid day number
+   */
+  test("reorder_days error: out-of-range day → planner error + guidance message", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "reorder_days 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "working",
+          message: "Day 10 ↔ Day 2 순서 변경 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "error",
+          message: "범위를 벗어난 날짜 번호입니다",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: {
+          text: "Day 10은 계획 범위를 벗어납니다. 유효한 날짜 번호를 입력해주세요.",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "10일차랑 2일차 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach error state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Planner agent message must describe the error
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("범위를 벗어난");
+
+    // Chat must display the guidance message
+    await expect(page.locator("#chat-messages")).toContainText(
+      "유효한 날짜 번호를 입력해주세요",
+      { timeout: 10_000 }
+    );
+
+    // No day_update events fired — #day-2026-05-10 must not be created
+    await expect(
+      page.locator('[id^="day-"]')
+    ).toHaveCount(0);
+  });
+});

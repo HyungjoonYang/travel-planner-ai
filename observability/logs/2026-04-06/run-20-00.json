@@ -1,0 +1,62 @@
+{
+  "trace": {
+    "run_id": "2026-04-06-2000",
+    "timestamp": "2026-04-06T20:00:00Z",
+    "phase": "Phase 10",
+    "health": "YELLOW",
+    "task": "#93 - Chat: `reorder_days` intent — swap/reorder days via chat (E2E scenarios)",
+    "agents": {
+      "coordinator": "completed",
+      "architect": "skipped",
+      "builder": "completed",
+      "qa": "fail",
+      "reporter": "running"
+    }
+  },
+  "spans": [
+    {
+      "agent": "coordinator",
+      "status": "completed",
+      "detail": "Selected task #93 reorder_days E2E; no fix needed; no architect needed"
+    },
+    {
+      "agent": "architect",
+      "status": "skipped",
+      "detail": "backlog_ready_count=4 >= 2; skipped"
+    },
+    {
+      "agent": "builder",
+      "status": "completed",
+      "detail": "Added 2 Playwright E2E scenarios in e2e/chat.spec.ts (+168 lines); reorder_days describe block; Scenario A happy path + Scenario B error path using mockChatSession"
+    },
+    {
+      "agent": "qa",
+      "status": "fail",
+      "detail": "3 checks failed: done_criteria_met (backend reorder_days handler not implemented), integration_test_quality (route-mock E2E disqualified by constraint #11), e2e_integration (mockChatSession bypasses server)"
+    },
+    {
+      "agent": "reporter",
+      "status": "running",
+      "detail": "Recording failure, updating status/backlog/budget, creating PR with evolve-needs-review label"
+    }
+  ],
+  "ltes": {
+    "latency": {
+      "total_duration_ms": 50000
+    },
+    "traffic": {
+      "commits": 1,
+      "lines_added": 168,
+      "lines_removed": 0,
+      "files_changed": 1
+    },
+    "errors": {
+      "test_failures": 3,
+      "fix_attempts": 0,
+      "qa_checks_failed": ["done_criteria_met", "integration_test_quality", "e2e_integration"]
+    },
+    "saturation": {
+      "backlog_remaining": 4
+    }
+  }
+}

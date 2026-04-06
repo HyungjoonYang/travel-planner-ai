@@ -6,18 +6,21 @@
 
 ## In Progress
 
-_(없음)_
+- [ ] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #91
+  - files: src/app/chat.py, tests/test_chat_reorder_days.py, e2e/chat.spec.ts
+  - done: "1일차랑 3일차 바꿔줘" → places swapped in DB → day_update SSE for both days; chat reply confirms; error on out-of-range day; Python integration tests pass; 2+ real-server Playwright scenarios pass
+  - gh: #118
+  - ❌ QA FAILED (Run #120 — 2026-04-06T20:00:00Z):
+    - Backend `reorder_days` handler NOT implemented in `src/app/chat.py` (constraint #done_criteria)
+    - No Python integration tests added (CLAUDE.md constraint #9)
+    - Route-mock E2E rejected: constraint #11 disqualifies mockChatSession-based scenarios
+  - Fix: implement `_handle_reorder_days` in chat.py + add `tests/test_chat_reorder_days.py` + real-server Playwright scenario
 
 ## Ready
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
-
-- [ ] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - depends: #91
-  - files: e2e/chat.spec.ts
-  - done: "이 계획 공유해줘" → plan_shared SSE event fires → share URL rendered in chat; copy button visible; graceful error when no plan loaded; 2+ scenarios pass
-  - gh: #118
 
 - [ ] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md
