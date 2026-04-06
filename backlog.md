@@ -12,13 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #93 - Chat: `reorder_days` E2E — Playwright scenarios for day reordering [test]
-  - ref: markdowns/feat-chat-dashboard.md
-  - depends: #119
-  - files: e2e/chat.spec.ts
-  - done: reorder_days SSE flow mocked → day_update for both swapped days visible; error scenario when out-of-range; 2+ scenarios pass
-  - gh: #118
-
 - [ ] #94 - Chat: `clear_day` intent — remove all places from a day via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
@@ -150,6 +143,7 @@ _(없음)_
 - [x] #92 - E2E: share_plan Playwright scenarios [test] — 2026-04-06
 - [x] #99 - Frontend: chat-first landing + modern UX redesign [improvement] — 2026-04-06
 - [x] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature] — 2026-04-06
+- [x] #93 - E2E: `reorder_days` Playwright scenarios — happy path + out-of-range error [test] — 2026-04-06
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -162,5 +156,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 96 done, 4 ready (0 in progress)
+- Total tasks: 97 done, 3 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

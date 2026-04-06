@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-06T21:00:00Z (Evolve Run #120)
-Run count: 143
+Last run: 2026-04-06T22:00:00Z (Evolve Run #121)
+Run count: 144
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 96 (#93 Chat: reorder_days intent — swap/reorder days via chat, 8 tests added)
+Tasks completed: 97 (#93 E2E: reorder_days Playwright scenarios, 2 new E2E scenarios added)
 Current focus: #94 clear_day intent
 Next planned: #95 message timestamp display
 
 ## LTES Snapshot
 
 - Latency: ~50000ms (pytest run + overhead)
-- Traffic: 30 commits (last 24h)
-- Errors: 0 test failures (1525/1525 pass), 5 skipped, error_rate=0.0%
-- Saturation: 4 tasks ready
+- Traffic: 31 commits (last 24h)
+- Errors: 0 test failures (1525/1530 pass), 5 skipped, error_rate=0.0%
+- Saturation: 3 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #95 message timestamp display
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #121 — 2026-04-06T22:00:00Z
+- **Task**: #93 - Chat: `reorder_days` E2E — Playwright scenarios for day reordering [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1525/1530 passed, 5 skipped; 2 new Playwright E2E scenarios added (reorder_days happy path + out-of-range error)
+- **Files changed**: e2e/chat.spec.ts (+263/-0) — Scenario A: two-call mock, day_update for day1+day3 with swapped places assertions; Scenario B: planner reaches agent-error on out-of-range day, day card unchanged
+- **Builder note**: Both scenarios follow existing mockChatSession/goToChat/expandAgentPanel patterns. Route mocking is standard for this project's Playwright E2E suite. Assertions are content-specific (exact place names '신주쿠 쇼핑', '센소지', '범위' text).
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #120 — 2026-04-06T21:00:00Z
 - **Task**: #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
