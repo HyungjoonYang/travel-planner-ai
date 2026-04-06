@@ -133,7 +133,7 @@ class TestAIItineraryResultModel:
 
 class TestGeminiServiceInit:
     def test_model_constant(self):
-        assert GeminiService.MODEL == "gemini-3.0-flash"
+        assert GeminiService.MODEL == "gemini-3-flash-preview"
 
     def test_uses_provided_api_key(self):
         svc = GeminiService(api_key="my-key")

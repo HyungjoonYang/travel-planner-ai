@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -17,6 +18,8 @@ from app.config import GEMINI_API_KEY
 from app.flight_search import FlightSearchService
 from app.hotel_search import HotelSearchService
 from app.web_search import WebSearchService
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -129,6 +132,7 @@ class ChatService:
         "3일차" or "그 목적지" from prior turns.
         """
         if not self._api_key:
+            logger.warning("extract_intent: no API key configured — falling back to general")
             return Intent(action="general", raw_message=message)
 
         try:
@@ -175,7 +179,7 @@ Return a JSON object with these fields:
 
             client = genai.Client(api_key=self._api_key)
             response = client.models.generate_content(
-                model="gemini-3.0-flash",
+                model="gemini-3-flash-preview",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -185,7 +189,8 @@ Return a JSON object with these fields:
             intent = Intent.model_validate_json(response.text)
             intent.raw_message = message
             return intent
-        except Exception:
+        except Exception as exc:
+            logger.error("extract_intent: Gemini call failed — %s: %s", type(exc).__name__, exc, exc_info=True)
             return Intent(action="general", raw_message=message)
 
     # ------------------------------------------------------------------
@@ -2828,7 +2833,7 @@ Return a JSON object with these fields:
             client = genai.Client(api_key=self._api_key)
             response = await asyncio.to_thread(
                 client.models.generate_content,
-                model="gemini-3.0-flash",
+                model="gemini-3-flash-preview",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -2859,8 +2864,8 @@ Return a JSON object with these fields:
                 async for event in self._handle_create_plan(auto_intent):
                     yield event
 
-        except Exception:
-            # Gemini call failed — fall back to smart fallback
+        except Exception as exc:
+            logger.error("_general_with_gemini: Gemini call failed — %s: %s", type(exc).__name__, exc, exc_info=True)
             async for event in self._general_fallback(intent, session):
                 yield event
 
@@ -2987,3 +2992,7 @@ Return a JSON object with these fields:
 
 # Module-level singleton used by the chat router
 chat_service = ChatService()
+logger.info(
+    "ChatService initialized — API key %s, model=gemini-3-flash-preview",
+    "configured" if chat_service._api_key else "MISSING",
+)
