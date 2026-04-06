@@ -7,6 +7,72 @@
 let chatSessionId = null;
 let currentStreamBubble = null;
 
+// ---------------------------------------------------------------------------
+// Timestamp helpers
+// ---------------------------------------------------------------------------
+
+/** Returns a Korean relative-time string for the given ISO timestamp. */
+function formatRelativeTime(ts) {
+  if (!ts) return '';
+  const t = ts instanceof Date ? ts.getTime() : new Date(ts).getTime();
+  if (isNaN(t)) return '';
+  const diffMs = Date.now() - t;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return '방금';
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}시간 전`;
+  return `${Math.floor(diffHr / 24)}일 전`;
+}
+
+/** Refresh all visible .chat-timestamp spans with current relative times. */
+function _updateAllTimestamps() {
+  document.querySelectorAll('.chat-bubble[data-ts]').forEach(bubble => {
+    const tsEl = bubble.querySelector('.chat-timestamp');
+    if (tsEl) tsEl.textContent = formatRelativeTime(bubble.dataset.ts);
+  });
+}
+
+/** Set the visible text of a bubble (targeting .chat-text if present). */
+function _setBubbleText(bubble, text) {
+  const textEl = bubble && bubble.querySelector('.chat-text');
+  if (textEl) textEl.textContent = text;
+  else if (bubble) bubble.textContent = text;
+}
+
+/** Append text to a bubble's .chat-text span (for streaming). */
+function _appendBubbleText(bubble, text) {
+  const textEl = bubble && bubble.querySelector('.chat-text');
+  if (textEl) textEl.textContent += text;
+  else if (bubble) bubble.textContent += text;
+}
+
+/** Create a chat bubble div with a text span and a timestamp span.
+ *  @param {string} role  'user' | 'ai'
+ *  @param {string} text  Initial text content
+ *  @param {string|null} ts  ISO timestamp string (optional; defaults to now)
+ */
+function _createBubble(role, text, ts) {
+  const bubble = document.createElement('div');
+  // role is 'user' → chat-user; 'ai' → chat-ai
+  const roleClass = role === 'user' ? 'chat-user' : 'chat-ai';
+  bubble.className = `chat-bubble ${roleClass}`;
+  const isoTs = ts || new Date().toISOString();
+  bubble.dataset.ts = isoTs;
+
+  const textEl = document.createElement('span');
+  textEl.className = 'chat-text';
+  textEl.textContent = text;
+
+  const tsEl = document.createElement('span');
+  tsEl.className = 'chat-timestamp';
+  tsEl.textContent = formatRelativeTime(isoTs);
+
+  bubble.appendChild(textEl);
+  bubble.appendChild(tsEl);
+  return bubble;
+}
+
 // Current plan state for real-time budget bar updates
 let _currentPlanBudget = 0;
 
@@ -108,9 +174,8 @@ function _restoreMessageBubbles(history) {
 
   const fragment = document.createDocumentFragment();
   for (const msg of history) {
-    const bubble = document.createElement('div');
-    bubble.className = msg.role === 'user' ? 'chat-bubble chat-user' : 'chat-bubble chat-ai';
-    bubble.textContent = msg.content || '';
+    const role = msg.role === 'user' ? 'user' : 'ai';
+    const bubble = _createBubble(role, msg.content || '', msg.created_at || null);
     bubble.dataset.restored = '1';
     fragment.appendChild(bubble);
   }
@@ -132,9 +197,7 @@ async function sendChatMessage() {
   // Append user bubble
   const messagesEl = document.getElementById('chat-messages');
   if (messagesEl) {
-    const bubble = document.createElement('div');
-    bubble.className = 'chat-bubble chat-user';
-    bubble.textContent = msg;
+    const bubble = _createBubble('user', msg);
     messagesEl.appendChild(bubble);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
@@ -183,7 +246,7 @@ async function _sendMessageWithRetry(msg) {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (currentStreamBubble) {
-          currentStreamBubble.textContent = `오류: ${err.detail || res.status}`;
+          _setBubbleText(currentStreamBubble, `오류: ${err.detail || res.status}`);
         }
         currentStreamBubble = null;
         return; // HTTP error — don't retry (session may be gone)
@@ -202,7 +265,7 @@ async function _sendMessageWithRetry(msg) {
     _sseRetryCount++;
     if (_sseRetryCount > _SSE_MAX_RETRIES) {
       if (currentStreamBubble) {
-        currentStreamBubble.textContent = '연결이 끊겼습니다. 페이지를 새로고침 후 다시 시도해주세요.';
+        _setBubbleText(currentStreamBubble, '연결이 끊겼습니다. 페이지를 새로고침 후 다시 시도해주세요.');
       }
       currentStreamBubble = null;
       return;
@@ -266,7 +329,7 @@ function handleSseEvent(event) {
       break;
     case 'chat_chunk':
       if (currentStreamBubble && event.data && event.data.text) {
-        currentStreamBubble.textContent += event.data.text;
+        _appendBubbleText(currentStreamBubble, event.data.text);
         const el = document.getElementById('chat-messages');
         if (el) el.scrollTop = el.scrollHeight;
       }
@@ -333,15 +396,16 @@ function handleSseEvent(event) {
     case 'session_reset':
       _handleSessionReset();
       break;
-    case 'error':
+    case 'error': {
       const errMsg = (event.data && event.data.message) || '오류 발생';
       if (currentStreamBubble) {
-        currentStreamBubble.textContent = `⚠️ ${errMsg}`;
+        _setBubbleText(currentStreamBubble, `⚠️ ${errMsg}`);
         currentStreamBubble = null;
       } else {
         appendAiBubble(`⚠️ ${errMsg}`);
       }
       break;
+    }
   }
 }
 
@@ -439,12 +503,10 @@ function _handleSessionReset() {
   resetAgentCards();
 }
 
-function appendAiBubble(text) {
+function appendAiBubble(text, ts) {
   const messagesEl = document.getElementById('chat-messages');
   if (!messagesEl) return null;
-  const bubble = document.createElement('div');
-  bubble.className = 'chat-bubble chat-ai';
-  bubble.textContent = text;
+  const bubble = _createBubble('ai', text, ts || null);
   messagesEl.appendChild(bubble);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return bubble;
@@ -1235,4 +1297,10 @@ function handlePlanShared(data) {
       });
     }
   }
+
+// ---------------------------------------------------------------------------
+// Periodic timestamp refresh — update relative times every 30 s
+// ---------------------------------------------------------------------------
+
+setInterval(_updateAllTimestamps, 30000);
 }
