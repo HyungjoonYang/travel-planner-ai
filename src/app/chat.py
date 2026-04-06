@@ -1,6 +1,7 @@
 """ChatService: session management + intent extraction + SSE agent-status events."""
 
 import asyncio
+import json
 import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -338,13 +339,9 @@ Return a JSON object with these fields:
         elif intent.action == "add_place":
             async for event in self._handle_add_place(intent, session, db):
                 yield _track_and_collect(event)
-        else:
-            _fallback_text = "어떤 여행을 계획하고 계신가요? 목적지, 날짜, 예산을 알려주세요."
-            assistant_chunks.append(_fallback_text)
-            yield {
-                "type": "chat_chunk",
-                "data": {"text": _fallback_text},
-            }
+        else:  # general
+            async for event in self._handle_general(intent, session):
+                yield _track_and_collect(event)
 
         # Append assistant response to message_history and cap at _MAX_HISTORY_TURNS
         assistant_text = " ".join(assistant_chunks) if assistant_chunks else ""
@@ -2766,6 +2763,207 @@ Return a JSON object with these fields:
                 "type": "chat_chunk",
                 "data": {"text": f"개선 제안 생성 중 오류가 발생했습니다: {exc}"},
             }
+
+    # ------------------------------------------------------------------
+    # General conversation handler
+    # ------------------------------------------------------------------
+
+    async def _handle_general(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+    ) -> AsyncGenerator[dict, None]:
+        """Handle 'general' intent: natural conversation with progressive
+        travel-info extraction.  When all key fields (destination, dates, budget)
+        are gathered, auto-delegates to ``_handle_create_plan``.
+
+        Works in two modes:
+        - **With API key**: calls Gemini for a contextual conversational response
+          plus structured travel-info extraction.
+        - **Without API key**: builds a context-aware fallback that avoids
+          repeating the same question and acknowledges already-known info.
+        """
+        if self._api_key:
+            async for event in self._general_with_gemini(intent, session):
+                yield event
+        else:
+            async for event in self._general_fallback(intent, session):
+                yield event
+
+    async def _general_with_gemini(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+    ) -> AsyncGenerator[dict, None]:
+        """Gemini-powered general conversation handler."""
+        history_lines = []
+        for entry in session.message_history[-(_MAX_HISTORY_TURNS * 2):]:
+            role = entry.get("role", "user").capitalize()
+            content = entry.get("content", "")
+            history_lines.append(f"{role}: {content}")
+        history_str = "\n".join(history_lines) if history_lines else "(없음)"
+
+        prompt = (
+            "You are a friendly, knowledgeable travel planning assistant called Travel Planner AI.\n"
+            "Your job is to help users plan trips through natural conversation.\n\n"
+            "Conversation history:\n"
+            f"{history_str}\n\n"
+            f"User's latest message: \"{intent.raw_message}\"\n\n"
+            "Instructions:\n"
+            "1. Respond naturally and helpfully in the SAME LANGUAGE the user used (Korean if they write Korean).\n"
+            "2. If the user mentions travel-related info (destination, dates, budget, interests), acknowledge it.\n"
+            "3. If key info is still missing, ask ONE follow-up question (don't ask for everything at once).\n"
+            "4. If the user is just chatting or greeting, be warm and gently steer toward travel planning.\n"
+            "5. Extract any travel details mentioned so far in the conversation.\n\n"
+            "Return a JSON object with exactly these fields:\n"
+            '{"response": "your conversational reply here",'
+            ' "destination": "city/country or null",'
+            ' "start_date": "YYYY-MM-DD or null",'
+            ' "end_date": "YYYY-MM-DD or null",'
+            ' "budget": number_or_null,'
+            ' "interests": "comma-separated or null"}'
+        )
+
+        try:
+            client = genai.Client(api_key=self._api_key)
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model="gemini-3.0-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                ),
+            )
+            result = json.loads(response.text)
+            reply = result.get("response", "")
+
+            if reply:
+                yield {"type": "chat_chunk", "data": {"text": reply}}
+
+            # Check if all key fields are available → auto-trigger create_plan
+            dest = result.get("destination")
+            start = result.get("start_date")
+            end = result.get("end_date")
+            budget = result.get("budget")
+
+            if dest and start and end and budget:
+                auto_intent = Intent(
+                    action="create_plan",
+                    destination=dest,
+                    start_date=start,
+                    end_date=end,
+                    budget=float(budget),
+                    interests=result.get("interests") or "",
+                    raw_message=intent.raw_message,
+                )
+                async for event in self._handle_create_plan(auto_intent):
+                    yield event
+
+        except Exception:
+            # Gemini call failed — fall back to smart fallback
+            async for event in self._general_fallback(intent, session):
+                yield event
+
+    async def _general_fallback(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+    ) -> AsyncGenerator[dict, None]:
+        """Context-aware fallback when Gemini is unavailable.
+
+        Avoids repeating the same question by tracking what info we already
+        know from the intent and conversation history.
+        """
+        known: dict[str, str] = {}
+        missing: list[str] = []
+
+        # Check what we already know from intent fields
+        if intent.destination:
+            known["destination"] = intent.destination
+        if intent.start_date:
+            known["start_date"] = intent.start_date
+        if intent.end_date:
+            known["end_date"] = intent.end_date
+        if intent.budget:
+            known["budget"] = str(intent.budget)
+
+        # Also scan message_history for previously mentioned info
+        for entry in session.message_history:
+            content = entry.get("content", "")
+            content_lower = content.lower()
+            if not known.get("destination"):
+                for kw in ["일본", "도쿄", "오사카", "파리", "런던", "뉴욕", "방콕",
+                            "하와이", "제주", "발리", "로마", "바르셀로나"]:
+                    if kw in content_lower:
+                        known["destination"] = kw
+                        break
+            if not known.get("budget"):
+                # Match patterns like "200만원", "100만원", "50만 원"
+                m = re.search(r"(\d+)\s*만\s*원", content)
+                if m:
+                    known["budget"] = str(int(m.group(1)) * 10000)
+                # Match patterns like "예산은 1500000" or "$3000"
+                m2 = re.search(r"(\d{6,})", content)
+                if not known.get("budget") and m2:
+                    known["budget"] = m2.group(1)
+
+        # Determine what's still missing
+        if "destination" not in known:
+            missing.append("destination")
+        if "start_date" not in known:
+            missing.append("dates")
+        if "budget" not in known:
+            missing.append("budget")
+
+        # Build a contextual response
+        if known and not missing:
+            # Have everything — auto-trigger create_plan
+            dest = known["destination"]
+            start_date = known.get("start_date")
+            end_date = known.get("end_date")
+            budget = float(known.get("budget", "2000"))
+            auto_intent = Intent(
+                action="create_plan",
+                destination=dest,
+                start_date=start_date,
+                end_date=end_date,
+                budget=budget,
+                interests=intent.interests or "",
+                raw_message=intent.raw_message,
+            )
+            yield {"type": "chat_chunk", "data": {
+                "text": f"{dest} 여행 계획을 세워드릴게요!",
+            }}
+            async for event in self._handle_create_plan(auto_intent):
+                yield event
+            return
+
+        # Build acknowledgment of known info + ask for ONE missing piece
+        parts = []
+        if known.get("destination"):
+            parts.append(f"{known['destination']} 여행")
+        if known.get("start_date"):
+            parts.append(f"{known['start_date']} 출발")
+        if known.get("budget"):
+            parts.append(f"예산 {known['budget']}원")
+
+        ack = ""
+        if parts:
+            ack = ", ".join(parts) + "이시군요! "
+
+        # Ask for the FIRST missing piece only
+        question_map = {
+            "destination": "어디로 여행을 가고 싶으신가요?",
+            "dates": "언제쯤 여행을 계획하고 계신가요?",
+            "budget": "예산은 어느 정도로 생각하고 계신가요?",
+        }
+        ask = question_map.get(missing[0], "") if missing else ""
+
+        response_text = (ack + ask).strip()
+        if not response_text:
+            response_text = "어디로 여행을 가고 싶으신가요?"
+
+        yield {"type": "chat_chunk", "data": {"text": response_text}}
 
     async def _handle_reset_conversation(
         self, session: "ChatSession"
