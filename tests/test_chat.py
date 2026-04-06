@@ -7065,3 +7065,231 @@ class TestSharePlan:
             db.close()
             from app.database import Base
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #93: reorder_days intent handler
+# ---------------------------------------------------------------------------
+
+
+class TestReorderDays:
+    """_handle_reorder_days: swap places between two days; day_update for both; error on out-of-range."""
+
+    def test_reorder_days_intent_accepted_by_model(self):
+        """Intent model must accept reorder_days action with day_number and day_number_2."""
+        intent = Intent(
+            action="reorder_days",
+            day_number=1,
+            day_number_2=3,
+            raw_message="1일차와 3일차 순서 바꿔줘",
+        )
+        assert intent.action == "reorder_days"
+        assert intent.day_number == 1
+        assert intent.day_number_2 == 3
+
+    def test_reorder_days_swaps_places_in_memory(self):
+        """reorder_days swaps places between two days in session.last_plan."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "센소지", "category": "sightseeing", "estimated_cost": 0}],
+            [{"name": "우에노 공원", "category": "park", "estimated_cost": 0}],
+            [{"name": "도쿄 타워", "category": "landmark", "estimated_cost": 0}],
+        ])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="reorder_days", day_number=1, day_number_2=3, raw_message="1일차와 3일차 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차와 3일차 바꿔줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 2
+
+        # day 1 should now have 도쿄 타워 (originally day 3), day 3 should have 센소지
+        day_nums = {du["data"].get("day_number"): du["data"]["places"] for du in day_updates}
+        assert any(p["name"] == "도쿄 타워" for p in day_nums[1]), "Day 1 must now have Day 3's places"
+        assert any(p["name"] == "센소지" for p in day_nums[3]), "Day 3 must now have Day 1's places"
+
+    def test_reorder_days_emits_two_day_updates(self):
+        """reorder_days must emit exactly 2 day_update events (one per swapped day)."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "A", "category": "sightseeing", "estimated_cost": 0}],
+            [{"name": "B", "category": "food", "estimated_cost": 0}],
+        ])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="reorder_days", day_number=1, day_number_2=2, raw_message="1일차와 2일차 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차와 2일차 바꿔줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 2
+
+    def test_reorder_days_out_of_range_emits_error_chunk(self):
+        """reorder_days with out-of-range day emits chat_chunk describing the error."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "센소지", "category": "sightseeing", "estimated_cost": 0}],
+            [{"name": "우에노 공원", "category": "park", "estimated_cost": 0}],
+        ])  # only 2 days
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="reorder_days", day_number=1, day_number_2=5, raw_message="1일차와 5일차 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차와 5일차 바꿔줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        assert any("5" in e["data"]["text"] for e in chat_chunks), "Error message must mention the invalid day"
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0, "No day_update should be emitted for out-of-range day"
+
+    def test_reorder_days_missing_day_number_2_emits_error(self):
+        """reorder_days with no day_number_2 emits an instructional chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = _make_plan_with_places([
+            [{"name": "센소지", "category": "sightseeing", "estimated_cost": 0}],
+        ])
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="reorder_days", day_number=1, raw_message="1일차 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 바꿔줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+
+    def test_reorder_days_no_plan_emits_chat_chunk(self):
+        """reorder_days with no plan returns a helpful message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="reorder_days", day_number=1, day_number_2=2, raw_message="1일차와 2일차 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차와 2일차 바꿔줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+    def test_reorder_days_db_swaps_places_and_emits_day_updates(self):
+        """reorder_days with saved plan swaps Place rows in DB and emits day_update for both days."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="도쿄",
+                start_date=date_type(2026, 5, 1),
+                end_date=date_type(2026, 5, 3),
+                budget=2000000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 2), notes="")
+            day3 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 3), notes="")
+            db.add_all([day1, day2, day3])
+            db.commit()
+            db.refresh(day1)
+            db.refresh(day2)
+            db.refresh(day3)
+
+            place1 = PlaceModel(day_itinerary_id=day1.id, name="센소지", category="sightseeing", estimated_cost=0.0, order=0)
+            place3 = PlaceModel(day_itinerary_id=day3.id, name="도쿄 타워", category="landmark", estimated_cost=0.0, order=0)
+            db.add_all([place1, place3])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="reorder_days", day_number=1, day_number_2=3, raw_message="1일차와 3일차 바꿔줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "1일차와 3일차 바꿔줘", db)
+
+            # Verify DB: day1 should now have 도쿄 타워, day3 should have 센소지
+            db.expire_all()
+            places_in_day1 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day1.id).all()
+            places_in_day3 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day3.id).all()
+            assert any(p.name == "도쿄 타워" for p in places_in_day1), "Day 1 DB must have Day 3's places after swap"
+            assert any(p.name == "센소지" for p in places_in_day3), "Day 3 DB must have Day 1's places after swap"
+
+            # Verify 2 day_update events were emitted
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 2
+
+            # Verify confirm chat_chunk
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            assert any("교환" in e["data"]["text"] or "swap" in e["data"]["text"].lower() for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_reorder_days_db_out_of_range_emits_error(self):
+        """reorder_days with out-of-range day in DB path emits error chat_chunk, no day_update."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="파리",
+                start_date=date_type(2026, 6, 1),
+                end_date=date_type(2026, 6, 2),
+                budget=1500000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 2), notes="")
+            db.add_all([day1, day2])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="reorder_days", day_number=1, day_number_2=5, raw_message="1일차와 5일차 바꿔줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "1일차와 5일차 바꿔줘", db)
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 0, "No day_update should be emitted for out-of-range day"
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            assert any("5" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
