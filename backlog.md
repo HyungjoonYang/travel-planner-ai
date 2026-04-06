@@ -6,15 +6,7 @@
 
 ## In Progress
 
-- [ ] #91 - Chat: `share_plan` intent — generate shareable plan link via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py, src/app/static/chat.js (or index.html)
-  - done: "이 계획 공유해줘" → secretary emits plan_shared event with share_url + share_token; frontend shows copiable URL in chat/dashboard; graceful error if no saved plan; 2+ tests
-  - gh: #112
-  - ❌ QA fail (Run #116, 2026-04-06): Backend complete (plan_shared event + token), 10 tests pass. Blockers:
-    1. **[HIGH]** Frontend handler missing — no JS handles plan_shared SSE event; done criteria requires copiable URL in chat/dashboard
-    2. **[MEDIUM]** All 10 tests mock extract_intent (Constraint #10) — add ≥1 test with real intent extraction path
-    3. **[MEDIUM]** @playwright/test not installed — pre-existing E2E blocker
+_(없음)_
 
 ## Ready
   - **문제**: Plans 페이지가 빈 껍데기, "Create your first trip!" 링크만 존재. 사용자가 버튼을 조작하는 게 아니라 채팅만으로 모든 여행 관리가 되어야 함
@@ -164,6 +156,7 @@ _(없음)_
 ### P0: Critical UX Fixes (user feedback)
 - [x] #97 - Chat: intelligent `general` handler — 자연어 대화 + 정보 추출 + 보강 질문 [critical-fix] — 2026-04-06
 - [x] #98 - Frontend: chat-first UX 전면 개편 — Jarvis 컨셉 [critical-fix] — 2026-04-06
+- [x] #91 - Chat: `share_plan` intent — generate shareable plan link via chat (retry) [feature] — 2026-04-06
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -176,5 +169,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 92 done, 6 ready (0 in progress)
+- Total tasks: 93 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

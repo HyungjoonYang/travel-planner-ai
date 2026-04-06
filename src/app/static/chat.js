@@ -327,6 +327,9 @@ function handleSseEvent(event) {
     case 'plan_suggestions':
       if (event.data) handlePlanSuggestions(event.data);
       break;
+    case 'plan_shared':
+      if (event.data) handlePlanShared(event.data);
+      break;
     case 'session_reset':
       _handleSessionReset();
       break;
@@ -1143,4 +1146,93 @@ function _appendSavedPlanCard(plan) {
   card.addEventListener('click', activate);
   card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') activate(); });
   panel.appendChild(card);
+}
+
+// ---------------------------------------------------------------------------
+// Share plan — render copiable link card in chat + dashboard
+// ---------------------------------------------------------------------------
+
+function handlePlanShared(data) {
+  const shareUrl = (data && data.share_url) ? data.share_url : '';
+
+  // --- Chat bubble with copiable URL ---
+  const messagesEl = document.getElementById('chat-messages');
+  if (messagesEl && shareUrl) {
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble chat-ai';
+
+    const label = document.createElement('div');
+    label.textContent = '🔗 공유 링크가 생성되었습니다:';
+    label.style.marginBottom = '0.4rem';
+    bubble.appendChild(label);
+
+    const urlRow = document.createElement('div');
+    urlRow.style.cssText = 'display:flex;gap:.4rem;align-items:center;flex-wrap:wrap';
+
+    const urlInput = document.createElement('input');
+    urlInput.type = 'text';
+    urlInput.readOnly = true;
+    urlInput.value = shareUrl;
+    urlInput.setAttribute('aria-label', '공유 링크');
+    urlInput.style.cssText = 'flex:1;min-width:0;font-size:.85rem;padding:.25rem .4rem;border:1px solid #ccc;border-radius:4px;background:#f9f9f9';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '복사';
+    copyBtn.style.cssText = 'padding:.25rem .6rem;font-size:.85rem;cursor:pointer;white-space:nowrap';
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        copyBtn.textContent = '✅ 복사됨';
+        setTimeout(() => { copyBtn.textContent = '복사'; }, 2000);
+      }).catch(() => {
+        urlInput.select();
+        document.execCommand('copy');
+        copyBtn.textContent = '✅ 복사됨';
+        setTimeout(() => { copyBtn.textContent = '복사'; }, 2000);
+      });
+    });
+
+    urlRow.appendChild(urlInput);
+    urlRow.appendChild(copyBtn);
+    bubble.appendChild(urlRow);
+    messagesEl.appendChild(bubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // --- Dashboard panel share section ---
+  const panel = document.getElementById('plan-panel');
+  if (panel && shareUrl) {
+    // Remove any previous share card
+    const prev = panel.querySelector('.plan-share-card');
+    if (prev) prev.remove();
+
+    const shareCard = document.createElement('div');
+    shareCard.className = 'card plan-share-card';
+    shareCard.style.marginTop = '.75rem';
+    shareCard.innerHTML = `
+      <div class="section-title" style="margin-bottom:.4rem">🔗 공유 링크</div>
+      <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+        <input type="text" readonly value="${escHtml(shareUrl)}"
+          aria-label="공유 링크 (대시보드)"
+          style="flex:1;min-width:0;font-size:.8rem;padding:.2rem .35rem;border:1px solid #ccc;border-radius:4px;background:#f9f9f9">
+        <button id="share-copy-btn-panel"
+          style="padding:.2rem .5rem;font-size:.8rem;cursor:pointer;white-space:nowrap">복사</button>
+      </div>`;
+    panel.appendChild(shareCard);
+
+    const panelCopyBtn = shareCard.querySelector('#share-copy-btn-panel');
+    const panelInput   = shareCard.querySelector('input');
+    if (panelCopyBtn && panelInput) {
+      panelCopyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          panelCopyBtn.textContent = '✅ 복사됨';
+          setTimeout(() => { panelCopyBtn.textContent = '복사'; }, 2000);
+        }).catch(() => {
+          panelInput.select();
+          document.execCommand('copy');
+          panelCopyBtn.textContent = '✅ 복사됨';
+          setTimeout(() => { panelCopyBtn.textContent = '복사'; }, 2000);
+        });
+      });
+    }
+  }
 }

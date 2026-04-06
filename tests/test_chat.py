@@ -7021,3 +7021,47 @@ class TestSharePlan:
         """'이 계획 공유해줘' should map to share_plan action in intent model."""
         intent = Intent(action="share_plan", raw_message="이 계획 공유해줘")
         assert intent.action == "share_plan"
+
+    def test_share_plan_real_intent_extraction_path(self):
+        """Integration: real extract_intent path (genai mocked at HTTP level, not at extract_intent level).
+
+        Constraint #10 compliance: extract_intent itself is NOT mocked.
+        We mock app.chat.genai.Client so the Gemini HTTP call returns a
+        controlled JSON intent, but the full extract_intent → _handle_share_plan
+        execution path runs for real.
+        """
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+
+            # Build mock Gemini response that returns a share_plan intent JSON
+            share_intent = Intent(action="share_plan", raw_message="이 계획 공유해줘")
+            mock_response = MagicMock()
+            mock_response.text = share_intent.model_dump_json()
+            mock_client = MagicMock()
+            mock_client.models.generate_content.return_value = mock_response
+
+            with patch("app.chat.genai") as mock_genai:
+                mock_genai.Client.return_value = mock_client
+                # Use a non-empty api_key so extract_intent actually calls genai
+                svc = ChatService(api_key="fake-key-real-path", ttl_seconds=SESSION_TTL_SECONDS)
+                session = svc.create_session()
+                session.last_saved_plan_id = plan_id
+                events = _collect_events_with_db(svc, session.session_id, "이 계획 공유해줘", db)
+
+            # Verify Gemini was actually called (real extraction path ran)
+            assert mock_client.models.generate_content.called, \
+                "genai.Client.models.generate_content must be called — extract_intent must not be bypassed"
+
+            # Verify plan_shared event was emitted
+            shared_events = [e for e in events if e["type"] == "plan_shared"]
+            assert len(shared_events) == 1, f"Expected 1 plan_shared event, got {len(shared_events)}"
+            evt_data = shared_events[0]["data"]
+            assert "share_url" in evt_data
+            assert "share_token" in evt_data
+            assert evt_data["share_token"] is not None
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
