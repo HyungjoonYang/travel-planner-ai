@@ -16,7 +16,7 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #92 - E2E: share_plan Playwright scenarios [test]
+- [ ] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #91
   - files: e2e/chat.spec.ts
@@ -157,6 +157,7 @@ _(없음)_
 - [x] #97 - Chat: intelligent `general` handler — 자연어 대화 + 정보 추출 + 보강 질문 [critical-fix] — 2026-04-06
 - [x] #98 - Frontend: chat-first UX 전면 개편 — Jarvis 컨셉 [critical-fix] — 2026-04-06
 - [x] #91 - Chat: `share_plan` intent — generate shareable plan link via chat (retry) [feature] — 2026-04-06
+- [x] #92 - E2E: share_plan Playwright scenarios [test] — 2026-04-06
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -169,5 +170,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 93 done, 5 ready (0 in progress)
+- Total tasks: 94 done, 4 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

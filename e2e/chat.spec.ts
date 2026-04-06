@@ -1591,6 +1591,199 @@ test.describe("suggest_improvements + budget auto-refresh (Task #90)", () => {
     );
   });
 
+  // ---------------------------------------------------------------------------
+  // share_plan E2E scenarios (Task #92 / Issue #118)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Scenario A (share_plan happy path):
+   * "이 계획 공유해줘" → plan_shared SSE fires → share URL appears in chat bubble
+   * + copy button visible + .plan-share-card in dashboard.
+   *
+   * Done criteria (from handoff.json):
+   *   - plan_shared SSE event received
+   *   - share URL rendered as a read-only input in the chat bubble (aria-label="공유 링크")
+   *   - copy button ("복사") is visible next to the URL input
+   *   - .plan-share-card appears in #plan-panel with the same share URL
+   *   - secretary reaches agent-done state
+   */
+  test("share_plan: share URL and copy button rendered in chat + dashboard", async ({
+    page,
+  }) => {
+    const SHARE_URL = "https://travel-planner.example.com/travel-plans/shared/abc123tok";
+
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "share_plan 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "공유 링크 생성 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "done",
+          message: "공유 링크 생성 완료!",
+        },
+      },
+      {
+        type: "plan_shared",
+        data: {
+          plan_id: 7,
+          share_token: "abc123tok",
+          share_url: SHARE_URL,
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: `공유 링크가 생성되었습니다: ${SHARE_URL}` },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "이 계획 공유해줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Chat bubble must contain the share URL label
+    await expect(page.locator("#chat-messages")).toContainText(
+      "공유 링크가 생성되었습니다"
+    );
+
+    // Read-only URL input in the chat bubble must show the share URL
+    const chatUrlInput = page.locator('input[aria-label="공유 링크"]');
+    await expect(chatUrlInput).toBeVisible();
+    await expect(chatUrlInput).toHaveValue(SHARE_URL);
+
+    // Copy button must be visible next to the URL input in the chat bubble
+    // The button is a sibling of the input inside the same chat bubble
+    const shareBubble = page
+      .locator(".chat-bubble.chat-ai")
+      .filter({ hasText: "공유 링크가 생성되었습니다" });
+    const copyBtn = shareBubble.locator('button:has-text("복사")');
+    await expect(copyBtn).toBeVisible();
+
+    // Dashboard share card must appear in #plan-panel
+    await expect(page.locator(".plan-share-card")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Dashboard share card must contain the share URL
+    const dashboardInput = page.locator('input[aria-label="공유 링크 (대시보드)"]');
+    await expect(dashboardInput).toBeVisible();
+    await expect(dashboardInput).toHaveValue(SHARE_URL);
+
+    // Dashboard copy button must also be present
+    await expect(page.locator("#share-copy-btn-panel")).toBeVisible();
+  });
+
+  /**
+   * Scenario B (share_plan error — no plan loaded):
+   * "이 계획 공유해줘" when no plan is loaded → secretary reaches agent-error state
+   * → error message displayed in chat (no .plan-share-card, no URL input rendered).
+   *
+   * Done criteria:
+   *   - secretary card carries agent-error class
+   *   - chat contains the "저장해주세요" error guidance
+   *   - .plan-share-card is NOT rendered (no share URL when plan absent)
+   */
+  test("share_plan error: no plan loaded → secretary error + guidance message", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "share_plan 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "공유 링크 생성 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "error",
+          message: "저장된 계획이 없습니다",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: {
+          text: "공유할 여행 계획이 없습니다. 먼저 계획을 저장해주세요.",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "이 계획 공유해줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach error state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Secretary card message must reflect the error
+    await expect(
+      page.locator('[data-agent="secretary"] .agent-message')
+    ).toContainText("저장된 계획이 없습니다");
+
+    // Chat must show the guidance message
+    await expect(page.locator("#chat-messages")).toContainText("저장해주세요", {
+      timeout: 10_000,
+    });
+
+    // No share card should appear in the dashboard (no plan_shared event was fired)
+    await expect(page.locator(".plan-share-card")).not.toBeVisible();
+
+    // No URL input with share-link aria-label should be present
+    await expect(page.locator('input[aria-label="공유 링크"]')).not.toBeVisible();
+  });
+
   /**
    * Scenario B: add_expense → budget bar percentage auto-refreshes in plan overview.
    *
