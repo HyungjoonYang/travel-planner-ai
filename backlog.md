@@ -9,16 +9,6 @@
 _(없음)_
 
 ## Ready
-
-### P0: Critical UX Fixes (user feedback 2026-04-06)
-
-- [ ] #97 - Chat: intelligent `general` handler — 자연어 대화 + 정보 추출 + 보강 질문 [critical-fix]
-  - **문제**: `general` intent에 핸들러 없음. Gemini 실패 또는 general 분류 시 "어떤 여행을 계획하고 계신가요?" 하드코딩 반복
-  - **목표**: (1) `general` action에 Gemini 기반 실제 대화 핸들러 추가 — 사용자 메시지에 맥락 있는 응답 생성 (2) 대화 중 여행 key attribute(목적지, 날짜, 예산, 관심사)를 점진적으로 추출 (3) 부족한 정보가 있으면 자연스럽게 보강 질문 (4) 충분한 정보가 모이면 자동으로 create_plan 트리거 (5) intent 추출 실패 시에도 graceful fallback (단순 반복 금지)
-  - files: src/app/chat.py (line 341-347 fallback 제거 → `_handle_general` 핸들러), tests/test_chat.py
-  - done: 자유 대화 → AI 응답 생성; 부분 정보("일본 가고 싶어") → 날짜/예산 보강 질문; 충분한 정보 → 자동 plan 생성; intent 추출 실패에도 대화 유지; 3+ tests
-
-- [ ] #98 - Frontend: chat-first UX 전면 개편 — Jarvis 컨셉 [critical-fix]
   - **문제**: Plans 페이지가 빈 껍데기, "Create your first trip!" 링크만 존재. 사용자가 버튼을 조작하는 게 아니라 채팅만으로 모든 여행 관리가 되어야 함
   - **목표**: (1) 메인 랜딩 = Chat 페이지 (Plans/Search/+New Plan 네비게이션 제거 또는 축소) (2) 빈 상태일 때 매력적인 온보딩 UI (대화 예시, 가이드) (3) 전체 디자인 현대화 — 현재 너무 밋밋함 (4) Plans 페이지는 채팅에서 저장된 계획을 보는 보조 뷰로 격하
   - files: src/app/static/index.html, src/app/static/chat.js, src/app/static/style.css (또는 inline styles)
@@ -169,6 +159,10 @@ _(없음)_
 - [x] #89 - Chat: `add_place` intent — append a custom place to a specific day via chat [feature] — 2026-04-05
 - [x] #90 - E2E: suggest_improvements + budget auto-refresh Playwright scenarios [test] — 2026-04-05
 
+### P0: Critical UX Fixes (user feedback)
+- [x] #97 - Chat: intelligent `general` handler — 자연어 대화 + 정보 추출 + 보강 질문 [critical-fix] — 2026-04-06
+- [x] #98 - Frontend: chat-first UX 전면 개편 — Jarvis 컨셉 [critical-fix] — 2026-04-06
+
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
 - [x] #36 - Favorite places library (`POST /favorite-places`, `POST /favorite-places/copy-from-itinerary`, `GET /favorite-places`, `GET /favorite-places/{id}`, `DELETE /favorite-places/{id}`; global; copy-from-itinerary support) [feature] — 2026-04-04
@@ -180,5 +174,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 90 done, 8 ready (0 in progress)
+- Total tasks: 92 done, 6 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
