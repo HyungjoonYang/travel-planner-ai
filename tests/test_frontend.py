@@ -349,3 +349,61 @@ class TestRestoreMessageBubbles:
         """_restoreMessageBubbles sets data-restored attribute to avoid re-rendering."""
         content = client.get("/static/chat.js").text
         assert "data-restored" in content or "dataset.restored" in content
+
+
+class TestModernUXRedesign:
+    """Task #99: Chat-first landing + modern UX redesign."""
+
+    def test_style_css_served(self, client: TestClient):
+        """style.css is served from /static/style.css."""
+        resp = client.get("/static/style.css")
+        assert resp.status_code == 200
+
+    def test_style_css_content_type(self, client: TestClient):
+        """style.css is served as CSS."""
+        resp = client.get("/static/style.css")
+        ct = resp.headers.get("content-type", "")
+        assert "css" in ct or "text/" in ct
+
+    def test_index_links_style_css(self, client: TestClient):
+        """index.html links to style.css."""
+        content = client.get("/").text
+        assert "style.css" in content
+
+    def test_chat_is_default_page(self, client: TestClient):
+        """Default navigation targets the chat page."""
+        content = client.get("/").text
+        # The bootstrap call must navigate to chat by default
+        assert "navigate('chat')" in content
+
+    def test_chat_onboarding_chips_present(self, client: TestClient):
+        """Onboarding example chips are present in the chat page HTML."""
+        content = client.get("/").text
+        assert "chat-chip" in content
+        assert "fillChatInput" in content
+
+    def test_plans_page_no_new_plan_button_in_render(self, client: TestClient):
+        """renderPlans function does not inject a + New Plan button."""
+        content = client.get("/").text
+        # Find renderPlans function body and verify it has no new-plan navigate call
+        idx = content.find("async function renderPlans")
+        assert idx != -1
+        # Find the end of the function (next async function)
+        end_idx = content.find("async function render", idx + 1)
+        if end_idx == -1:
+            end_idx = idx + 3000  # fallback: scan 3000 chars
+        fn_body = content[idx:end_idx]
+        # The new-plan button must NOT be in renderPlans
+        assert "navigate('new-plan')" not in fn_body
+
+    def test_plans_empty_state_links_to_chat(self, client: TestClient):
+        """Empty plans state links back to chat."""
+        content = client.get("/").text
+        # The empty state in renderPlans must link to chat
+        idx = content.find("async function renderPlans")
+        assert idx != -1
+        end_idx = content.find("async function render", idx + 1)
+        if end_idx == -1:
+            end_idx = idx + 3000
+        fn_body = content[idx:end_idx]
+        assert "navigate('chat')" in fn_body
