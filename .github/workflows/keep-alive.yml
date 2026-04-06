@@ -1,0 +1,23 @@
+name: Keep Alive
+
+on:
+  schedule:
+    # Every 14 minutes — prevents Render free tier cold sleep (15min timeout)
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Ping health endpoint
+        run: |
+          URL="${RENDER_URL:-https://travel-planner-ai.onrender.com}"
+          STATUS=$(curl -sf -o /dev/null -w '%{http_code}' "${URL}/health" || echo "000")
+          echo "Health check: ${URL}/health → HTTP ${STATUS}"
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::Health check returned ${STATUS}"
+          fi
+        env:
+          RENDER_URL: ${{ secrets.RENDER_URL }}
