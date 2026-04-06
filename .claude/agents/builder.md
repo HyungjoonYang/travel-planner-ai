@@ -50,6 +50,32 @@ Coordinator가 배정한 태스크를 코드로 구현한다.
 - 기존 패턴과 일관성 유지 (SQLAlchemy 2.0 스타일, Pydantic v2 등)
 - 새 dependency 추가 시 `requirements.txt` 즉시 업데이트
 
+### 3-1. 테스트 작성 원칙 (필수)
+
+**Unit test와 Integration test를 반드시 구분하여 작성한다.**
+
+#### Unit test
+- 개별 함수/메서드의 입출력 검증
+- 외부 의존성 mock 허용
+
+#### Integration test (필수 — 없으면 태스크 미완료)
+- **실제 서버(TestClient)를 통한 HTTP 요청 → 응답 전체 경로 검증**
+- 핵심 로직을 mock하지 않는다:
+  - ❌ `patch.object(svc, "extract_intent", return_value=...)` — intent 추출 자체를 건너뜀
+  - ❌ `_make_service_no_api()` — API 없이 항상 fallback
+  - ✅ 외부 API(Gemini)의 **HTTP 응답**만 mock하되, 내부 파싱/처리는 실제 실행
+- DB 연동은 실제 SQLite(in-memory 허용)를 사용
+- **유저 시나리오 기반**: "사용자가 X를 입력하면 Y가 발생한다"
+
+#### Fallback/else 경로
+- 모든 else/fallback 분기에 대해 "실제 유저 입력 → 기대 동작" 테스트 작성
+- 하드코딩 응답이 반복되는 경우를 감지하는 테스트 포함
+
+#### Anti-patterns (금지)
+- intent를 mock으로 주입하고 "이벤트가 나왔는가"만 확인하는 테스트
+- SSE 응답 전체를 route mock으로 대체하는 E2E
+- "chat_chunk 개수 ≥ 1"처럼 내용을 검증하지 않는 assertion
+
 ### 4. 로컬 검증
 ```bash
 pytest tests/ -v --tb=short
