@@ -6,7 +6,14 @@
 
 ## In Progress
 
-_(없음)_
+- [ ] #92 - E2E: share_plan Playwright scenarios [test] ⚠️ QA FAIL (Run #118)
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #91
+  - files: e2e/chat.spec.ts, **e2e/chat-integration.spec.ts** (missing coverage)
+  - done: "이 계획 공유해줘" → plan_shared SSE event fires → share URL rendered in chat; copy button visible; graceful error when no plan loaded; 2+ scenarios pass
+  - gh: #118
+  - **QA failure (Run #118)**: Builder added 2 scenarios to `e2e/chat.spec.ts` using `mockChatSession()` (route mock). Violates CLAUDE.md constraint #11 — route mock fully replaces SSE stream. `e2e/chat-integration.spec.ts` has zero share_plan coverage.
+  - **Fix**: Add 1–2 scenarios to `e2e/chat-integration.spec.ts` that POST '이 계획 공유해줘' to a live server and verify `plan_shared` in the real SSE stream. No `page.route()` mocking for SSE.
 
 ## Ready
   - **문제**: Plans 페이지가 빈 껍데기, "Create your first trip!" 링크만 존재. 사용자가 버튼을 조작하는 게 아니라 채팅만으로 모든 여행 관리가 되어야 함
@@ -16,12 +23,7 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #92 - E2E: share_plan Playwright scenarios [test]
-  - ref: markdowns/feat-chat-dashboard.md
-  - depends: #91
-  - files: e2e/chat.spec.ts
-  - done: "이 계획 공유해줘" → plan_shared SSE event fires → share URL rendered in chat; copy button visible; graceful error when no plan loaded; 2+ scenarios pass
-  - gh: #118
+_(#92 → In Progress)_
 
 - [ ] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature]
   - ref: markdowns/feat-chat-dashboard.md

@@ -7,11 +7,11 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 137,
+    "total_runs": 138,
     "successful_runs": 131,
-    "failed_runs": 1,
-    "success_rate": 0.956,
-    "budget_remaining": 0.95,
+    "failed_runs": 2,
+    "success_rate": 0.949,
+    "budget_remaining": 0.94,
     "status": "HEALTHY"
   },
   "policy": {
@@ -651,7 +651,7 @@
       "tests_total": 1241
     }
   ],
-  "consecutive_qa_failures": 0,
+  "consecutive_qa_failures": 1,
   "history_tail": {
     "run_id": "monitor-2026-04-06-1600",
     "task": "monitor",

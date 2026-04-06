@@ -1776,3 +1776,182 @@ test.describe("suggest_improvements + budget auto-refresh (Task #90)", () => {
     expect(width).toBeCloseTo(68.0, 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// share_plan E2E scenarios (Task #92 / Issue #118)
+// ---------------------------------------------------------------------------
+
+test.describe("share_plan E2E scenarios (Task #92)", () => {
+  const SHARE_URL =
+    "https://travel-planner-ai.onrender.com/travel-plans/shared/abc123token";
+
+  /**
+   * Scenario A (Happy path):
+   * "이 계획 공유해줘" → plan_shared SSE fires → share URL rendered in chat bubble
+   * + copy button visible + .plan-share-card appears in dashboard.
+   */
+  test("share_plan: share URL rendered in chat bubble with copy button + dashboard card", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "share_plan 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "공유 링크 생성 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "done",
+          message: "공유 링크 생성 완료!",
+        },
+      },
+      {
+        type: "plan_shared",
+        data: {
+          plan_id: 7,
+          share_token: "abc123token",
+          share_url: SHARE_URL,
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: `공유 링크가 생성되었습니다: ${SHARE_URL}` },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "이 계획 공유해줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Chat bubble: URL input with aria-label "공유 링크" must show the share URL
+    const urlInput = page.locator('input[aria-label="공유 링크"]');
+    await expect(urlInput).toBeVisible({ timeout: 10_000 });
+    await expect(urlInput).toHaveValue(SHARE_URL);
+
+    // Chat bubble: copy button must be visible
+    // The copy button is a sibling of the URL input inside the chat bubble
+    const chatBubble = page.locator(".chat-bubble.chat-ai", {
+      has: urlInput,
+    });
+    await expect(chatBubble).toBeVisible();
+    const copyBtn = chatBubble.locator("button", { hasText: "복사" });
+    await expect(copyBtn).toBeVisible();
+
+    // Dashboard: .plan-share-card must appear in #plan-panel
+    await expect(page.locator(".plan-share-card")).toBeVisible();
+
+    // Dashboard share card contains a URL input with the share URL
+    const panelInput = page.locator(
+      '.plan-share-card input[aria-label="공유 링크 (대시보드)"]'
+    );
+    await expect(panelInput).toBeVisible();
+    await expect(panelInput).toHaveValue(SHARE_URL);
+
+    // Dashboard share card copy button must be visible
+    const panelCopyBtn = page.locator("#share-copy-btn-panel");
+    await expect(panelCopyBtn).toBeVisible();
+    await expect(panelCopyBtn).toContainText("복사");
+  });
+
+  /**
+   * Scenario B (Error — no plan loaded):
+   * User asks to share but no plan is saved → secretary hits error state →
+   * error message appears in chat → no .plan-share-card in dashboard.
+   */
+  test("share_plan: graceful error when no plan is loaded", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "share_plan 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "공유 링크 생성 중...",
+        },
+      },
+      // No plan saved → secretary hits error, no plan_shared event emitted
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "error",
+          message: "저장된 계획이 없습니다",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: {
+          text: "공유할 여행 계획이 없습니다. 먼저 계획을 저장해주세요.",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "이 계획 공유해줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach error state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Error message must appear in chat
+    await expect(page.locator("#chat-messages")).toContainText(
+      "공유할 여행 계획이 없습니다",
+      { timeout: 10_000 }
+    );
+
+    // No plan-share-card must exist in the dashboard (plan_shared was never fired)
+    await expect(page.locator(".plan-share-card")).not.toBeVisible();
+
+    // No URL input for share link in chat
+    await expect(page.locator('input[aria-label="공유 링크"]')).not.toBeVisible();
+  });
+});

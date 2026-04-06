@@ -1,19 +1,19 @@
 # Status
 
-Last run: 2026-04-06T16:00:00Z (Monitor Run #129)
-Run count: 137
+Last run: 2026-04-06T17:00:00Z (Evolve Run #118)
+Run count: 138
 Phase: Phase 10: Chat + Multi-Agent Dashboard — P0 Critical UX Fixes
-Health: GREEN
+Health: YELLOW
 Error Budget: HEALTHY
 Tasks completed: 93 (#91 share_plan intent — frontend handler + real-intent test)
-Current focus: #92 E2E: share_plan Playwright scenarios
-Next planned: #93 reorder_days intent
+Current focus: #92 E2E: share_plan Playwright scenarios (QA fail — retrying)
+Next planned: #92 retry (real-server integration test in chat-integration.spec.ts)
 
 ## LTES Snapshot
 
-- Latency: 36170ms (pytest 26.75s + overhead)
-- Traffic: 27 commits/24h
-- Errors: 0 test failures (1510/1510 pass), 5 skipped, error_rate=0.0%
+- Latency: N/A (QA fail — no runtime metric)
+- Traffic: 28 commits/24h
+- Errors: 0 unit test failures (1510/1515 pass, 5 skipped), QA checks: 2 fail (integration_test_quality, e2e_integration)
 - Saturation: 5 tasks ready
 
 ## Phase Transition
@@ -29,6 +29,18 @@ Next planned: #93 reorder_days intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #118 — 2026-04-06T17:00:00Z
+- **Task**: #92 - E2E: share_plan Playwright scenarios
+- **Result**: YELLOW ✗ (QA fail)
+- **Tests**: 1510/1515 passed (5 skipped), 0 unit test failures
+- **QA failures**:
+  - `integration_test_quality` FAIL — both new scenarios use `mockChatSession()` which calls `page.route('**/chat/sessions/*/messages', route.fulfill(...))`, fully replacing the SSE stream. CLAUDE.md constraint #11 violation.
+  - `e2e_integration` FAIL — `e2e/chat-integration.spec.ts` (real server, no route mock) has zero share_plan coverage; new tests only added to route-mocked spec.
+- **Files changed**: e2e/chat.spec.ts (+148/-0)
+- **Fix needed**: Add 1–2 scenarios to `e2e/chat-integration.spec.ts` against a live server — POST '이 계획 공유해줘' to real endpoint, verify `plan_shared` SSE event in real stream. No route mocking.
+- **LTES**: L=N/A T=1 commit E=2 QA checks fail S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✗ → reporter ✓
 
 ### Monitor Run #129 — 2026-04-06T16:00:00Z
 - **Task**: monitor
