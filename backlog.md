@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #94 - Chat: `clear_day` intent — remove all places from a day via chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: "3일차 일정 다 지워줘" → all places deleted from day in DB; day_update SSE with empty list; chat reply confirms; error when day not found; 2+ tests
-  - gh: #120
-
 - [ ] #95 - Frontend: message timestamp display in chat bubbles [improvement]
   - files: src/app/static/chat.js, src/app/static/index.html
   - done: each chat bubble shows relative timestamp (방금/5분 전/시간); restores after SSE reconnect; 1+ Playwright assertion; no existing tests broken
@@ -144,6 +138,7 @@ _(없음)_
 - [x] #99 - Frontend: chat-first landing + modern UX redesign [improvement] — 2026-04-06
 - [x] #93 - Chat: `reorder_days` intent — swap/reorder days via chat [feature] — 2026-04-06
 - [x] #93 - E2E: `reorder_days` Playwright scenarios — happy path + out-of-range error [test] — 2026-04-06
+- [x] #94 - Chat: `clear_day` intent — remove all places from a day via chat [feature] — 2026-04-07
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -156,5 +151,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 97 done, 3 ready (0 in progress)
+- Total tasks: 98 done, 2 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
