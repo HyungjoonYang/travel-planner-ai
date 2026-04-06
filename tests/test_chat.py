@@ -4952,6 +4952,25 @@ class TestListExpenses:
 # Task #77: copy_plan intent handler
 # ---------------------------------------------------------------------------
 
+def _seed_bare_plan(db):
+    """Insert a minimal TravelPlan without itinerary; return plan_id."""
+    from app.models import TravelPlan as TravelPlanModel
+    from datetime import date as date_type
+
+    plan = TravelPlanModel(
+        destination="도쿄",
+        start_date=date_type(2026, 5, 1),
+        end_date=date_type(2026, 5, 4),
+        budget=2000000.0,
+        interests="food",
+        status="draft",
+    )
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+    return plan.id
+
+
 def _seed_plan_with_itinerary(db):
     """Insert a TravelPlan with one DayItinerary and one Place; return plan_id."""
     from app.models import DayItinerary as DayItineraryModel, Place as PlaceModel, TravelPlan as TravelPlanModel
@@ -6763,3 +6782,242 @@ class TestAddPlace:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #91 — share_plan intent
+# ---------------------------------------------------------------------------
+
+class TestSharePlan:
+    """secretary emits plan_shared event with share_url + share_token when user wants to share a plan."""
+
+    def test_share_plan_activates_secretary(self):
+        """share_plan intent must activate the secretary agent."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="share_plan", raw_message="이 계획 공유해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "이 계획 공유해줘", db)
+
+            agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
+            assert "secretary" in agent_names
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_share_plan_emits_plan_shared_event(self):
+        """share_plan must emit a plan_shared event."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="share_plan", raw_message="공유해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "공유해줘", db)
+
+            shared_events = [e for e in events if e["type"] == "plan_shared"]
+            assert len(shared_events) == 1
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_share_plan_event_contains_share_url_and_token(self):
+        """plan_shared event must contain share_url and share_token fields."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="share_plan", raw_message="공유 링크 줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "공유 링크 줘", db)
+
+            evt = next(e for e in events if e["type"] == "plan_shared")
+            assert "share_url" in evt["data"]
+            assert "share_token" in evt["data"]
+            assert evt["data"]["share_token"] is not None
+            assert len(evt["data"]["share_token"]) > 0
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_share_plan_sets_is_shared_in_db(self):
+        """share_plan must set plan.is_shared = True and store a share_token in the DB."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="share_plan", raw_message="공유해줘"
+            )):
+                _collect_events_with_db(svc, session.session_id, "공유해줘", db)
+
+            from app.models import TravelPlan as TravelPlanModel
+            db.expire_all()
+            plan = db.get(TravelPlanModel, plan_id)
+            assert plan.is_shared is True
+            assert plan.share_token is not None
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_share_plan_no_saved_plan_emits_error(self):
+        """share_plan without a saved plan ID must emit secretary error and helpful chat_chunk."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # No last_saved_plan_id set, no intent.plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="share_plan", raw_message="계획 공유해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "계획 공유해줘", db)
+
+            sec_error_events = [
+                e for e in events
+                if e["type"] == "agent_status"
+                and e["data"]["agent"] == "secretary"
+                and e["data"]["status"] == "error"
+            ]
+            assert len(sec_error_events) >= 1
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            all_text = " ".join(e["data"]["text"] for e in chat_chunks)
+            assert "저장" in all_text or "계획" in all_text
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_share_plan_via_intent_plan_id(self):
+        """share_plan with explicit plan_id in intent uses that plan even without session.last_saved_plan_id."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            # Do NOT set session.last_saved_plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="share_plan", plan_id=plan_id, raw_message=f"{plan_id}번 계획 공유해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, f"{plan_id}번 계획 공유해줘", db)
+
+            shared_events = [e for e in events if e["type"] == "plan_shared"]
+            assert len(shared_events) == 1
+            assert shared_events[0]["data"]["plan_id"] == plan_id
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_share_plan_reuses_existing_token(self):
+        """Calling share_plan twice must return the same token (idempotent)."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            def _share():
+                with patch.object(svc, "extract_intent", return_value=Intent(
+                    action="share_plan", raw_message="공유해줘"
+                )):
+                    return _collect_events_with_db(svc, session.session_id, "공유해줘", db)
+
+            events1 = _share()
+            events2 = _share()
+
+            token1 = next(e for e in events1 if e["type"] == "plan_shared")["data"]["share_token"]
+            token2 = next(e for e in events2 if e["type"] == "plan_shared")["data"]["share_token"]
+            assert token1 == token2
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_share_plan_secretary_working_then_done(self):
+        """secretary must transition working → done on successful share."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="share_plan", raw_message="공유해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "공유해줘", db)
+
+            sec_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+            ]
+            statuses = [e["data"]["status"] for e in sec_events]
+            assert "working" in statuses
+            assert "done" in statuses
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_share_plan_emits_chat_chunk(self):
+        """share_plan must emit at least one chat_chunk with the share URL."""
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan_id = _seed_bare_plan(db)
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="share_plan", raw_message="공유해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "공유해줘", db)
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            all_text = " ".join(e["data"]["text"] for e in chat_chunks)
+            assert "travel-plans/shared" in all_text
+        finally:
+            db.close()
+            from app.database import Base
+            Base.metadata.drop_all(bind=engine)
+
+    def test_intent_extraction_recognizes_share_plan(self):
+        """'이 계획 공유해줘' should map to share_plan action in intent model."""
+        intent = Intent(action="share_plan", raw_message="이 계획 공유해줘")
+        assert intent.action == "share_plan"
