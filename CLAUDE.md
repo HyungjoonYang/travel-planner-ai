@@ -145,6 +145,8 @@
 10. **Mock 남용 금지**: Integration test에서 핵심 로직(intent 추출, AI 응답 생성, DB 연동 등)을 mock하면 안 된다. Mock은 외부 API 호출(Gemini, 웹 검색 등)의 **응답**만 대체할 수 있되, 요청→응답→처리의 전체 경로는 실제로 실행되어야 한다.
 11. **E2E 유저 시나리오 테스트**: 사용자가 실제로 수행하는 흐름(채팅 입력 → 서버 처리 → SSE 응답 → 프론트 반영)을 검증하는 시나리오 테스트가 있어야 한다. Route mock으로 SSE를 완전히 대체하는 E2E는 integration test로 인정하지 않는다.
 12. **Fallback/else 경로 테스트**: 모든 fallback, else 분기, 에러 핸들링 경로에 대해 "실제 유저 입력 → 기대 동작" 검증 테스트가 있어야 한다. 하드코딩 응답이 무한 반복되는 상황은 테스트에서 잡아야 한다.
+13. **외부 API smoke test 필수**: LLM 등 외부 API에 의존하는 기능은 반드시 "실제 API 호출이 성공하는지" 검증하는 smoke test가 있어야 한다. 모델 ID, 인증, 응답 파싱이 정상인지 확인한다. mock만으로는 모델 ID 오류, 인증 실패 등 런타임 장애를 잡을 수 없다. CI에서 API key가 없으면 `pytest.mark.skipif`로 skip하되, key가 있는 환경에서는 반드시 실행한다.
+14. **Silent exception 금지**: `except Exception`으로 에러를 삼키고 fallback하는 코드는 반드시 `logger.error`로 에러를 기록해야 한다. 로그 없는 silent fallback은 디버깅을 불가능하게 만든다.
 
 ---
 
