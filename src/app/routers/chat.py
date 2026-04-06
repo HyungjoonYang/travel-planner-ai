@@ -54,7 +54,11 @@ def get_session(session_id: str, db: Session = Depends(get_db)):
         )
         if db_msgs:
             message_history = [
-                {"role": m.role, "content": m.content}
+                {
+                    "role": m.role,
+                    "content": m.content,
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                }
                 for m in reversed(db_msgs)
             ]
     except Exception:

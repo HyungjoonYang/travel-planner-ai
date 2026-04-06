@@ -20,10 +20,8 @@
     "url": "https://github.com/HyungjoonYang/travel-planner-ai/issues"
   },
   "homepage": "https://github.com/HyungjoonYang/travel-planner-ai#readme",
-  "dependencies": {
-    "@playwright/test": "1.45"
-  },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "typescript": "^5.9.3"
   }
 }

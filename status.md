@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-07T00:00:00Z (Evolve Run #122)
-Run count: 146
+Last run: 2026-04-07T01:00:00Z (Evolve Run #123)
+Run count: 147
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 98 (#94 clear_day intent — remove all places from a day via chat, 9 new tests added)
-Current focus: #95 message timestamp display
-Next planned: #96 duplicate_day intent
+Tasks completed: 99 (#95 Frontend: message timestamp display in chat bubbles — _relativeTime() + _createBubble() + setInterval refresh + created_at in message history)
+Current focus: #96 duplicate_day intent
+Next planned: #100 E2E duplicate_day Playwright scenarios
 
 ## LTES Snapshot
 
 - Latency: ~50000ms (pytest run)
 - Traffic: 1 commit (this run)
 - Errors: 0 test failures (1534/1539 pass), 5 skipped, error_rate=0.0%
-- Saturation: 2 tasks ready
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #96 duplicate_day intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #123 — 2026-04-07T01:00:00Z
+- **Task**: #95 - Frontend: message timestamp display in chat bubbles [improvement]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1534/1539 passed, 5 skipped; 2 new Playwright E2E tests added (timestamp display + SSE reconnect restore)
+- **Files changed**: src/app/static/chat.js, src/app/static/index.html, src/app/routers/chat.py, e2e/chat.spec.ts (+130/-12)
+- **Builder note**: _relativeTime() returns 방금/N분 전/N시간 전/N일 전; _createBubble() attaches .chat-timestamp span to every bubble; _restoreMessageBubbles() uses msg.created_at for accurate past timestamps; setInterval(30s) refreshes all .chat-timestamp spans; GET /chat/sessions/{id} now includes created_at ISO string in message_history entries.
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #122 — 2026-04-07T00:00:00Z
 - **Task**: #94 - Chat: `clear_day` intent — remove all places from a day via chat [feature]

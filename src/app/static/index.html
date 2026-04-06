@@ -176,6 +176,12 @@
   .suggestion-card { background: #fff8e1; border-radius: 4px; padding: .6rem .75rem;
     margin-bottom: .5rem; font-size: .875rem; border-left: 3px solid #ffc107;
     line-height: 1.45; }
+  /* ── Chat bubble timestamp ────────────────────────────────────────────────── */
+  .chat-bubble { display: flex; flex-direction: column; }
+  .chat-text { word-break: break-word; }
+  .chat-timestamp { font-size: .68rem; color: rgba(0,0,0,.35); margin-top: .2rem;
+    align-self: flex-end; white-space: nowrap; }
+  .chat-user .chat-timestamp { color: rgba(255,255,255,.55); }
 </style>
 <link rel="stylesheet" href="/static/style.css">
 </head>
