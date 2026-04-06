@@ -177,6 +177,7 @@
     margin-bottom: .5rem; font-size: .875rem; border-left: 3px solid #ffc107;
     line-height: 1.45; }
 </style>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <nav>
@@ -273,12 +274,16 @@ async function renderPlans(app) {
   if (!plans.length) {
     app.innerHTML = `
       <h2>My Travel Plans</h2>
-      <div class="empty">No plans yet. <a href="#" onclick="navigate('chat')" style="color:var(--accent);font-weight:500">Chat with AI to create your first trip</a></div>`;
+      <div class="empty plans-empty-state">
+        <div style="font-size:2.5rem;margin-bottom:1rem;opacity:.6">✈️</div>
+        <p style="font-weight:500;margin-bottom:.35rem">No saved plans yet</p>
+        <p style="font-size:.875rem"><a href="#" onclick="navigate('chat')" style="color:var(--accent);font-weight:500">Chat with AI to plan your next trip →</a></p>
+      </div>`;
     return;
   }
-  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-    <h2>My Travel Plans (${plans.length})</h2>
-    <button class="btn btn-primary" onclick="navigate('new-plan')">+ New Plan</button>
+  let html = `<div style="margin-bottom:1rem">
+    <h2>My Travel Plans <span style="font-size:.85rem;font-weight:400;color:var(--muted)">(${plans.length})</span></h2>
+    <p style="font-size:.85rem;color:var(--muted);margin-top:.25rem">Chat with AI to create a new trip</p>
   </div>`;
   for (const p of plans) {
     const nights = Math.round((new Date(p.end_date)-new Date(p.start_date))/(86400000));

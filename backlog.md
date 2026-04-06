@@ -9,10 +9,6 @@
 _(없음)_
 
 ## Ready
-  - **문제**: Plans 페이지가 빈 껍데기, "Create your first trip!" 링크만 존재. 사용자가 버튼을 조작하는 게 아니라 채팅만으로 모든 여행 관리가 되어야 함
-  - **목표**: (1) 메인 랜딩 = Chat 페이지 (Plans/Search/+New Plan 네비게이션 제거 또는 축소) (2) 빈 상태일 때 매력적인 온보딩 UI (대화 예시, 가이드) (3) 전체 디자인 현대화 — 현재 너무 밋밋함 (4) Plans 페이지는 채팅에서 저장된 계획을 보는 보조 뷰로 격하
-  - files: src/app/static/index.html, src/app/static/chat.js, src/app/static/style.css (또는 inline styles)
-  - done: 사이트 접속 시 바로 채팅 인터페이스; 빈 상태에서 가이드/예시 표시; Plans 탭은 저장된 계획 목록만; 시각적으로 현대적; 기존 E2E 깨지지 않음
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
@@ -158,6 +154,7 @@ _(없음)_
 - [x] #98 - Frontend: chat-first UX 전면 개편 — Jarvis 컨셉 [critical-fix] — 2026-04-06
 - [x] #91 - Chat: `share_plan` intent — generate shareable plan link via chat (retry) [feature] — 2026-04-06
 - [x] #92 - E2E: share_plan Playwright scenarios [test] — 2026-04-06
+- [x] #99 - Frontend: chat-first landing + modern UX redesign [improvement] — 2026-04-06
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -170,5 +167,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 94 done, 4 ready (0 in progress)
+- Total tasks: 95 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
