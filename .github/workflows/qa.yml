@@ -40,7 +40,7 @@ jobs:
 
       - name: Wait for site to wake up
         env:
-          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai.onrender.com' }}
+          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai-b2gb.onrender.com' }}
         run: |
           echo "Target: $QA_BASE_URL"
           # Render free tier sleeps — poke it and wait
@@ -55,7 +55,7 @@ jobs:
 
       - name: Run Playwright tests
         env:
-          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai.onrender.com' }}
+          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai-b2gb.onrender.com' }}
         run: npx playwright test --config=playwright.config.ts
 
       - name: Upload results
@@ -70,7 +70,7 @@ jobs:
         if: always()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai.onrender.com' }}
+          QA_BASE_URL: ${{ inputs.base_url || secrets.RENDER_URL || 'https://travel-planner-ai-b2gb.onrender.com' }}
         run: |
           if [ -z "$SLACK_WEBHOOK_URL" ]; then exit 0; fi
 

@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Ping health endpoint
         run: |
-          URL="${RENDER_URL:-https://travel-planner-ai.onrender.com}"
+          URL="${RENDER_URL:-https://travel-planner-ai-b2gb.onrender.com}"
           STATUS=$(curl -sf -o /dev/null -w '%{http_code}' "${URL}/health" || echo "000")
           echo "Health check: ${URL}/health → HTTP ${STATUS}"
           if [ "$STATUS" != "200" ]; then
