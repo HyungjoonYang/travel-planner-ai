@@ -17,11 +17,7 @@ import asyncio
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.chat import ChatService, Intent, chat_service
-from app.routers.chat import router as chat_router
+from app.chat import ChatService, chat_service
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +237,7 @@ class TestFallbackRepetitionDetection:
         }
         mock_client_1 = _make_gemini_mock_response(gemini_intent_1)
         with patch("app.chat.genai.Client", return_value=mock_client_1):
-            events_1 = _collect_events_async(svc, session.session_id, "일본 가고 싶어")
+            _collect_events_async(svc, session.session_id, "일본 가고 싶어")
 
         # Turn 2: user adds dates
         gemini_intent_2 = {
