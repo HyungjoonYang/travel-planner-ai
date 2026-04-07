@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -188,7 +188,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -222,6 +222,7 @@ Return a JSON object with these fields:
 - Use action "duplicate_day" when user wants to copy all places from one day to another day (e.g. "2일차 일정을 4일차에도 넣어줘", "1일차 복사해서 3일차에 붙여줘", "Day 2 일정을 Day 4로 복사", "copy day 1 to day 3", "2일차랑 똑같이 4일차도 만들어줘"); set day_number to the SOURCE day and day_number_2 to the TARGET day
 - Use action "move_place" when user wants to move/transfer a specific place from one day to another day (e.g. "1일차 두 번째 장소를 3일차로 옮겨줘", "Day 2에서 센소지를 Day 4로 이동해줘", "3일차 첫 번째 장소를 1일차로 옮겨", "move place from day 1 to day 3", "2일차 루브르를 3일차로 이동"); set day_number to the SOURCE day, day_number_2 to the TARGET day, query to the place name if mentioned, and place_index to the 1-based position if an ordinal is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2, "마지막" → -1)
 - Use action "set_day_label" when user wants to give a custom title/label/name to a specific day (e.g. "1일차 이름을 '미식 투어'로 해줘", "Day 2 제목을 '자연 탐방'으로 설정해줘", "3일차 이름 바꿔줘, '쇼핑 데이'로", "set day 1 label to 'Food Tour'", "name day 3 'Beach Day'", "Day 2 타이틀을 '박물관 투어'로 해줘"); set day_number to the referenced day and query to the label text
+- Use action "quick_summary" when user wants a concise overview or summary of the current travel plan (e.g. "현재 일정 요약해줘", "일정 요약", "여행 계획 요약", "지금 계획 어때?", "summary of my trip", "what's my itinerary?", "계획 개요", "trip overview", "현재 일정 간단히 알려줘")
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -424,6 +425,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "set_day_label":
             async for event in self._handle_set_day_label(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "quick_summary":
+            async for event in self._handle_quick_summary(session):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -4324,6 +4328,90 @@ Return a JSON object with these fields:
                 "type": "chat_chunk",
                 "data": {"text": "레이블을 설정하려면 먼저 여행 계획을 만들거나 저장해주세요."},
             }
+
+
+    async def _handle_quick_summary(
+        self,
+        session: "ChatSession",
+    ) -> AsyncGenerator[dict, None]:
+        """Return a concise overview of the current in-session travel plan.
+
+        Emits a single chat_chunk with:
+        - destination
+        - start_date / end_date
+        - total day count
+        - per-day place count summary
+        - budget % used (total_estimated_cost / budget × 100)
+
+        Falls back to a helpful message when no plan exists in the session.
+        """
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": "일정 요약 준비 중..."},
+        }
+        await asyncio.sleep(0)
+
+        last_plan = session.last_plan
+        if not last_plan:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": "요약할 계획 없음"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "아직 만들어진 여행 계획이 없어요. 여행 계획을 먼저 만들어보세요! (예: '도쿄 3박4일 여행 계획 세워줘')"},
+            }
+            return
+
+        destination = last_plan.get("destination") or "미정"
+        start_date = last_plan.get("start_date") or "?"
+        end_date = last_plan.get("end_date") or "?"
+        budget = last_plan.get("budget") or 0.0
+        days = last_plan.get("days") or []
+        day_count = len(days)
+
+        # Compute total estimated cost: prefer pre-computed field, else sum places
+        total_cost = last_plan.get("total_estimated_cost")
+        if total_cost is None:
+            total_cost = sum(
+                float(p.get("estimated_cost") or 0)
+                for day in days
+                for p in (day.get("places") or [])
+            )
+
+        # Budget % used
+        if budget and budget > 0:
+            budget_pct = round(total_cost / budget * 100)
+            budget_str = f"{budget_pct}% 사용 ({total_cost:,.0f}원 / {budget:,.0f}원)"
+        else:
+            budget_str = f"{total_cost:,.0f}원 예상 (예산 미설정)"
+
+        # Per-day place count
+        day_lines = []
+        for i, day in enumerate(days, start=1):
+            places = day.get("places") or []
+            label = day.get("label")
+            label_str = f" '{label}'" if label else ""
+            day_lines.append(f"  • Day {i}{label_str}: {len(places)}곳")
+
+        days_summary = "\n".join(day_lines) if day_lines else "  (일정 없음)"
+
+        summary_text = (
+            f"📋 **현재 여행 계획 요약**\n\n"
+            f"🗺️ 목적지: {destination}\n"
+            f"📅 일정: {start_date} ~ {end_date} ({day_count}일)\n"
+            f"💰 예산: {budget_str}\n\n"
+            f"📍 일별 장소 수:\n{days_summary}"
+        )
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "done", "message": "요약 완료"},
+        }
+        yield {
+            "type": "chat_chunk",
+            "data": {"text": summary_text},
+        }
 
 
 # Module-level singleton used by the chat router
