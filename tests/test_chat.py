@@ -8454,3 +8454,178 @@ class TestSetDayLabelHandler:
             places=[],
         )
         assert out.label is None
+
+
+# ---------------------------------------------------------------------------
+# Task #104: quick_summary intent — concise plan overview in chat
+# ---------------------------------------------------------------------------
+
+class TestQuickSummaryHandler:
+    """_handle_quick_summary: emit chat reply with destination, dates, day count,
+    per-day place count, budget % used; fallback when no plan."""
+
+    def _make_last_plan(
+        self,
+        destination="도쿄",
+        start_date="2026-05-01",
+        end_date="2026-05-03",
+        budget=1500000.0,
+        total_estimated_cost=900000.0,
+        days=None,
+    ) -> dict:
+        if days is None:
+            days = [
+                {"day_number": 1, "date": "2026-05-01", "places": [{"name": "센소지", "estimated_cost": 0}, {"name": "아사쿠사", "estimated_cost": 30000}]},
+                {"day_number": 2, "date": "2026-05-02", "places": [{"name": "시부야", "estimated_cost": 50000}]},
+                {"day_number": 3, "date": "2026-05-03", "places": []},
+            ]
+        return {
+            "destination": destination,
+            "start_date": start_date,
+            "end_date": end_date,
+            "budget": budget,
+            "total_estimated_cost": total_estimated_cost,
+            "days": days,
+        }
+
+    def test_quick_summary_intent_accepted_by_model(self):
+        """Intent model must accept quick_summary as a valid action."""
+        intent = Intent(action="quick_summary", raw_message="현재 일정 요약해줘")
+        assert intent.action == "quick_summary"
+
+    def test_quick_summary_no_plan_emits_fallback_message(self):
+        """quick_summary with no plan returns a helpful fallback chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # No last_plan set
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="현재 일정 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "현재 일정 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        # Should indicate there's no plan to summarize
+        assert any(kw in text for kw in ["계획", "일정", "plan"])
+
+    def test_quick_summary_emits_destination(self):
+        """quick_summary reply includes the destination."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = self._make_last_plan(destination="도쿄")
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="현재 일정 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "현재 일정 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "도쿄" in text
+
+    def test_quick_summary_emits_dates(self):
+        """quick_summary reply includes start and end dates."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = self._make_last_plan(start_date="2026-05-01", end_date="2026-05-03")
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="현재 일정 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "현재 일정 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "2026-05-01" in text or "05-01" in text or "5월 1일" in text
+        assert "2026-05-03" in text or "05-03" in text or "5월 3일" in text
+
+    def test_quick_summary_emits_day_count(self):
+        """quick_summary reply includes number of days."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = self._make_last_plan()  # 3 days
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="일정 요약"
+        )):
+            events = _collect_events(svc, session.session_id, "일정 요약")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "3" in text  # 3 days
+
+    def test_quick_summary_emits_place_counts_per_day(self):
+        """quick_summary reply mentions place counts for each day."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = self._make_last_plan()  # day1=2 places, day2=1 place, day3=0 places
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="일정 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "일정 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        # Day 1 has 2 places
+        assert "2" in text
+
+    def test_quick_summary_emits_budget_percentage(self):
+        """quick_summary reply includes budget usage percentage."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = self._make_last_plan(budget=1000000.0, total_estimated_cost=600000.0)
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="현재 일정 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "현재 일정 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        # 600000/1000000 = 60%
+        assert "60" in text
+
+    def test_quick_summary_emits_agent_status_events(self):
+        """quick_summary emits coordinator thinking/done and planner agent events."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = self._make_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "요약해줘")
+
+        agent_events = [e for e in events if e["type"] == "agent_status"]
+        agent_names = {e["data"]["agent"] for e in agent_events}
+        assert "coordinator" in agent_names
+
+    def test_quick_summary_zero_budget_no_crash(self):
+        """quick_summary with budget=0 does not crash (division by zero guard)."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = self._make_last_plan(budget=0.0, total_estimated_cost=50000.0)
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "요약해줘")
+
+        # Should complete without exception
+        assert events[-1]["type"] == "chat_done"
+
+    def test_quick_summary_chat_done_is_last_event(self):
+        """quick_summary always ends with chat_done."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = self._make_last_plan()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="현재 일정 요약"
+        )):
+            events = _collect_events(svc, session.session_id, "현재 일정 요약")
+
+        assert events[-1]["type"] == "chat_done"

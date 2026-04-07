@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #104 - Chat: `quick_summary` intent — concise plan overview in chat [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: "현재 일정 요약해줘" → chat reply with destination, dates, day count, per-day place count, budget % used; no-plan fallback message; 2+ tests
-  - gh: #142
-
 - [ ] #105 - Frontend: day label badge on day cards [improvement]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #102
@@ -173,6 +167,7 @@ _(없음)_
 - [x] #101 - Chat: `move_place` intent — move a place from one day to another [feature] — 2026-04-07
 - [x] #102 - Chat: `set_day_label` intent — set a custom title/label for a day [feature] — 2026-04-07
 - [x] #103 - E2E: message timestamp Playwright scenarios [test] — 2026-04-07
+- [x] #104 - Chat: `quick_summary` intent — concise plan overview in chat [feature] — 2026-04-07
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -185,5 +180,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 104 done, 6 ready (0 in progress)
+- Total tasks: 105 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

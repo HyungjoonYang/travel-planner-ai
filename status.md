@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-07T18:00:00Z (Evolve Run #128)
-Run count: 156
+Last run: 2026-04-07T19:00:00Z (Evolve Run #129)
+Run count: 157
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 104 (#103 E2E: message timestamp — 3 Playwright scenarios: new bubbles show 방금, multi-exchange timestamps, reconnect restores 분 전)
-Current focus: #104 Chat: quick_summary intent
-Next planned: #105 Frontend: day label badge on day cards
+Tasks completed: 105 (#104 Chat: quick_summary intent — destination, dates, day count, per-day place count, budget % used; no-plan fallback; 10 new tests)
+Current focus: #105 Frontend: day label badge on day cards
+Next planned: #106 E2E: quick_summary Playwright scenarios
 
 ## LTES Snapshot
 
 - Latency: ~50000ms (evolve run)
 - Traffic: 1 commit/run
-- Errors: 0 test failures (1598 passed, 12 skipped), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Errors: 0 test failures (1608 passed, 12 skipped), error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #105 Frontend: day label badge on day cards
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #129 — 2026-04-07T19:00:00Z
+- **Task**: #104 - Chat: `quick_summary` intent — concise plan overview in chat [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1608/1608 passed, 12 skipped; 10 new tests added (TestQuickSummaryHandler: no-plan fallback, destination in reply, dates in reply, day count, per-day place count, budget %, agent_status events, zero-budget guard, chat_done as last event)
+- **Files changed**: src/app/chat.py, tests/test_chat.py (+115/-2)
+- **Builder note**: Implemented quick_summary intent: added action to Intent model, updated extract_intent prompt with trigger examples (현재 일정 요약해줘), routed in process_message, added _handle_quick_summary handler. Handler emits destination, dates, day count, per-day place count, budget % used with division-by-zero guard. Falls back gracefully when no plan is in session.
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #128 — 2026-04-07T18:00:00Z
 - **Task**: #103 - E2E: message timestamp Playwright scenarios [test]
