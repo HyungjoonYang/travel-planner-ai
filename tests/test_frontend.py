@@ -407,3 +407,31 @@ class TestModernUXRedesign:
             end_idx = idx + 3000
         fn_body = content[idx:end_idx]
         assert "navigate('chat')" in fn_body
+
+
+class TestDayLabelBadge:
+    """Task #105: day card shows label as styled subtitle/badge when day.label present."""
+
+    def test_chat_js_day_card_html_renders_label_badge(self, client: TestClient):
+        """_dayCardHtml renders a day-label-badge span when day.label is truthy."""
+        content = client.get("/static/chat.js").text
+        # _dayCardHtml must reference the day-label-badge class and day.label
+        assert "day-label-badge" in content
+        assert "day.label" in content
+
+    def test_chat_js_handle_day_update_refreshes_label(self, client: TestClient):
+        """handleDayUpdate creates/updates .day-label-badge on existing day cards."""
+        content = client.get("/static/chat.js").text
+        # Find handleDayUpdate function body
+        idx = content.find("function handleDayUpdate")
+        assert idx != -1
+        end_idx = content.find("\nfunction ", idx + 1)
+        body = content[idx:end_idx] if end_idx != -1 else content[idx:]
+        # Must reference label badge inside the update handler
+        assert "day-label-badge" in body
+        assert "data.label" in body
+
+    def test_index_html_has_day_label_badge_css(self, client: TestClient):
+        """index.html defines .day-label-badge CSS class."""
+        content = client.get("/").text
+        assert "day-label-badge" in content
