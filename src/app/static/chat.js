@@ -34,18 +34,35 @@ function _updateAllTimestamps() {
   });
 }
 
+/** Convert simple markdown to HTML (bold, italic, line breaks). */
+function _renderMarkdown(text) {
+  return escHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+}
+
 /** Set the visible text of a bubble (targeting .chat-text if present). */
 function _setBubbleText(bubble, text) {
   const textEl = bubble && bubble.querySelector('.chat-text');
-  if (textEl) textEl.textContent = text;
-  else if (bubble) bubble.textContent = text;
+  if (textEl) {
+    bubble.dataset.rawText = text;
+    textEl.innerHTML = _renderMarkdown(text);
+  } else if (bubble) {
+    bubble.textContent = text;
+  }
 }
 
 /** Append text to a bubble's .chat-text span (for streaming). */
 function _appendBubbleText(bubble, text) {
   const textEl = bubble && bubble.querySelector('.chat-text');
-  if (textEl) textEl.textContent += text;
-  else if (bubble) bubble.textContent += text;
+  if (textEl) {
+    const raw = (bubble.dataset.rawText || '') + text;
+    bubble.dataset.rawText = raw;
+    textEl.innerHTML = _renderMarkdown(raw);
+  } else if (bubble) {
+    bubble.textContent += text;
+  }
 }
 
 /** Show a typing indicator (animated dots) inside a bubble. */

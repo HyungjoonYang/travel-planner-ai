@@ -61,7 +61,8 @@ Instructions:
 - Keep total_estimated_cost within the {budget:,.0f}원 budget
 - Provide a brief ai_reason why each place is recommended
 - Use realistic transport options (walking, subway, taxi, bus)
-- Each day's date field must be in YYYY-MM-DD format"""
+- Each day's date field must be in YYYY-MM-DD format
+- IMPORTANT: Write ALL text content in Korean (한국어). This includes: notes, ai_reason, category names, and place descriptions. Place names should use their commonly known Korean names (e.g. "오호리 공원" not "Ohori Park", "후쿠오카 성" not "Fukuoka Castle Ruins")"""
 
     def generate_itinerary(
         self,
@@ -236,7 +237,8 @@ Instructions:
 - Maintain each day's date field in YYYY-MM-DD format
 - Keep total_estimated_cost within the {budget:,.0f}원 budget
 - Preserve unchanged days as-is; only modify days affected by the instruction
-- Each place must have name, category, address, estimated_cost, and ai_reason"""
+- Each place must have name, category, address, estimated_cost, and ai_reason
+- IMPORTANT: Write ALL text content in Korean (한국어). This includes: notes, ai_reason, category names, and place descriptions. Place names should use their commonly known Korean names."""
 
         client = genai.Client(api_key=self._api_key)
         with LLMTimer() as timer:
