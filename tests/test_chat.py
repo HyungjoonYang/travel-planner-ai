@@ -230,7 +230,7 @@ class TestProcessMessage:
         svc = _make_service_no_api()
         session = svc.create_session()
 
-        with patch.object(svc, "extract_intent", return_value=Intent(action="create_plan", destination="도쿄", raw_message="도쿄")):
+        with patch.object(svc, "extract_intent", return_value=Intent(action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄")):
             events = _collect_events(svc, session.session_id, "도쿄")
 
         agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
@@ -240,7 +240,7 @@ class TestProcessMessage:
         svc = _make_service_no_api()
         session = svc.create_session()
 
-        with patch.object(svc, "extract_intent", return_value=Intent(action="create_plan", destination="도쿄", raw_message="도쿄")):
+        with patch.object(svc, "extract_intent", return_value=Intent(action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄")):
             events = _collect_events(svc, session.session_id, "도쿄")
 
         agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
@@ -250,7 +250,7 @@ class TestProcessMessage:
         svc = _make_service_no_api()
         session = svc.create_session()
 
-        with patch.object(svc, "extract_intent", return_value=Intent(action="search_hotels", destination="시부야", raw_message="호텔")):
+        with patch.object(svc, "extract_intent", return_value=Intent(action="search_hotels", destination="시부야", start_date="2026-05-01", end_date="2026-05-03", raw_message="호텔")):
             events = _collect_events(svc, session.session_id, "호텔 추천")
 
         agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
@@ -260,7 +260,7 @@ class TestProcessMessage:
         svc = _make_service_no_api()
         session = svc.create_session()
 
-        with patch.object(svc, "extract_intent", return_value=Intent(action="search_flights", destination="도쿄", raw_message="항공")):
+        with patch.object(svc, "extract_intent", return_value=Intent(action="search_flights", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="항공")):
             events = _collect_events(svc, session.session_id, "항공편 검색")
 
         agent_names = {e["data"]["agent"] for e in events if e["type"] == "agent_status"}
@@ -495,7 +495,7 @@ class TestServiceHandlerIntegration:
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄",
-            start_date="2026-05-01", end_date="2026-05-02", raw_message="도쿄"
+            start_date="2026-05-01", end_date="2026-05-02", budget=1500000, raw_message="도쿄"
         )):
             _collect_events(svc, session.session_id, "도쿄")
 
@@ -510,7 +510,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="create_plan", destination="도쿄", raw_message="도쿄"
+            action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -526,7 +526,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="create_plan", destination="도쿄", raw_message="도쿄"
+            action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -540,7 +540,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="create_plan", destination="도쿄", raw_message="도쿄"
+            action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -562,7 +562,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="create_plan", destination="도쿄", raw_message="도쿄"
+            action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -573,8 +573,8 @@ class TestServiceHandlerIntegration:
         assert len(error_events) >= 1
         assert error_events[0]["data"]["agent"] == "planner"
 
-    def test_create_plan_with_default_dates_when_missing(self):
-        """When start/end dates are absent, handler should still call Gemini."""
+    def test_create_plan_asks_for_missing_dates(self):
+        """When start/end dates are absent, handler should ask for missing info."""
         mock_gemini = MagicMock()
         mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
         svc = self._make_service_with_mocks(gemini=mock_gemini)
@@ -582,11 +582,15 @@ class TestServiceHandlerIntegration:
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄",
-            start_date=None, end_date=None, raw_message="도쿄"
+            start_date=None, end_date=None, budget=1500000, raw_message="도쿄"
         )):
-            _collect_events(svc, session.session_id, "도쿄")
+            events = _collect_events(svc, session.session_id, "도쿄")
 
-        mock_gemini.generate_itinerary.assert_called_once()
+        mock_gemini.generate_itinerary.assert_not_called()
+        chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chunks) >= 1
+        text = " ".join(c["data"]["text"] for c in chunks)
+        assert "일정" in text or "날짜" in text
 
     # --- search_places → WebSearchService ---
 
@@ -650,7 +654,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="search_hotels", destination="도쿄", raw_message="도쿄 호텔"
+            action="search_hotels", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄 호텔"
         )):
             _collect_events(svc, session.session_id, "도쿄 호텔")
 
@@ -665,7 +669,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="search_hotels", destination="도쿄", raw_message="도쿄"
+            action="search_hotels", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -680,7 +684,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="search_hotels", destination="도쿄", raw_message="도쿄"
+            action="search_hotels", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -701,7 +705,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="search_hotels", destination="도쿄", raw_message="도쿄"
+            action="search_hotels", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -720,7 +724,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="search_flights", destination="도쿄", raw_message="도쿄 항공"
+            action="search_flights", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄 항공"
         )):
             _collect_events(svc, session.session_id, "도쿄 항공")
 
@@ -735,7 +739,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="search_flights", destination="도쿄", raw_message="도쿄"
+            action="search_flights", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -750,7 +754,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="search_flights", destination="도쿄", raw_message="도쿄"
+            action="search_flights", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -771,7 +775,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="search_flights", destination="도쿄", raw_message="도쿄"
+            action="search_flights", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -806,7 +810,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+            action="get_weather", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄 날씨"
         )):
             events = _collect_events(svc, session.session_id, "도쿄 날씨")
 
@@ -821,7 +825,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+            action="get_weather", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄 날씨"
         )):
             events = _collect_events(svc, session.session_id, "도쿄 날씨")
 
@@ -840,7 +844,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+            action="get_weather", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄 날씨"
         )):
             events = _collect_events(svc, session.session_id, "도쿄 날씨")
 
@@ -858,7 +862,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+            action="get_weather", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄 날씨"
         )):
             events = _collect_events(svc, session.session_id, "도쿄 날씨")
 
@@ -873,7 +877,7 @@ class TestServiceHandlerIntegration:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="get_weather", destination="도쿄", raw_message="도쿄 날씨"
+            action="get_weather", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄 날씨"
         )):
             events = _collect_events(svc, session.session_id, "도쿄 날씨")
 
@@ -970,7 +974,7 @@ class TestGetSessionIncludesAgentStates:
         )
         session = svc.create_session()
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="create_plan", destination="도쿄", raw_message="도쿄"
+            action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
         )):
             _collect_events(svc, session.session_id, "도쿄")
         fetched = svc.get_session(session.session_id)
@@ -1249,7 +1253,7 @@ class TestBudgetBreakdown:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="create_plan", destination="도쿄", raw_message="도쿄"
+            action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
@@ -1267,7 +1271,7 @@ class TestBudgetBreakdown:
         session = svc.create_session()
 
         with patch.object(svc, "extract_intent", return_value=Intent(
-            action="create_plan", destination="도쿄", raw_message="도쿄"
+            action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
         )):
             events = _collect_events(svc, session.session_id, "도쿄")
 
