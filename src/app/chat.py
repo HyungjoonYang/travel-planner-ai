@@ -655,10 +655,9 @@ Return a JSON object with these fields:
         """Handle confirm_plan: create plan from pending_plan stored in session."""
         pending = session.pending_plan
         if not pending:
-            yield {
-                "type": "chat_chunk",
-                "data": {"text": "아직 확정할 여행 조건이 없어요. 어디로 가고 싶으신지부터 얘기해볼까요? 😊"},
-            }
+            # No pending plan — delegate to conversational AI instead of hardcoded response
+            async for event in self._general_with_gemini(intent, session):
+                yield event
             return
 
         confirmed_intent = Intent(
