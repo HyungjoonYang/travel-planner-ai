@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 152,
-    "successful_runs": 146,
+    "total_runs": 153,
+    "successful_runs": 147,
     "failed_runs": 1,
     "success_rate": 0.961,
     "budget_remaining": 0.95,
@@ -660,11 +660,11 @@
     "tests_total": 1587
   },
   "history_tail_prev2": {
-    "run_id": "monitor-2026-04-07-1451",
+    "run_id": "monitor-2026-04-07-1610",
     "task": "monitor",
     "result": "success",
-    "tests_passed": 1576,
-    "tests_total": 1588
+    "tests_passed": 1587,
+    "tests_total": 1599
   },
   "history_tail_prev": {
     "run_id": "2026-04-07-1500",
