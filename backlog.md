@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #107 - Chat: `swap_places` intent — swap places between two days [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: bidirectional place swap between days; day_update SSE for both days; 3+ tests (happy path, out-of-range, no-plan)
-  - gh: #170
-
 - [ ] #108 - Chat: `find_alternatives` intent — suggest replacement places for a slot [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
@@ -156,6 +150,7 @@ _(없음)_
 - [x] #104 - Chat: `quick_summary` intent — concise plan overview in chat [feature] — 2026-04-07
 - [x] #105 - Frontend: day label badge on day cards [improvement] — 2026-04-07
 - [x] #106 - E2E: `quick_summary` Playwright scenarios [test] — 2026-04-07
+- [x] #107 - Chat: `swap_places` intent — swap places between two days [feature] — 2026-04-07
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -168,5 +163,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 107 done, 3 ready (0 in progress)
+- Total tasks: 108 done, 2 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
