@@ -229,6 +229,7 @@ class TestProcessMessage:
     def test_create_plan_activates_place_scout(self):
         svc = _make_service_no_api()
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄")):
             events = _collect_events(svc, session.session_id, "도쿄")
@@ -239,6 +240,7 @@ class TestProcessMessage:
     def test_create_plan_activates_budget_analyst(self):
         svc = _make_service_no_api()
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄")):
             events = _collect_events(svc, session.session_id, "도쿄")
@@ -492,6 +494,7 @@ class TestServiceHandlerIntegration:
         mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-02", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄",
@@ -508,6 +511,7 @@ class TestServiceHandlerIntegration:
         mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
@@ -524,6 +528,7 @@ class TestServiceHandlerIntegration:
         mock_gemini.generate_itinerary.return_value = itinerary
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
@@ -538,6 +543,7 @@ class TestServiceHandlerIntegration:
         mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
@@ -560,6 +566,7 @@ class TestServiceHandlerIntegration:
         mock_gemini.generate_itinerary.side_effect = RuntimeError("Gemini unavailable")
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
@@ -973,6 +980,7 @@ class TestGetSessionIncludesAgentStates:
             flight_search_service=MagicMock(),
         )
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
         )):
@@ -1251,6 +1259,7 @@ class TestBudgetBreakdown:
         mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
         svc = self._make_service_with_gemini(mock_gemini)
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"
@@ -1269,6 +1278,7 @@ class TestBudgetBreakdown:
         mock_gemini.generate_itinerary.return_value = _make_fake_itinerary()
         svc = self._make_service_with_gemini(mock_gemini)
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
 
         with patch.object(svc, "extract_intent", return_value=Intent(
             action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=1500000, raw_message="도쿄"

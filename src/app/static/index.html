@@ -328,7 +328,7 @@ async function renderPlans(app) {
         <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePlan(${p.id})">Delete</button>
       </div>
       <div class="meta">${p.start_date} → ${p.end_date} &nbsp;·&nbsp; ${nights} night${nights!==1?'s':''}</div>
-      <div class="meta">Budget: $${p.budget.toLocaleString()}</div>
+      <div class="meta">예산: ${p.budget.toLocaleString()}원</div>
       ${p.interests ? `<div class="meta">Interests: ${escHtml(p.interests)}</div>` : ''}
     </div>`;
   }
@@ -356,7 +356,7 @@ function renderNewPlan(app) {
         <div><label>Start Date *</label><input name="start_date" type="date" required /></div>
         <div><label>End Date *</label><input name="end_date" type="date" required /></div>
       </div>
-      <label>Budget (USD) *</label>
+      <label>예산 (원) *</label>
       <input name="budget" type="number" min="1" step="any" placeholder="e.g. 3000" required />
       <label>Interests</label>
       <input name="interests" placeholder="e.g. food, culture, nature, museums" />
@@ -424,9 +424,9 @@ async function renderPlanDetail(app, id) {
     budgetBar = `
       <div class="section-title">Budget</div>
       <div style="margin-bottom:.5rem;display:flex;justify-content:space-between;font-size:.875rem">
-        <span>Spent: <strong>$${summary.total_spent.toLocaleString()}</strong></span>
-        <span>Remaining: <strong style="color:${summary.remaining>=0?'var(--success)':'var(--danger)'}">$${summary.remaining.toLocaleString()}</strong></span>
-        <span>Budget: $${summary.budget.toLocaleString()}</span>
+        <span>지출: <strong>${summary.total_spent.toLocaleString()}원</strong></span>
+        <span>잔여: <strong style="color:${summary.remaining>=0?'var(--success)':'var(--danger)'}"> ${summary.remaining.toLocaleString()}원</strong></span>
+        <span>예산: ${summary.budget.toLocaleString()}원</span>
       </div>
       <div class="progress-bar-bg"><div class="progress-bar" style="width:${pct}%;background:${barColor}"></div></div>
       <div style="font-size:.8rem;color:var(--muted);margin-top:.25rem">${pct}% used</div>`;
@@ -446,7 +446,7 @@ async function renderPlanDetail(app, id) {
                 ${p.address?`<div class="meta">${escHtml(p.address)}</div>`:''}
                 ${p.ai_reason?`<div class="meta" style="font-style:italic">${escHtml(p.ai_reason)}</div>`:''}
               </div>
-              ${p.estimated_cost?`<span class="price-tag">$${p.estimated_cost}</span>`:''}
+              ${p.estimated_cost?`<span class="price-tag">${Number(p.estimated_cost).toLocaleString()}원</span>`:''}
             </div>`).join('')
         : '<div class="meta">No places added.</div>';
       itinHtml += `<div class="card">
@@ -478,7 +478,7 @@ async function renderPlanDetail(app, id) {
   <div class="grid2">
     <div class="card">
       <div class="meta">📅 ${plan.start_date} → ${plan.end_date} (${nights} nights)</div>
-      <div class="meta">💰 Budget: $${plan.budget.toLocaleString()}</div>
+      <div class="meta">💰 예산: ${plan.budget.toLocaleString()}원</div>
       ${plan.interests?`<div class="meta">🎯 ${escHtml(plan.interests)}</div>`:''}
       ${budgetBar}
     </div>
@@ -505,7 +505,7 @@ function renderExpenseRows(expenses) {
         ${e.category?`<span class="meta" style="margin-left:.4rem">(${escHtml(e.category)})</span>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:.5rem">
-        <strong>$${e.amount.toLocaleString()}</strong>
+        <strong>${Number(e.amount).toLocaleString()}원</strong>
         <button class="btn btn-danger btn-sm" onclick="deleteExpense(${e.travel_plan_id},${e.id})">×</button>
       </div>
     </div>`).join('');
@@ -524,7 +524,7 @@ function openAddExpense(planId) {
     <div id="exp-alert"></div>
     <form onsubmit="submitExpense(event,${planId})">
       <label>Name *</label><input name="name" required placeholder="e.g. Hotel night" />
-      <label>Amount (USD) *</label><input name="amount" type="number" min="0.01" step="any" required />
+      <label>금액 (원) *</label><input name="amount" type="number" min="0.01" step="any" required />
       <label>Category</label><input name="category" placeholder="e.g. accommodation, food, transport" />
       <label>Date</label><input name="date" type="date" />
       <label>Notes</label><input name="notes" />
@@ -650,7 +650,7 @@ function hotelSearchForm() {
         <div><label>Check-in</label><input name="check_in" type="date" /></div>
         <div><label>Check-out</label><input name="check_out" type="date" /></div>
       </div>
-      <label>Max Price / Night (USD)</label>
+      <label>1박 최대 가격 (원)</label>
       <input name="max_price" type="number" min="1" step="any" placeholder="e.g. 200" />
       <button type="submit" class="btn btn-primary" style="margin-top:1rem">Search Hotels</button>
     </form>
@@ -671,7 +671,7 @@ function flightSearchForm() {
       </div>
       <div class="form-row">
         <div><label>Passengers</label><input name="passengers" type="number" min="1" value="1" /></div>
-        <div><label>Max Budget (USD)</label><input name="max_budget" type="number" min="1" step="any" /></div>
+        <div><label>Max 예산 (원)</label><input name="max_budget" type="number" min="1" step="any" /></div>
       </div>
       <button type="submit" class="btn btn-primary" style="margin-top:1rem">Search Flights</button>
     </form>
@@ -703,7 +703,7 @@ function renderPlaceResults(data) {
     html += `<div class="search-result-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <strong>${escHtml(p.name)}</strong>
-        ${p.estimated_cost?`<span class="price-tag">~$${p.estimated_cost}</span>`:''}
+        ${p.estimated_cost?`<span class="price-tag">~${Number(p.estimated_cost).toLocaleString()}원</span>`:''}
       </div>
       ${p.category?`<div class="meta">${escHtml(p.category)}</div>`:''}
       ${p.address?`<div class="meta">📍 ${escHtml(p.address)}</div>`:''}
@@ -738,7 +738,7 @@ function renderHotelResults(data) {
     html += `<div class="search-result-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <strong>${escHtml(h.name)}</strong>
-        ${h.price_per_night?`<span class="price-tag">$${h.price_per_night}/night</span>`:''}
+        ${h.price_per_night?`<span class="price-tag">${Number(h.price_per_night).toLocaleString()}원/박</span>`:''}
       </div>
       ${h.address?`<div class="meta">📍 ${escHtml(h.address)}</div>`:''}
       ${h.rating?`<div class="meta">⭐ ${h.rating}</div>`:''}
@@ -778,7 +778,7 @@ function renderFlightResults(data) {
     html += `<div class="search-result-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <strong>${escHtml(fl.airline)}</strong>
-        ${fl.price?`<span class="price-tag">$${fl.price}</span>`:''}
+        ${fl.price?`<span class="price-tag">${Number(fl.price).toLocaleString()}원</span>`:''}
       </div>
       ${fl.flight_number?`<div class="meta">Flight ${escHtml(fl.flight_number)}</div>`:''}
       ${fl.departure_time?`<div class="meta">🛫 ${escHtml(fl.departure_time)}${fl.arrival_time?' → 🛬 '+escHtml(fl.arrival_time):''}</div>`:''}

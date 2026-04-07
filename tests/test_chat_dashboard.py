@@ -122,6 +122,7 @@ class TestPlanUpdateEventShape:
             raw_message="도쿄",
             **(intent_extra or {}),
         )
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-04", "budget": 2000000.0, "interests": ""}
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "도쿄")
         plan_events = [e for e in events if e["type"] == "plan_update"]
@@ -192,6 +193,7 @@ class TestDayUpdateEventShape:
             start_date="2026-05-01", end_date="2026-05-02",
             budget=1000.0, raw_message="도쿄",
         )
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-02", "budget": 1000.0, "interests": ""}
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "도쿄")
         return [e["data"] for e in events if e["type"] == "day_update"]

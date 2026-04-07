@@ -656,7 +656,7 @@ function _placeScoutCardHtml(p) {
   return `<div class="search-result-card">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <strong>${escHtml(p.name)}</strong>
-      ${p.estimated_cost ? `<span class="price-tag">$${p.estimated_cost}</span>` : ''}
+      ${p.estimated_cost ? `<span class="price-tag">${Number(p.estimated_cost).toLocaleString()}원</span>` : ''}
     </div>
     ${p.category ? `<div class="meta">${escHtml(p.category)}</div>` : ''}
     ${p.address ? `<div class="meta" style="font-size:.75rem">${escHtml(p.address)}</div>` : ''}
@@ -723,8 +723,8 @@ function _budgetBarHtml(spent, budget) {
   const pct = Math.min(100, (spent / budget) * 100).toFixed(1);
   const barColor = pct >= 90 ? '#dc3545' : pct >= 70 ? '#ffc107' : '#198754';
   return `<div class="budget-row">
-    <span class="meta">예상 비용: <strong>$${Math.round(spent).toLocaleString()}</strong></span>
-    <span class="meta">예산: $${Math.round(budget).toLocaleString()}</span>
+    <span class="meta">예상 비용: <strong>${Math.round(spent).toLocaleString()}원</strong></span>
+    <span class="meta">예산: ${Math.round(budget).toLocaleString()}원</span>
   </div>
   <div class="progress-bar-bg" style="margin:.4rem 0 .2rem">
     <div class="progress-bar" id="plan-budget-bar" style="width:${pct}%;background:${barColor}"></div>
@@ -774,7 +774,7 @@ function _dayCardHtml(day) {
   return `<div class="card day-card" id="day-${escHtml(day.date)}">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <strong>${escHtml(day.date)}</strong>
-      ${dayCost > 0 ? `<span class="price-tag">$${dayCost.toLocaleString()}</span>` : ''}
+      ${dayCost > 0 ? `<span class="price-tag">${dayCost.toLocaleString()}원</span>` : ''}
     </div>
     ${day.notes ? `<div class="meta">${escHtml(day.notes)}</div>` : ''}
     <div class="day-places">${places || '<div class="meta">장소 없음</div>'}</div>
@@ -787,7 +787,7 @@ function _placeItemHtml(p) {
       <span>${escHtml(p.name)}</span>
       ${p.category ? `<span class="meta" style="margin-left:.4rem">(${escHtml(p.category)})</span>` : ''}
     </div>
-    ${p.estimated_cost ? `<span class="price-tag">$${p.estimated_cost}</span>` : ''}
+    ${p.estimated_cost ? `<span class="price-tag">${Number(p.estimated_cost).toLocaleString()}원</span>` : ''}
   </div>`;
 }
 
@@ -812,7 +812,7 @@ function handleDayUpdate(data) {
   const costEl = dayEl.querySelector('.price-tag');
   if (dayCost > 0) {
     if (costEl) {
-      costEl.textContent = `$${dayCost.toLocaleString()}`;
+      costEl.textContent = `${dayCost.toLocaleString()}원`;
     }
   }
 }
@@ -849,7 +849,7 @@ function handleSearchResults(data) {
     itemsHtml = `<div class="budget-breakdown">` +
       cats.map(c => {
         const val = results[c.key];
-        const valStr = (val != null) ? `$${Math.round(val).toLocaleString()}` : '-';
+        const valStr = (val != null) ? `${Math.round(val).toLocaleString()}원` : '-';
         return `<div class="budget-breakdown-row" style="display:flex;justify-content:space-between;padding:.2rem 0${c.key==='total'?';font-weight:bold;border-top:1px solid #ccc;margin-top:.3rem':''}">
           <span>${c.label}</span><span>${valStr}</span></div>`;
       }).join('') +
@@ -932,7 +932,7 @@ function handlePlansList(data) {
     const dest   = escHtml(plan.destination || '');
     const dates  = (plan.start_date && plan.end_date)
       ? `${escHtml(plan.start_date)} → ${escHtml(plan.end_date)}` : '';
-    const budget = plan.budget ? `$${Math.round(plan.budget).toLocaleString()}` : '';
+    const budget = plan.budget ? `${Math.round(plan.budget).toLocaleString()}원` : '';
     const status = plan.status ? escHtml(plan.status) : '';
     html += `<div class="card plan-saved-card" data-plan-id="${escHtml(String(plan.id ?? ''))}"
         style="cursor:pointer;margin-bottom:.5rem" role="button" tabindex="0">
