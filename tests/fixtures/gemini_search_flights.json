@@ -1,0 +1,65 @@
+{
+  "departure_city": "서울",
+  "arrival_city": "도쿄",
+  "departure_date": "",
+  "return_date": "",
+  "passengers": 1,
+  "flights": [
+    {
+      "airline": "Jeju Air",
+      "flight_number": "7C1102",
+      "departure_time": "09:05",
+      "arrival_time": "11:35",
+      "duration": "2h 30m",
+      "stops": "Nonstop",
+      "price": "$61",
+      "cabin_class": "Economy",
+      "tips": "Best value for budget travelers; departing from Incheon (ICN) to Narita (NRT)."
+    },
+    {
+      "airline": "Korean Air",
+      "flight_number": "KE2101",
+      "departure_time": "09:00",
+      "arrival_time": "11:10",
+      "duration": "2h 10m",
+      "stops": "Nonstop",
+      "price": "$265",
+      "cabin_class": "Economy",
+      "tips": "Departs from Gimpo (GMP) to Haneda (HND), providing the quickest access to central Tokyo."
+    },
+    {
+      "airline": "ZIPAIR Tokyo",
+      "flight_number": "ZG42",
+      "departure_time": "13:30",
+      "arrival_time": "15:55",
+      "duration": "2h 25m",
+      "stops": "Nonstop",
+      "price": "$73",
+      "cabin_class": "Economy",
+      "tips": "A high-quality low-cost carrier option with modern Boeing 787 aircraft."
+    },
+    {
+      "airline": "Asiana Airlines",
+      "flight_number": "OZ102",
+      "departure_time": "09:00",
+      "arrival_time": "11:20",
+      "duration": "2h 20m",
+      "stops": "Nonstop",
+      "price": "$240",
+      "cabin_class": "Economy",
+      "tips": "Full-service carrier with complimentary meals and frequent daily schedules."
+    },
+    {
+      "airline": "Peach Aviation",
+      "flight_number": "MM808",
+      "departure_time": "22:35",
+      "arrival_time": "00:55",
+      "duration": "2h 20m",
+      "stops": "Nonstop",
+      "price": "$86",
+      "cabin_class": "Economy",
+      "tips": "Ideal for late-night departures; arrives at Haneda (HND) shortly after midnight."
+    }
+  ],
+  "summary": "Flights from Seoul to Tokyo are highly frequent, with over 650 weekly departures. Low-cost carriers like Jeju Air and ZIPAIR offer the most affordable fares starting around $60, while premium carriers such as Korean Air and Asiana provide more comfort and better airport proximity (GMP-HND) for around $240-$300."
+}

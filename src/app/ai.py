@@ -82,6 +82,7 @@ Instructions:
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=AIItineraryResult,
+                thinking_config=types.ThinkingConfig(thinking_level="medium"),
             ),
         )
 
@@ -130,6 +131,9 @@ Be specific, friendly, and concise. Respond in the same language the traveler us
         response = client.models.generate_content(
             model=self.MODEL,
             contents=prompt,
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="medium"),
+            ),
         )
 
         return response.text or "개선 제안을 생성하지 못했습니다."
@@ -183,6 +187,7 @@ Instructions:
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=AIItineraryResult,
+                thinking_config=types.ThinkingConfig(thinking_level="medium"),
             ),
         )
 

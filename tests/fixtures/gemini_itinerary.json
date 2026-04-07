@@ -1,0 +1,124 @@
+{
+  "days": [
+    {
+      "date": "2026-05-06",
+      "notes": "도쿄의 전통적인 매력을 느끼며 여행을 시작합니다. 아사쿠사와 우에노 지역에서 역사와 맛을 동시에 경험하세요.",
+      "transport": "지하철 및 도보",
+      "places": [
+        {
+          "name": "센소지",
+          "category": "문화",
+          "address": "2-3-1 Asakusa, Taito City, Tokyo 111-0032",
+          "estimated_cost": 0.0,
+          "ai_reason": "도쿄에서 가장 오래된 사찰로, 화려한 카미나리몬과 전통적인 분위기를 통해 일본의 역사와 문화를 직접 체험할 수 있는 필수 코스입니다."
+        },
+        {
+          "name": "나카미세 도리",
+          "category": "음식",
+          "address": "2-3-1 Asakusa, Taito City, Tokyo 111-0032",
+          "estimated_cost": 30.0,
+          "ai_reason": "센소지로 이어지는 전통 상점가로, 아게만쥬와 같은 다양한 전통 길거리 음식을 맛보며 일본의 상인 문화를 즐길 수 있습니다."
+        },
+        {
+          "name": "아사쿠사 이마한",
+          "category": "음식",
+          "address": "3-1-12 Nishi-Asakusa, Taito City, Tokyo 111-0035",
+          "estimated_cost": 150.0,
+          "ai_reason": "100년 이상의 역사를 가진 스키야키 명가로, 고품질의 와규를 통해 일본 정통 요리의 깊은 맛을 느낄 수 있습니다."
+        },
+        {
+          "name": "도쿄 국립 박물관",
+          "category": "문화",
+          "address": "13-9 Uenokoen, Taito City, Tokyo 110-8712",
+          "estimated_cost": 10.0,
+          "ai_reason": "일본 최대 규모의 박물관으로 국보급 문화재들을 통해 일본의 유구한 역사를 한눈에 살펴볼 수 있는 최고의 문화 공간입니다."
+        },
+        {
+          "name": "긴자 큐베이 (본점)",
+          "category": "음식",
+          "address": "8-7-6 Ginza, Chuo City, Tokyo 104-0061",
+          "estimated_cost": 350.0,
+          "ai_reason": "세계적으로 유명한 에도마에 스시의 정수를 보여주는 곳으로, 장인 정신이 깃든 최고의 스시를 경험할 수 있습니다."
+        }
+      ]
+    },
+    {
+      "date": "2026-05-07",
+      "notes": "현대적인 도쿄와 평온한 숲의 조화를 경험하는 날입니다. 시부야와 하라주쿠의 트렌드를 즐겨보세요.",
+      "transport": "지하철 및 택시",
+      "places": [
+        {
+          "name": "메이지 신궁",
+          "category": "문화",
+          "address": "1-1 Yoyogikamizonocho, Shibuya City, Tokyo 151-8557",
+          "estimated_cost": 0.0,
+          "ai_reason": "도심 속 거대한 숲에 자리 잡은 신궁으로, 일본의 신도 문화를 체험하며 고요한 휴식을 취할 수 있는 곳입니다."
+        },
+        {
+          "name": "시부야 스카이",
+          "category": "문화",
+          "address": "2-24-12 Shibuya, Shibuya City, Tokyo 150-0002",
+          "estimated_cost": 25.0,
+          "ai_reason": "시부야 스크램블 교차로와 도쿄 시내를 360도로 조망할 수 있는 전망대로, 현대적인 도쿄의 에너지를 느낄 수 있습니다."
+        },
+        {
+          "name": "오모테산도 우카이테이",
+          "category": "음식",
+          "address": "5-10-1 Jingumae, Shibuya City, Tokyo 150-0001",
+          "estimated_cost": 300.0,
+          "ai_reason": "최고급 데판야끼 요리를 제공하며 화려한 인테리어와 퍼포먼스를 통해 오감을 만족시키는 식사 경험을 선사합니다."
+        },
+        {
+          "name": "나리사와",
+          "category": "음식",
+          "address": "2-6-15 Minamiaoyama, Minato City, Tokyo 107-0062",
+          "estimated_cost": 500.0,
+          "ai_reason": "일본의 자연과 문화를 접시에 담아내는 혁신적인 미식 스타일로 세계 최고의 레스토랑 중 하나로 평가받는 곳입니다."
+        }
+      ]
+    },
+    {
+      "date": "2026-05-08",
+      "notes": "예술과 쇼핑, 그리고 미식의 절정을 경험하며 여행을 마무리합니다. 긴자와 디지털 아트의 세계를 만납니다.",
+      "transport": "지하철 및 택시",
+      "places": [
+        {
+          "name": "고쿄 (황거)",
+          "category": "문화",
+          "address": "1-1 Chiyoda, Chiyoda City, Tokyo 100-8111",
+          "estimated_cost": 0.0,
+          "ai_reason": "일본 일왕의 거처로 역사적인 성곽과 정원을 통해 일본 황실 문화를 엿볼 수 있는 상징적인 장소입니다."
+        },
+        {
+          "name": "팀랩 보더리스",
+          "category": "문화",
+          "address": "Azabudai Hills Garden Plaza B B1, 1-2-4 Azabudai, Minato City, Tokyo 106-0041",
+          "estimated_cost": 40.0,
+          "ai_reason": "경계 없는 예술을 지향하는 디지털 아트 전시로 도쿄의 혁신적인 예술 트렌드를 직접 몸으로 느낄 수 있습니다."
+        },
+        {
+          "name": "스시 사이토",
+          "category": "음식",
+          "address": "1-1-1 Akasaka, Minato City, Tokyo 107-0052",
+          "estimated_cost": 600.0,
+          "ai_reason": "전설적인 스시 장인이 운영하는 곳으로 극상의 재료와 기술이 만난 도쿄 미식의 정점을 체험할 수 있습니다."
+        },
+        {
+          "name": "레페르베상스",
+          "category": "음식",
+          "address": "2-26-4 Nishiazabu, Minato City, Tokyo 106-0031",
+          "estimated_cost": 450.0,
+          "ai_reason": "프랑스 요리 기법과 일본의 제철 식재료를 결합하여 미학적인 요리를 선보이는 미슐랭 스타 레스토랑입니다."
+        },
+        {
+          "name": "긴자 미츠코시",
+          "category": "문화",
+          "address": "4-6-16 Ginza, Chuo City, Tokyo 104-8212",
+          "estimated_cost": 100.0,
+          "ai_reason": "일본에서 가장 오래된 백화점 중 하나로 최고급 쇼핑 시설과 식품관을 통해 일본 특유의 정중한 환대 문화를 경험할 수 있습니다."
+        }
+      ]
+    }
+  ],
+  "total_estimated_cost": 2505.0
+}
