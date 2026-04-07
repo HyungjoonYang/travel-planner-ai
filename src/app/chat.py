@@ -13,6 +13,7 @@ from google.genai import types
 from pydantic import BaseModel
 
 from app.ai import GeminiService
+from app.image_resolver import resolve_photo_url, generate_google_maps_url
 from app.llm_logger import log_llm_call, LLMTimer
 from app.calendar_service import CalendarService
 from app.config import GEMINI_API_KEY
@@ -577,6 +578,29 @@ Return a JSON object with these fields:
                     "result_count": place_count,
                 },
             }
+
+            # Emit place_preview cards one by one (staggered for live feel)
+            for day in result.days:
+                for place in day.places:
+                    photo_info = await asyncio.to_thread(
+                        resolve_photo_url, place.name, place.category,
+                    )
+                    yield {
+                        "type": "place_preview",
+                        "data": {
+                            "name": place.name,
+                            "category": place.category,
+                            "address": place.address,
+                            "estimated_cost": place.estimated_cost,
+                            "ai_reason": place.ai_reason,
+                            "day": day.date,
+                            "photo_url": photo_info["photo_url"],
+                            "fallback_icon": photo_info["fallback_icon"],
+                            "google_maps_url": generate_google_maps_url(place.name, place.address),
+                        },
+                    }
+                    await asyncio.sleep(0.15)
+
             breakdown = self._compute_budget_breakdown(result)
             yield {
                 "type": "agent_status",
@@ -584,7 +608,7 @@ Return a JSON object with these fields:
                     "agent": "budget_analyst",
                     "status": "done",
                     "message": f"총 {result.total_estimated_cost:,.0f}원 예산 배분 완료",
-                    "result_count": len(breakdown) - 1,  # exclude "total"
+                    "result_count": len(breakdown) - 1,
                 },
             }
             yield {

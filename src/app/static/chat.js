@@ -428,6 +428,9 @@ function handleSseEvent(event) {
     case 'plan_context':
       if (event.data) handlePlanContext(event.data);
       break;
+    case 'place_preview':
+      if (event.data) handlePlacePreview(event.data);
+      break;
     case 'plan_update':
       if (event.data) handlePlanUpdate(event.data);
       break;
@@ -780,6 +783,52 @@ function _budgetBarHtml(spent, budget) {
 // ---------------------------------------------------------------------------
 // Progressive Plan Context — builds up as conversation unfolds
 // ---------------------------------------------------------------------------
+
+function handlePlacePreview(data) {
+  const panel = document.getElementById('plan-panel');
+  if (!panel) return;
+
+  // Ensure a place-cards grid container exists
+  let grid = panel.querySelector('.place-cards-grid');
+  if (!grid) {
+    // Clear the empty/context state, add header + grid
+    const contextCard = panel.querySelector('.plan-context-card');
+    if (!contextCard) {
+      panel.innerHTML = '<div class="section-title">✈️ Travel Plan</div>';
+    }
+    grid = document.createElement('div');
+    grid.className = 'place-cards-grid';
+    panel.appendChild(grid);
+  }
+
+  // Build card
+  const card = document.createElement('a');
+  card.className = 'place-card place-card-enter';
+  card.href = data.google_maps_url || '#';
+  card.target = '_blank';
+  card.rel = 'noopener';
+
+  const photoHtml = data.photo_url
+    ? `<div class="place-card-photo" style="background-image:url('${escHtml(data.photo_url)}')"></div>`
+    : `<div class="place-card-photo place-card-photo-fallback">${data.fallback_icon || '📍'}</div>`;
+
+  const costStr = data.estimated_cost
+    ? `<span class="price-tag">${Number(data.estimated_cost).toLocaleString()}원</span>`
+    : '';
+
+  card.innerHTML = `
+    ${photoHtml}
+    <div class="place-card-body">
+      <div class="place-card-name">${escHtml(data.name)}</div>
+      <div class="place-card-meta">${escHtml(data.category || '')} ${costStr}</div>
+      ${data.ai_reason ? `<div class="place-card-reason">${escHtml(data.ai_reason)}</div>` : ''}
+    </div>`;
+
+  grid.appendChild(card);
+  // Trigger animation after DOM insert
+  requestAnimationFrame(() => card.classList.remove('place-card-enter'));
+  panel.scrollTop = panel.scrollHeight;
+}
 
 function handlePlanContext(data) {
   const panel = document.getElementById('plan-panel');
