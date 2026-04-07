@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 153,
-    "successful_runs": 147,
+    "total_runs": 154,
+    "successful_runs": 148,
     "failed_runs": 1,
     "success_rate": 0.961,
     "budget_remaining": 0.95,
@@ -653,6 +653,13 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
+    "run_id": "2026-04-07-1700",
+    "task": "#102 - Chat: set_day_label intent — set a custom title/label for a day",
+    "result": "success",
+    "tests_passed": 1598,
+    "tests_total": 1610
+  },
+  "history_tail_prev2_prev": {
     "run_id": "2026-04-07-1600",
     "task": "#101 - Chat: move_place intent — move a place from one day to another",
     "result": "success",

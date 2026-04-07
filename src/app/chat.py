@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -188,7 +188,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -221,6 +221,7 @@ Return a JSON object with these fields:
 - Use action "clear_day" when user wants to remove ALL places from a specific day (e.g. "3일차 일정 다 지워줘", "Day 2 일정 전부 삭제", "2일차 장소 모두 제거", "clear all places from day 3", "day 1 일정 비워줘"); set day_number to the referenced day
 - Use action "duplicate_day" when user wants to copy all places from one day to another day (e.g. "2일차 일정을 4일차에도 넣어줘", "1일차 복사해서 3일차에 붙여줘", "Day 2 일정을 Day 4로 복사", "copy day 1 to day 3", "2일차랑 똑같이 4일차도 만들어줘"); set day_number to the SOURCE day and day_number_2 to the TARGET day
 - Use action "move_place" when user wants to move/transfer a specific place from one day to another day (e.g. "1일차 두 번째 장소를 3일차로 옮겨줘", "Day 2에서 센소지를 Day 4로 이동해줘", "3일차 첫 번째 장소를 1일차로 옮겨", "move place from day 1 to day 3", "2일차 루브르를 3일차로 이동"); set day_number to the SOURCE day, day_number_2 to the TARGET day, query to the place name if mentioned, and place_index to the 1-based position if an ordinal is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2, "마지막" → -1)
+- Use action "set_day_label" when user wants to give a custom title/label/name to a specific day (e.g. "1일차 이름을 '미식 투어'로 해줘", "Day 2 제목을 '자연 탐방'으로 설정해줘", "3일차 이름 바꿔줘, '쇼핑 데이'로", "set day 1 label to 'Food Tour'", "name day 3 'Beach Day'", "Day 2 타이틀을 '박물관 투어'로 해줘"); set day_number to the referenced day and query to the label text
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -420,6 +421,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "move_place":
             async for event in self._handle_move_place(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "set_day_label":
+            async for event in self._handle_set_day_label(intent, session, db):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -4146,6 +4150,180 @@ Return a JSON object with these fields:
             "type": "chat_chunk",
             "data": {"text": "대화 내역을 초기화했습니다. 새로운 여행 계획을 시작해보세요!"},
         }
+
+
+    async def _handle_set_day_label(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Set a custom title/label for a specific day.
+
+        Reads day_number and query (the label text) from intent.
+        Persists label to DayItinerary.label in DB (if available), and updates
+        session.last_plan for in-memory state. Emits day_update with the new label.
+        """
+        day_number = intent.day_number
+        new_label = (intent.query or "").strip()
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": f"Day {day_number} 레이블 설정 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if not day_number:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "날짜를 지정해주세요"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "어떤 날짜의 이름을 바꿀지 알려주세요 (예: '1일차 이름을 미식 투어로 해줘')."},
+            }
+            return
+
+        if not new_label:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "레이블 텍스트가 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "설정할 이름/제목을 알려주세요 (예: '1일차 이름을 미식 투어로 해줘')."},
+            }
+            return
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    TravelPlan as TravelPlanModel,
+                )
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is None:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                    }
+                    return
+
+                days = (
+                    db.query(DayItineraryModel)
+                    .filter(DayItineraryModel.travel_plan_id == plan_id)
+                    .order_by(DayItineraryModel.date)
+                    .all()
+                )
+
+                day_idx = day_number - 1
+                if not days or day_idx < 0 or day_idx >= len(days):
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_number}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획에 Day {day_number}이 없습니다 (총 {len(days)}일)."},
+                    }
+                    return
+
+                day_obj = days[day_idx]
+                day_obj.label = new_label
+                db.commit()
+                db.refresh(day_obj)
+
+                places_data = [
+                    {
+                        "name": p.name,
+                        "category": p.category,
+                        "address": p.address,
+                        "estimated_cost": p.estimated_cost,
+                        "ai_reason": p.ai_reason,
+                        "order": p.order,
+                    }
+                    for p in sorted(day_obj.places, key=lambda x: x.order)
+                ]
+
+                yield {
+                    "type": "day_update",
+                    "data": {
+                        "day_number": day_number,
+                        "date": day_obj.date.isoformat(),
+                        "notes": day_obj.notes,
+                        "transport": day_obj.transport,
+                        "label": day_obj.label,
+                        "places": places_data,
+                    },
+                }
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 레이블 '{new_label}' 설정 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_number}의 이름을 '{new_label}'으로 설정했습니다."},
+                }
+
+            except Exception as exc:
+                logger.error("_handle_set_day_label: failed — %s: %s", type(exc).__name__, exc, exc_info=True)
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "error", "message": "레이블 설정 실패"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"레이블 설정 중 오류가 발생했습니다: {exc}"},
+                }
+        else:
+            # In-memory plan
+            last_plan = session.last_plan
+            if last_plan:
+                days = last_plan.get("days", [])
+                day_idx = day_number - 1
+                if day_idx < 0 or day_idx >= len(days):
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_number}이 범위를 벗어났습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_number}은 이 계획에 없습니다 (총 {len(days)}일)."},
+                    }
+                    return
+
+                day_obj = days[day_idx]
+                day_obj["label"] = new_label
+
+                yield {
+                    "type": "day_update",
+                    "data": {**day_obj, "day_number": day_number, "label": new_label},
+                }
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 레이블 '{new_label}' 설정 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_number}의 이름을 '{new_label}'으로 설정했습니다 (미저장 — 저장 후 영구 보관됩니다)."},
+                }
+                return
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "레이블을 설정할 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "레이블을 설정하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
 
 
 # Module-level singleton used by the chat router
