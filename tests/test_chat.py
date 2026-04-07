@@ -8191,3 +8191,266 @@ class TestMovePlaceHandler:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Task #102: set_day_label intent — set a custom title/label for a day
+# ---------------------------------------------------------------------------
+
+class TestSetDayLabelHandler:
+    """_handle_set_day_label: persist label on DayItinerary; emit day_update with label."""
+
+    def test_set_day_label_intent_accepted_by_model(self):
+        """Intent model must accept set_day_label as a valid action."""
+        intent = Intent(
+            action="set_day_label",
+            day_number=1,
+            query="미식 투어",
+            raw_message="1일차 이름을 '미식 투어'로 해줘",
+        )
+        assert intent.action == "set_day_label"
+        assert intent.day_number == 1
+        assert intent.query == "미식 투어"
+
+    def test_set_day_label_in_memory_emits_day_update_with_label(self):
+        """set_day_label updates session.last_plan day label and emits day_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [{"name": "센소지"}]},
+                {"day_number": 2, "date": "2026-05-02", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_day_label", day_number=1, query="미식 투어", raw_message="1일차 이름을 '미식 투어'로 해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 이름을 '미식 투어'로 해줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 1
+        assert day_updates[0]["data"]["label"] == "미식 투어"
+        assert day_updates[0]["data"]["day_number"] == 1
+
+        # session.last_plan should be mutated
+        assert session.last_plan["days"][0].get("label") == "미식 투어"
+
+    def test_set_day_label_in_memory_emits_agent_done(self):
+        """set_day_label emits planner agent done status."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "days": [{"day_number": 1, "date": "2026-06-01", "places": []}],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_day_label", day_number=1, query="박물관 투어", raw_message="1일차 이름 박물관 투어"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 이름 박물관 투어")
+
+        agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "planner"]
+        assert any(e["data"]["status"] == "done" for e in agent_events)
+
+    def test_set_day_label_missing_day_number_emits_error(self):
+        """set_day_label without day_number emits instructional chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_day_label", day_number=None, query="미식 투어", raw_message="이름을 미식 투어로 해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "이름을 미식 투어로 해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        assert any("날짜" in e["data"]["text"] for e in chat_chunks)
+
+    def test_set_day_label_missing_label_text_emits_error(self):
+        """set_day_label without query (label text) emits instructional chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_day_label", day_number=1, query="", raw_message="1일차 이름 바꿔줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 이름 바꿔줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "이름" in text or "제목" in text or "설정" in text
+
+    def test_set_day_label_no_plan_emits_chat_chunk(self):
+        """set_day_label with no plan returns a helpful message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_day_label", day_number=1, query="미식 투어", raw_message="1일차 이름을 미식 투어로 해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 이름을 미식 투어로 해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "계획" in text
+
+    def test_set_day_label_out_of_range_emits_error(self):
+        """set_day_label with out-of-range day emits error chat_chunk, no day_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [{"day_number": 1, "date": "2026-05-01", "places": []}],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_day_label", day_number=5, query="미식 투어", raw_message="5일차 이름을 미식 투어로 해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "5일차 이름을 미식 투어로 해줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        assert any("5" in e["data"]["text"] for e in chat_chunks)
+
+    def test_set_day_label_db_persists_label_and_emits_day_update(self):
+        """set_day_label with saved plan persists label in DB and emits day_update with label."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="도쿄",
+                start_date=date_type(2026, 5, 1),
+                end_date=date_type(2026, 5, 3),
+                budget=2000000.0,
+                interests="food",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 2), notes="")
+            day3 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 3), notes="")
+            db.add_all([day1, day2, day3])
+            db.commit()
+            for d in [day1, day2, day3]:
+                db.refresh(d)
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="set_day_label", day_number=1, query="미식 투어", raw_message="1일차 이름을 '미식 투어'로 해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "1일차 이름을 '미식 투어'로 해줘", db)
+
+            # Verify event
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 1
+            assert day_updates[0]["data"]["label"] == "미식 투어"
+            assert day_updates[0]["data"]["day_number"] == 1
+
+            # Verify DB persistence
+            db.refresh(day1)
+            assert day1.label == "미식 투어"
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert any("미식 투어" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_set_day_label_db_out_of_range_emits_error(self):
+        """set_day_label with out-of-range day in DB path emits error, no day_update."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="파리",
+                start_date=date_type(2026, 6, 1),
+                end_date=date_type(2026, 6, 2),
+                budget=1500000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 2), notes="")
+            db.add_all([day1, day2])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="set_day_label", day_number=5, query="미식 투어", raw_message="5일차 이름을 미식 투어로 해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "5일차 이름을 미식 투어로 해줘", db)
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 0
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            assert any("5" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_set_day_label_day_update_includes_label_in_schema(self):
+        """DayItineraryOut schema includes label field."""
+        from app.schemas import DayItineraryOut
+        from datetime import date as date_type
+
+        out = DayItineraryOut(
+            id=1,
+            travel_plan_id=1,
+            date=date_type(2026, 5, 1),
+            notes="",
+            transport="",
+            label="미식 투어",
+            places=[],
+        )
+        assert out.label == "미식 투어"
+
+    def test_set_day_label_day_update_label_none_by_default(self):
+        """DayItineraryOut.label is None when not set."""
+        from app.schemas import DayItineraryOut
+        from datetime import date as date_type
+
+        out = DayItineraryOut(
+            id=1,
+            travel_plan_id=1,
+            date=date_type(2026, 5, 1),
+            notes="",
+            transport="",
+            places=[],
+        )
+        assert out.label is None

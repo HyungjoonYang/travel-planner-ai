@@ -53,6 +53,7 @@ class DayItinerary(Base):
     date: Mapped[date] = mapped_column(Date, nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="")
     transport: Mapped[str] = mapped_column(String(100), default="")
+    label: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
     travel_plan: Mapped["TravelPlan"] = relationship(
         "TravelPlan", back_populates="itineraries"

@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #102 - Chat: `set_day_label` intent — set a custom title/label for a day [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, src/app/schemas.py, tests/test_chat.py
-  - done: "1일차 이름을 '미식 투어'로 해줘" → DayItinerary.label persisted; day_update SSE with label; DayItineraryOut includes label; 2+ tests
-  - gh: #140
-
 - [ ] #103 - E2E: message timestamp Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #95
@@ -151,6 +145,7 @@ _(없음)_
 - [x] #96 - Chat: `duplicate_day` intent — copy a day's itinerary to another day [feature] — 2026-04-07
 - [x] #100 - E2E: `duplicate_day` Playwright scenarios [test] — 2026-04-07
 - [x] #101 - Chat: `move_place` intent — move a place from one day to another [feature] — 2026-04-07
+- [x] #102 - Chat: `set_day_label` intent — set a custom title/label for a day [feature] — 2026-04-07
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -163,5 +158,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 102 done, 3 ready (0 in progress)
+- Total tasks: 103 done, 2 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

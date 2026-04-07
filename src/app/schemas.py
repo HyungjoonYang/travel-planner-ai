@@ -52,6 +52,7 @@ class DayItineraryBase(BaseModel):
     date: date
     notes: str = ""
     transport: str = ""
+    label: Optional[str] = None
 
 
 class DayItineraryCreate(DayItineraryBase):
