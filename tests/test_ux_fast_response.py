@@ -139,6 +139,7 @@ class TestFastResponse:
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key", gemini_service=mock_gemini_svc)
             session = svc.create_session()
+            session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 2000, "interests": ""}
             events = _collect_events(svc, session.session_id, "도쿄 여행 계획 세워줘")
 
         # There should be a chat_chunk before any agent goes to "working"
@@ -186,6 +187,7 @@ class TestProgressEvents:
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key", gemini_service=mock_gemini_svc)
             session = svc.create_session()
+            session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 2000, "interests": ""}
             events = _collect_events(svc, session.session_id, "도쿄 여행")
 
         progress_events = [e for e in events if e["type"] == "progress"]
@@ -240,6 +242,7 @@ class TestProgressEvents:
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key", gemini_service=mock_gemini_svc)
             session = svc.create_session()
+            session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
             events = _collect_events(svc, session.session_id, "도쿄")
 
         progress_indices = [i for i, e in enumerate(events) if e["type"] == "progress"]

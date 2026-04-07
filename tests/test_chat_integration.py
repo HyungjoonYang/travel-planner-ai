@@ -100,6 +100,7 @@ class TestChatFullFlowIntegration:
         Gemini returns create_plan intent → plan_update event emitted."""
         svc = ChatService(api_key="test-key-for-integration")
         session = svc.create_session()
+        session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-04", "budget": 1500000, "interests": "음식, 문화"}
 
         # Mock only the Gemini HTTP client, not extract_intent
         gemini_intent = {

@@ -126,6 +126,7 @@ class ChatService:
     # ------------------------------------------------------------------
 
     @staticmethod
+    @staticmethod
     def _build_fast_response(message: str) -> str:
         """Build a quick acknowledgment message based on the user's input."""
         msg_lower = message.lower().strip()
@@ -133,14 +134,22 @@ class ChatService:
         greetings = ["안녕", "하이", "hi", "hello", "hey", "ㅎㅇ"]
         if any(msg_lower.startswith(g) for g in greetings):
             return "안녕하세요! 여행 계획을 도와드릴게요 ✨\n"
-        # Plan-related keywords
-        plan_keywords = ["계획", "여행", "일정", "추천", "플랜"]
-        if any(kw in msg_lower for kw in plan_keywords):
-            return "네, 알겠습니다! 확인해볼게요 ✨\n"
+        # Confirmation (for confirm_plan)
+        confirms = ["네", "응", "좋아", "ㅇㅇ", "확인", "세워줘", "진행", "go", "yes"]
+        if any(msg_lower.startswith(c) for c in confirms):
+            return "네, 바로 준비할게요! 🚀\n"
+        # Info-providing (dates, budget, etc.)
+        info_keywords = ["월", "일정", "예산", "만원", "원", "기간", "날짜", "박"]
+        if any(kw in msg_lower for kw in info_keywords):
+            return "네, 알겠습니다! 📝\n"
         # Search-related
         search_keywords = ["검색", "찾아", "호텔", "숙소", "항공", "맛집"]
         if any(kw in msg_lower for kw in search_keywords):
             return "네, 찾아볼게요! 🔍\n"
+        # Plan-related keywords
+        plan_keywords = ["계획", "여행", "추천", "플랜"]
+        if any(kw in msg_lower for kw in plan_keywords):
+            return "네, 알겠습니다! 확인해볼게요 ✨\n"
         # Default
         return "네, 확인해볼게요!\n"
 
@@ -171,7 +180,10 @@ class ChatService:
                 ]
                 context_section = "\n\nPrevious conversation:\n" + "\n".join(lines) + "\n"
 
+            today_str = date.today().isoformat()
             prompt = f"""You are a travel planner AI assistant. Analyze the user message and extract their intent.
+Today's date is {today_str}. When the user mentions dates without a year, assume the current year ({date.today().year}) or next year if the date has already passed.
+The user is based in South Korea. Budget values should be in KRW (Korean Won). Departure city defaults to Seoul (ICN).
 {context_section}
 User message: "{message}"
 
@@ -307,7 +319,7 @@ Return a JSON object with these fields:
 
         # Dispatch to intent handlers, tracking state as events flow
         if intent.action == "create_plan":
-            async for event in self._handle_create_plan(intent):
+            async for event in self._handle_create_plan(intent, session=session):
                 yield _track_and_collect(event)
         elif intent.action == "confirm_plan":
             async for event in self._handle_confirm_plan(intent, session):
@@ -463,11 +475,26 @@ Return a JSON object with these fields:
         breakdown["total"] = result.total_estimated_cost
         return {k: round(v, 2) for k, v in breakdown.items()}
 
-    async def _handle_create_plan(self, intent: Intent) -> AsyncGenerator[dict, None]:
+    _BROAD_REGIONS = {
+        "동남아", "동남아시아", "southeast asia", "유럽", "europe", "미주", "미국",
+        "아시아", "asia", "남미", "south america", "아프리카", "africa",
+        "중동", "middle east", "오세아니아", "oceania", "북미", "north america",
+        "중남미", "latin america", "동유럽", "서유럽", "북유럽", "남유럽",
+    }
+
+    async def _handle_create_plan(self, intent: Intent, session: Optional["ChatSession"] = None) -> AsyncGenerator[dict, None]:
         dest = intent.destination
         budget = intent.budget
         interests = intent.interests or ""
         start, end = self._parse_dates(intent)
+
+        # If destination is too broad (region/continent), ask for a specific city
+        if dest and dest.lower().strip() in self._BROAD_REGIONS:
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"{dest}은(는) 범위가 넓어요! 구체적인 도시를 알려주시겠어요? (예: 방콕, 파리, 도쿄 등)"},
+            }
+            return
 
         # If essential info is missing, ask the user instead of using defaults
         missing = []
@@ -481,6 +508,24 @@ Return a JSON object with these fields:
             ask = "여행 계획을 세우려면 " + ", ".join(missing) + "이(가) 필요해요. 알려주시겠어요?"
             yield {"type": "chat_chunk", "data": {"text": ask}}
             return
+
+        # If not coming from confirm_plan, show confirmation card first
+        if session and not session.pending_plan:
+            pending = {
+                "destination": dest,
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+                "budget": float(budget),
+                "interests": interests,
+            }
+            session.pending_plan = pending
+            yield {"type": "chat_chunk", "data": {"text": f"{dest} 여행 조건이 준비되었어요! 확인해주세요.\n"}}
+            yield {"type": "confirm_plan", "data": pending}
+            return
+
+        # Clear pending_plan now that we're executing
+        if session:
+            session.pending_plan = None
 
         interests_desc = f", 관심사: {interests}" if interests else ""
         yield {
@@ -3346,9 +3391,14 @@ Return a JSON object with these fields:
             history_lines.append(f"{role}: {content}")
         history_str = "\n".join(history_lines) if history_lines else "(없음)"
 
+        today_str = date.today().isoformat()
+        current_year = date.today().year
+
         prompt = (
             "You are a friendly, knowledgeable travel planning assistant called Travel Planner AI.\n"
-            "Your job is to help users plan trips through natural conversation.\n\n"
+            "Your job is to help users plan trips through natural conversation.\n"
+            f"Today's date is {today_str}. The current year is {current_year}.\n"
+            "The user is based in South Korea. Use KRW (Korean Won) for all budget/cost values.\n\n"
             "Conversation history:\n"
             f"{history_str}\n\n"
             f"User's latest message: \"{intent.raw_message}\"\n\n"

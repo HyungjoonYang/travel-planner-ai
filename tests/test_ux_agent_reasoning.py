@@ -95,6 +95,7 @@ class TestCreatePlanReasoning:
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key", gemini_service=mock_gemini_svc)
             session = svc.create_session()
+            session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 2000, "interests": ""}
             events = _collect_events(svc, session.session_id, "도쿄 여행")
 
         reasoning_events = [e for e in events if e["type"] == "agent_reasoning"]
@@ -149,6 +150,7 @@ class TestCreatePlanReasoning:
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key", gemini_service=mock_gemini_svc)
             session = svc.create_session()
+            session.pending_plan = {"destination": "도쿄", "start_date": "2026-05-01", "end_date": "2026-05-03", "budget": 1500000, "interests": ""}
             events = _collect_events(svc, session.session_id, "도쿄")
 
         reasoning_events = [e for e in events if e["type"] == "agent_reasoning"]
