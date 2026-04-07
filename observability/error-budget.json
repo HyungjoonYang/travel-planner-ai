@@ -667,7 +667,7 @@
     "tests_total": 1587
   },
   "history_tail_prev2": {
-    "run_id": "monitor-2026-04-07-1636",
+    "run_id": "monitor-2026-04-07-1737",
     "task": "monitor",
     "result": "success",
     "tests_passed": 1598,
