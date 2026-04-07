@@ -1,0 +1,64 @@
+{
+  "trace": {
+    "run_id": "2026-04-07-1900",
+    "timestamp": "2026-04-07T19:00:00Z",
+    "phase": "Phase 10: Chat + Multi-Agent Dashboard",
+    "health": "YELLOW",
+    "task": "#104 Chat: quick_summary intent — concise plan overview in chat",
+    "agents": {
+      "coordinator": "completed",
+      "architect": "skipped",
+      "builder": "completed",
+      "qa": "fail",
+      "reporter": "running"
+    }
+  },
+  "spans": [
+    {
+      "agent": "coordinator",
+      "status": "completed",
+      "detail": "Selected task #104 quick_summary intent. No fix needed, no architect needed."
+    },
+    {
+      "agent": "architect",
+      "status": "skipped",
+      "detail": "backlog_ready_count=5 >= 3, skipped"
+    },
+    {
+      "agent": "builder",
+      "status": "completed",
+      "detail": "Implemented _handle_quick_summary handler. 8 new tests in TestQuickSummaryHandler. lines_added=115, lines_removed=0."
+    },
+    {
+      "agent": "qa",
+      "status": "fail",
+      "detail": "all_tests_pass=pass, new_tests_exist=pass, lint_clean=pass, done_criteria_met=pass, no_regressions=pass, integration_test_quality=FAIL (all 8 tests mock extract_intent — Constraint #10 violation), e2e_integration=pass, no_secrets_leaked=pass"
+    },
+    {
+      "agent": "reporter",
+      "status": "running",
+      "detail": "Writing logs, updating status, posting failure comment on issue #142"
+    }
+  ],
+  "ltes": {
+    "latency": {
+      "total_duration_ms": 50000
+    },
+    "traffic": {
+      "commits": 1,
+      "lines_added": 115,
+      "lines_removed": 0,
+      "files_changed": 2
+    },
+    "errors": {
+      "test_failures": 0,
+      "qa_checks_failed": 1,
+      "fix_attempts": 0,
+      "qa_verdict": "fail",
+      "qa_fail_reason": "integration_test_quality: all 8 new tests mock extract_intent (Constraint #10)"
+    },
+    "saturation": {
+      "backlog_remaining": 5
+    }
+  }
+}

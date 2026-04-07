@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-07T18:00:00Z (Evolve Run #128)
-Run count: 156
+Last run: 2026-04-07T19:00:00Z (Evolve Run #129)
+Run count: 157
 Phase: Phase 10: Chat + Multi-Agent Dashboard
-Health: GREEN
+Health: YELLOW
 Error Budget: HEALTHY
 Tasks completed: 104 (#103 E2E: message timestamp — 3 Playwright scenarios: new bubbles show 방금, multi-exchange timestamps, reconnect restores 분 전)
-Current focus: #104 Chat: quick_summary intent
-Next planned: #105 Frontend: day label badge on day cards
+Current focus: #104 Chat: quick_summary intent (QA failed — needs integration test fix)
+Next planned: #104 retry (integration_test_quality: extract_intent mock violation)
 
 ## LTES Snapshot
 
 - Latency: ~50000ms (evolve run)
 - Traffic: 1 commit/run
-- Errors: 0 test failures (1598 passed, 12 skipped), error_rate=0.0%
-- Saturation: 6 tasks ready
+- Errors: 0 test failures (1606 passed, 12 skipped) but QA fail (integration_test_quality), error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,16 @@ Next planned: #105 Frontend: day label badge on day cards
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #129 — 2026-04-07T19:00:00Z
+- **Task**: #104 - Chat: `quick_summary` intent — concise plan overview in chat [feature]
+- **Result**: YELLOW ✗ (QA fail)
+- **Tests**: 1606/1618 passed, 12 skipped (pre-existing LLM smoke skips); 8 new tests added (TestQuickSummaryHandler) — all pass
+- **Files changed**: src/app/chat.py (+115/-0), tests/test_chat.py (+115/-0)
+- **QA fail reason**: `integration_test_quality` — all 8 new tests use `patch.object(svc, 'extract_intent')` to bypass intent extraction, violating Constraint #10. The full request→intent→handler path is not exercised end-to-end. Remediation: add at least one test that does NOT mock `extract_intent` (real dispatch table verification or `skipif`-guarded Gemini call).
+- **QA pass checks**: all_tests_pass ✓, new_tests_exist ✓, lint_clean ✓, done_criteria_met ✓, no_regressions ✓, e2e_integration ✓ (5/5 Playwright), no_secrets_leaked ✓
+- **LTES**: L=50000ms T=1 commit E=1 qa_check_fail S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✗ → reporter ✓
 
 ### Evolve Run #128 — 2026-04-07T18:00:00Z
 - **Task**: #103 - E2E: message timestamp Playwright scenarios [test]

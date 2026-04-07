@@ -8454,3 +8454,184 @@ class TestSetDayLabelHandler:
             places=[],
         )
         assert out.label is None
+
+
+# ---------------------------------------------------------------------------
+# Task #104: quick_summary intent — concise plan overview in chat
+# ---------------------------------------------------------------------------
+
+class TestQuickSummaryHandler:
+    """_handle_quick_summary: emit chat_chunk with plan overview; fallback when no plan."""
+
+    def test_quick_summary_intent_accepted_by_model(self):
+        """Intent model must accept quick_summary as a valid action."""
+        intent = Intent(action="quick_summary", raw_message="현재 일정 요약해줘")
+        assert intent.action == "quick_summary"
+
+    def test_quick_summary_no_plan_emits_fallback_message(self):
+        """quick_summary with no plan emits a helpful fallback chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # session.last_plan is None by default
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="현재 일정 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "현재 일정 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        # At least one must mention that no plan exists
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "계획" in text or "plan" in text.lower()
+
+    def test_quick_summary_with_plan_includes_destination(self):
+        """quick_summary with a plan includes destination in the reply."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-04",
+            "budget": 2000000,
+            "total_estimated_cost": 1360000,
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [{"name": "센소지"}, {"name": "스카이트리"}]},
+                {"day_number": 2, "date": "2026-05-02", "places": [{"name": "시부야"}]},
+                {"day_number": 3, "date": "2026-05-03", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="현재 일정 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "현재 일정 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "도쿄" in text
+
+    def test_quick_summary_with_plan_includes_dates_and_day_count(self):
+        """quick_summary reply includes start_date, end_date, and day count."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-05",
+            "budget": 3000000,
+            "total_estimated_cost": 1500000,
+            "days": [
+                {"day_number": 1, "date": "2026-06-01", "places": [{"name": "에펠탑"}]},
+                {"day_number": 2, "date": "2026-06-02", "places": []},
+                {"day_number": 3, "date": "2026-06-03", "places": []},
+                {"day_number": 4, "date": "2026-06-04", "places": []},
+                {"day_number": 5, "date": "2026-06-05", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="일정 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "일정 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "2026-06-01" in text
+        assert "2026-06-05" in text
+        assert "5" in text  # 5 days
+
+    def test_quick_summary_with_plan_includes_per_day_place_count(self):
+        """quick_summary reply includes per-day place count."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "오사카",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-03",
+            "budget": 1500000,
+            "total_estimated_cost": 900000,
+            "days": [
+                {"day_number": 1, "date": "2026-07-01", "places": [{"name": "도톤보리"}, {"name": "신사이바시"}]},
+                {"day_number": 2, "date": "2026-07-02", "places": [{"name": "오사카성"}]},
+                {"day_number": 3, "date": "2026-07-03", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="여행 계획 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "여행 계획 요약해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        # Day 1 has 2 places, Day 2 has 1 place
+        assert "2" in text
+        assert "1" in text
+
+    def test_quick_summary_with_plan_includes_budget_percentage(self):
+        """quick_summary reply includes budget % used when budget > 0."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "방콕",
+            "start_date": "2026-08-01",
+            "end_date": "2026-08-04",
+            "budget": 2000000,
+            "total_estimated_cost": 1000000,
+            "days": [
+                {"day_number": 1, "date": "2026-08-01", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="현재 계획 요약"
+        )):
+            events = _collect_events(svc, session.session_id, "현재 계획 요약")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        # 1,000,000 / 2,000,000 = 50%
+        assert "50" in text
+
+    def test_quick_summary_emits_coordinator_done_status(self):
+        """quick_summary emits coordinator agent_status done."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "뉴욕",
+            "start_date": "2026-09-01",
+            "end_date": "2026-09-03",
+            "budget": 5000000,
+            "total_estimated_cost": 2000000,
+            "days": [{"day_number": 1, "date": "2026-09-01", "places": []}],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="계획 요약해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "계획 요약해줘")
+
+        agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "coordinator"]
+        assert any(e["data"]["status"] == "done" for e in agent_events)
+
+    def test_quick_summary_no_budget_omits_budget_line(self):
+        """quick_summary reply omits budget line when budget is 0/None."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "런던",
+            "start_date": "2026-10-01",
+            "end_date": "2026-10-02",
+            "budget": 0,
+            "total_estimated_cost": 0,
+            "days": [{"day_number": 1, "date": "2026-10-01", "places": []}],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="quick_summary", raw_message="계획 요약"
+        )):
+            events = _collect_events(svc, session.session_id, "계획 요약")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "%" not in text

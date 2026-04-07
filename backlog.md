@@ -6,17 +6,16 @@
 
 ## In Progress
 
-_(없음)_
-
-## Ready
-
-### Phase 10: Chat + Multi-Agent Dashboard (continued)
-
 - [ ] #104 - Chat: `quick_summary` intent — concise plan overview in chat [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
   - done: "현재 일정 요약해줘" → chat reply with destination, dates, day count, per-day place count, budget % used; no-plan fallback message; 2+ tests
   - gh: #142
+  - ❌ QA fail (Run #129): `integration_test_quality` — all 8 tests mock `extract_intent` (Constraint #10 violation). Fix: add ≥1 test that verifies dispatch table maps 'quick_summary' without intercepting extract_intent (e.g. real stub ChatService call or `skipif`-guarded Gemini smoke).
+
+## Ready
+
+### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
 - [ ] #105 - Frontend: day label badge on day cards [improvement]
   - ref: markdowns/feat-chat-dashboard.md
