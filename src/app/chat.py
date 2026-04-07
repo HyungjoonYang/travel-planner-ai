@@ -183,6 +183,8 @@ User message: "{message}"
 Return a JSON object with these fields:
 - action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
+- IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
+- Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
