@@ -182,6 +182,23 @@
   .chat-timestamp { font-size: .68rem; color: rgba(0,0,0,.35); margin-top: .2rem;
     align-self: flex-end; white-space: nowrap; }
   .chat-user .chat-timestamp { color: rgba(255,255,255,.55); }
+  /* ── Confirm plan card (inline in chat bubble) ─────────────────────────── */
+  .confirm-plan-card { margin-top: 0.8rem; padding: 1rem; border: 1px solid var(--border);
+    border-radius: 12px; background: var(--card-bg, #fafaf8); }
+  .confirm-plan-summary { margin-bottom: 0.8rem; }
+  .confirm-plan-summary div { margin: 0.3rem 0; font-size: 0.95rem; }
+  .confirm-plan-actions { display: flex; gap: 0.5rem; }
+  .confirm-plan-btn { padding: 0.5rem 1rem; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 0.9rem; }
+  .confirm-yes { background: var(--accent, #2c2c2c); color: white; }
+  .confirm-yes:hover { opacity: 0.85; }
+  .confirm-edit { background: transparent; border: 1px solid var(--border) !important; }
+  .confirm-edit:hover { background: var(--hover-bg, #f0f0f0); }
+  /* ── Agent reasoning panel ─────────────────────────────────────────────── */
+  .agent-reasoning { display: none; margin-top: 0.5rem; padding: 0.5rem;
+    font-size: 0.8rem; color: var(--muted); border-top: 1px solid var(--border); }
+  .reasoning-entry { margin: 0.3rem 0; }
+  .reasoning-time { color: var(--muted); margin-right: 0.5rem; font-size: 0.75rem; }
 </style>
 <link rel="stylesheet" href="/static/style.css">
 </head>

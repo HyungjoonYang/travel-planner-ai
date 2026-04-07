@@ -1,0 +1,42 @@
+{
+  "destination": "도쿄",
+  "query": "도쿄 음식",
+  "places": [
+    {
+      "name": "Tsukiji Outer Market",
+      "description": "A bustling public market offering a massive array of fresh seafood, sushi stalls, and Japanese kitchen tools.",
+      "category": "food",
+      "address": "4 Chome-16-2 Tsukiji, Chuo City, Tokyo",
+      "tips": "Most shops close by early afternoon; visit between 8:00 AM and 11:00 AM for the best selection."
+    },
+    {
+      "name": "Shinjuku Omoide Yokocho",
+      "description": "A narrow alleyway filled with small yakitori stalls and izakayas, preserving a post-war Showa era atmosphere.",
+      "category": "food",
+      "address": "1 Chome-2 Nishishinjuku, Shinjuku City, Tokyo",
+      "tips": "Seating is very tight and many stalls have a small cover charge; bring cash as many vendors do not take cards."
+    },
+    {
+      "name": "Asakusa Nakamise-dori",
+      "description": "The historic approach to Senso-ji Temple lined with dozens of stalls selling traditional Japanese snacks and sweets.",
+      "category": "food",
+      "address": "2 Chome-3-1 Asakusa, Taito City, Tokyo",
+      "tips": "Try the 'Age-manju' (deep-fried bean cakes); note that eating while walking is generally discouraged in Japan—stand near the stall to eat."
+    },
+    {
+      "name": "Ginza Kagari Main Branch",
+      "description": "A Michelin-recognized ramen shop famous for its rich, creamy 'Tori Paitan' (chicken white broth) ramen.",
+      "category": "food",
+      "address": "6 Chome-4-12 Ginza, Chuo City, Tokyo",
+      "tips": "The line moves slowly due to limited seating; try to arrive 20-30 minutes before opening to minimize wait time."
+    },
+    {
+      "name": "Shibuya Depachika (Tokyu Foodshow)",
+      "description": "An underground 'food department store' featuring high-end bento boxes, delicate pastries, and international delicacies.",
+      "category": "food",
+      "address": "2-24-1 Shibuya, Shibuya City, Tokyo",
+      "tips": "Visit in the evening (after 7 PM) to find significant discounts on fresh bento boxes and sushi platters."
+    }
+  ],
+  "summary": "Tokyo is a premier global culinary destination that seamlessly blends centuries-old traditions with modern innovation. From high-end Michelin-starred sushi in Ginza to vibrant street food in Asakusa and smoky izakayas in Shinjuku, the city offers an unparalleled variety of flavors and dining experiences for every budget."
+}

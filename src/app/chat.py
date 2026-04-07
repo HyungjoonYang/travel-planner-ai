@@ -33,7 +33,7 @@ _DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -61,6 +61,7 @@ class ChatSession(BaseModel):
     agent_states: dict[str, dict] = {}  # last known agent_status per agent
     last_plan: Optional[dict] = None    # last plan_update payload
     last_saved_plan_id: Optional[int] = None  # DB plan_id after save_plan
+    pending_plan: Optional[dict] = None  # trip details awaiting user confirmation
 
 
 class ChatService:
@@ -121,6 +122,29 @@ class ChatService:
         return True
 
     # ------------------------------------------------------------------
+    # Fast response — immediate acknowledgment
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_fast_response(message: str) -> str:
+        """Build a quick acknowledgment message based on the user's input."""
+        msg_lower = message.lower().strip()
+        # Greetings
+        greetings = ["안녕", "하이", "hi", "hello", "hey", "ㅎㅇ"]
+        if any(msg_lower.startswith(g) for g in greetings):
+            return "안녕하세요! 여행 계획을 도와드릴게요 ✨\n"
+        # Plan-related keywords
+        plan_keywords = ["계획", "여행", "일정", "추천", "플랜"]
+        if any(kw in msg_lower for kw in plan_keywords):
+            return "네, 알겠습니다! 확인해볼게요 ✨\n"
+        # Search-related
+        search_keywords = ["검색", "찾아", "호텔", "숙소", "항공", "맛집"]
+        if any(kw in msg_lower for kw in search_keywords):
+            return "네, 찾아볼게요! 🔍\n"
+        # Default
+        return "네, 확인해볼게요!\n"
+
+    # ------------------------------------------------------------------
     # Intent extraction
     # ------------------------------------------------------------------
 
@@ -152,7 +176,8 @@ class ChatService:
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "general"
+- Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - destination: destination city/country if mentioned or inferred from conversation context, else null
 - start_date: start date in YYYY-MM-DD if mentioned or inferred from context, else null
 - end_date: end date in YYYY-MM-DD if mentioned or inferred from context, else null
@@ -189,6 +214,7 @@ Return a JSON object with these fields:
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=Intent,
+                    thinking_config=types.ThinkingConfig(thinking_level="minimal"),
                 ),
             )
             intent = Intent.model_validate_json(response.text)
@@ -241,6 +267,9 @@ Return a JSON object with these fields:
                 session.last_plan = event["data"]
             return event
 
+        # Fast response — immediate acknowledgment before heavy intent extraction
+        yield {"type": "chat_chunk", "data": {"text": self._build_fast_response(message)}}
+
         # Coordinator always goes first
         yield _track({
             "type": "agent_status",
@@ -279,6 +308,9 @@ Return a JSON object with these fields:
         # Dispatch to intent handlers, tracking state as events flow
         if intent.action == "create_plan":
             async for event in self._handle_create_plan(intent):
+                yield _track_and_collect(event)
+        elif intent.action == "confirm_plan":
+            async for event in self._handle_confirm_plan(intent, session):
                 yield _track_and_collect(event)
         elif intent.action == "search_hotels":
             async for event in self._handle_search_hotels(intent):
@@ -438,6 +470,17 @@ Return a JSON object with these fields:
         interests = intent.interests or ""
         start, end = self._parse_dates(intent)
 
+        interests_desc = f", 관심사: {interests}" if interests else ""
+        yield {
+            "type": "agent_reasoning",
+            "data": {
+                "agent": "planner",
+                "reasoning": f"{dest} {(end - start).days + 1}일 여행 계획을 예산 ${budget:.0f} 기준으로 생성합니다{interests_desc}.",
+            },
+        }
+
+        yield {"type": "progress", "data": {"step": "search", "message": f"📍 {dest} 장소 검색 중..."}}
+
         yield {
             "type": "agent_status",
             "data": {"agent": "place_scout", "status": "working", "message": f"{dest} 장소 검색 중..."},
@@ -458,6 +501,7 @@ Return a JSON object with these fields:
             )
 
             place_count = sum(len(day.places) for day in result.days)
+            yield {"type": "progress", "data": {"step": "places_done", "message": f"✅ {place_count}개 장소 발견"}}
             yield {
                 "type": "agent_status",
                 "data": {
@@ -515,11 +559,43 @@ Return a JSON object with these fields:
                 "data": {"text": f"일정 생성 중 오류가 발생했습니다: {exc}"},
             }
 
+    async def _handle_confirm_plan(
+        self, intent: Intent, session: "ChatSession"
+    ) -> AsyncGenerator[dict, None]:
+        """Handle confirm_plan: create plan from pending_plan stored in session."""
+        pending = session.pending_plan
+        if not pending:
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "아직 확정할 여행 조건이 없어요. 목적지, 일정, 예산을 알려주세요!"},
+            }
+            return
+
+        confirmed_intent = Intent(
+            action="create_plan",
+            destination=pending.get("destination"),
+            start_date=pending.get("start_date"),
+            end_date=pending.get("end_date"),
+            budget=pending.get("budget"),
+            interests=pending.get("interests", ""),
+            raw_message=intent.raw_message,
+        )
+        session.pending_plan = None
+        async for event in self._handle_create_plan(confirmed_intent):
+            yield event
+
     async def _handle_search_hotels(self, intent: Intent) -> AsyncGenerator[dict, None]:
         dest = intent.destination or "목적지"
         start, end = self._parse_dates(intent)
         budget_per_night = int(intent.budget / (end - start).days) if intent.budget else 0
 
+        yield {
+            "type": "agent_reasoning",
+            "data": {
+                "agent": "hotel_finder",
+                "reasoning": f"{dest}에서 {start} ~ {end} 기간 숙소를 검색합니다. 1박 예산: ${budget_per_night}.",
+            },
+        }
         yield {
             "type": "agent_status",
             "data": {"agent": "hotel_finder", "status": "working", "message": f"{dest} 숙소 검색 중..."},
@@ -567,6 +643,13 @@ Return a JSON object with these fields:
         dest = intent.destination or "목적지"
         start, end = self._parse_dates(intent)
 
+        yield {
+            "type": "agent_reasoning",
+            "data": {
+                "agent": "flight_finder",
+                "reasoning": f"{_DEFAULT_DEPARTURE} → {dest} 항공편을 {start} 출발 기준으로 검색합니다.",
+            },
+        }
         yield {
             "type": "agent_status",
             "data": {"agent": "flight_finder", "status": "working", "message": f"{dest} 항공편 검색 중..."},
@@ -3280,6 +3363,7 @@ Return a JSON object with these fields:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_level="low"),
                 ),
             )
             result = json.loads(response.text)
@@ -3288,24 +3372,22 @@ Return a JSON object with these fields:
             if reply:
                 yield {"type": "chat_chunk", "data": {"text": reply}}
 
-            # Check if all key fields are available → auto-trigger create_plan
+            # Check if all key fields are available → emit confirm_plan for user confirmation
             dest = result.get("destination")
             start = result.get("start_date")
             end = result.get("end_date")
             budget = result.get("budget")
 
             if dest and start and end and budget:
-                auto_intent = Intent(
-                    action="create_plan",
-                    destination=dest,
-                    start_date=start,
-                    end_date=end,
-                    budget=float(budget),
-                    interests=result.get("interests") or "",
-                    raw_message=intent.raw_message,
-                )
-                async for event in self._handle_create_plan(auto_intent):
-                    yield event
+                pending = {
+                    "destination": dest,
+                    "start_date": start,
+                    "end_date": end,
+                    "budget": float(budget),
+                    "interests": result.get("interests") or "",
+                }
+                session.pending_plan = pending
+                yield {"type": "confirm_plan", "data": pending}
 
         except Exception as exc:
             logger.error("_general_with_gemini: Gemini call failed — %s: %s", type(exc).__name__, exc, exc_info=True)
@@ -3365,25 +3447,20 @@ Return a JSON object with these fields:
 
         # Build a contextual response
         if known and not missing:
-            # Have everything — auto-trigger create_plan
+            # Have everything — emit confirm_plan for user confirmation
             dest = known["destination"]
-            start_date = known.get("start_date")
-            end_date = known.get("end_date")
-            budget = float(known.get("budget", "2000"))
-            auto_intent = Intent(
-                action="create_plan",
-                destination=dest,
-                start_date=start_date,
-                end_date=end_date,
-                budget=budget,
-                interests=intent.interests or "",
-                raw_message=intent.raw_message,
-            )
+            pending = {
+                "destination": dest,
+                "start_date": known.get("start_date"),
+                "end_date": known.get("end_date"),
+                "budget": float(known.get("budget", "2000")),
+                "interests": intent.interests or "",
+            }
+            session.pending_plan = pending
             yield {"type": "chat_chunk", "data": {
-                "text": f"{dest} 여행 계획을 세워드릴게요!",
+                "text": f"{dest} 여행 조건이 모두 준비되었어요!",
             }}
-            async for event in self._handle_create_plan(auto_intent):
-                yield event
+            yield {"type": "confirm_plan", "data": pending}
             return
 
         # Build acknowledgment of known info + ask for ONE missing piece

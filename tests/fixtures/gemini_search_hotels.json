@@ -1,0 +1,99 @@
+{
+  "destination": "도쿄",
+  "check_in": "",
+  "check_out": "",
+  "budget_per_night": 0,
+  "hotels": [
+    {
+      "name": "Aman Tokyo",
+      "description": "An 'urban ryokan' occupying the top six floors of the Otemachi Tower, blending minimalist Zen aesthetic with unparalleled luxury.",
+      "price_range": "$1,400-$2,200/night",
+      "address": "Otemachi, Chiyoda City",
+      "rating": "4.8/5",
+      "amenities": [
+        "Infinity pool",
+        "World-class spa",
+        "Onsen-style baths",
+        "Fitness center",
+        "Library"
+      ],
+      "tips": "Book a room with a view of Mount Fuji on clear days; the 'Aman Black Afternoon Tea' is a must-try even for non-guests."
+    },
+    {
+      "name": "1 Hotel Tokyo",
+      "description": "A newly opened eco-luxury sanctuary in Akasaka (2026) featuring wabi-sabi design, sustainable materials, and a focus on nature.",
+      "price_range": "$550-$850/night",
+      "address": "Tokyo World Gate Akasaka, Minato City",
+      "rating": "4.7/5",
+      "amenities": [
+        "Rooftop pool",
+        "Farm-to-table dining",
+        "Eco-friendly gym",
+        "Personalized greenery in rooms",
+        "Pet-friendly"
+      ],
+      "tips": "Request a room on the higher floors (38-43) for the best views of the Imperial Palace gardens."
+    },
+    {
+      "name": "Trunk(Hotel) Yoyogi Park",
+      "description": "A stylish, design-led boutique hotel overlooking the lush Yoyogi Park, perfect for the fashion-forward traveler.",
+      "price_range": "$450-$750/night",
+      "address": "Tomigaya, Shibuya City",
+      "rating": "4.6/5",
+      "amenities": [
+        "Rooftop infinity pool",
+        "Oyster bar",
+        "Design-focused social spaces",
+        "Free bicycle rentals",
+        "In-room record players"
+      ],
+      "tips": "The infinity pool is heated, making it a great spot for sunset drinks even in cooler months."
+    },
+    {
+      "name": "Hotel Ryumeikan Tokyo",
+      "description": "A high-value, top-rated mid-range hotel located directly across from Tokyo Station, known for exceptional hospitality and tradition.",
+      "price_range": "$180-$320/night",
+      "address": "Yaesu, Chuo City (near Tokyo Station)",
+      "rating": "9.1/10",
+      "amenities": [
+        "Tea selection in lobby",
+        "High-speed wifi",
+        "Japanese-style breakfast",
+        "Pillow menu",
+        "Laundry services"
+      ],
+      "tips": "Excellent for travelers using the Shinkansen; book the 'Forza' rooms for extra comfort and massage chairs."
+    },
+    {
+      "name": "Park Hotel Tokyo",
+      "description": "Located in the Shiodome Media Tower, this hotel doubles as an art gallery with 'Artist Rooms' hand-painted by local creators.",
+      "price_range": "$250-$450/night",
+      "address": "Shiodome, Minato City",
+      "rating": "4.5/5",
+      "amenities": [
+        "Art exhibitions",
+        "Lounge with city views",
+        "Spa",
+        "Business center",
+        "Multiple restaurants"
+      ],
+      "tips": "Specifically request an 'Artist Room' for a unique stay where the walls are covered in original Japanese murals."
+    },
+    {
+      "name": "OMO5 Tokyo Otsuka by Hoshino Resorts",
+      "description": "A playful, value-driven hotel in a nostalgic neighborhood, featuring innovative 'YAGURA' loft-style rooms.",
+      "price_range": "$110-$190/night",
+      "address": "Otsuka, Toshima City",
+      "rating": "4.4/5",
+      "amenities": [
+        "Social lounge",
+        "Local guided tours (OMO Rangers)",
+        "Self-service laundry",
+        "Cafe",
+        "Free wifi"
+      ],
+      "tips": "Join the OMO Ranger walking tour to discover hidden local izakayas and shops you won't find in guidebooks."
+    }
+  ],
+  "summary": "Tokyo's 2026 hotel scene offers a sophisticated mix of ultra-luxury 'urban retreats' like Aman and Hoshinoya, eco-conscious newcomers like 1 Hotel, and highly functional mid-range options near major transport hubs like Tokyo Station and Shinjuku. Whether seeking high-art boutique stays in Shibuya or traditional omotenashi in Chiyoda, travelers can find options ranging from $100 value stays to $2,000+ premium suites."
+}

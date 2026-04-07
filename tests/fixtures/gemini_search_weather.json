@@ -1,0 +1,78 @@
+{
+  "destination": "도쿄",
+  "start_date": "",
+  "end_date": "",
+  "summary": "The weather for the upcoming period in Tokyo will be a mix of cloudy, rainy, and sunny days. Significant rain is expected on April 7th and 10th, while the weekend of April 11-12th will be warmer and mostly sunny. Temperatures will range from a low of 8°C to a high of 25°C.",
+  "forecast": [
+    {
+      "date": "2026-04-06",
+      "condition": "cloudy",
+      "temperature_high": "23°C",
+      "temperature_low": "15°C",
+      "description": "Cloudy throughout the day with a 30% chance of precipitation."
+    },
+    {
+      "date": "2026-04-07",
+      "condition": "rainy",
+      "temperature_high": "17°C",
+      "temperature_low": "10°C",
+      "description": "Rainy conditions likely with high humidity and cooler temperatures."
+    },
+    {
+      "date": "2026-04-08",
+      "condition": "sunny",
+      "temperature_high": "19°C",
+      "temperature_low": "8°C",
+      "description": "Clear skies and sunny weather with a cool start in the morning."
+    },
+    {
+      "date": "2026-04-09",
+      "condition": "cloudy",
+      "temperature_high": "21°C",
+      "temperature_low": "10°C",
+      "description": "Cloudy periods mixed with clear intervals throughout the day."
+    },
+    {
+      "date": "2026-04-10",
+      "condition": "rainy",
+      "temperature_high": "21°C",
+      "temperature_low": "14°C",
+      "description": "Cloudy with periodic rain and a 60-70% chance of precipitation."
+    },
+    {
+      "date": "2026-04-11",
+      "condition": "sunny",
+      "temperature_high": "25°C",
+      "temperature_low": "15°C",
+      "description": "Mostly sunny and significantly warmer temperatures."
+    },
+    {
+      "date": "2026-04-12",
+      "condition": "sunny",
+      "temperature_high": "25°C",
+      "temperature_low": "14°C",
+      "description": "Continued warm weather with mostly sunny to partly cloudy skies."
+    },
+    {
+      "date": "2026-04-13",
+      "condition": "cloudy",
+      "temperature_high": "24°C",
+      "temperature_low": "14°C",
+      "description": "Cloudy with some periodic clearing and mild temperatures."
+    },
+    {
+      "date": "2026-04-14",
+      "condition": "sunny",
+      "temperature_high": "22°C",
+      "temperature_low": "15°C",
+      "description": "Generally sunny and pleasant weather."
+    },
+    {
+      "date": "2026-04-15",
+      "condition": "cloudy",
+      "temperature_high": "21°C",
+      "temperature_low": "13°C",
+      "description": "Cloudy conditions expected for the majority of the day."
+    }
+  ]
+}

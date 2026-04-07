@@ -6,6 +6,7 @@
 
 let chatSessionId = null;
 let currentStreamBubble = null;
+const _agentReasoningLog = {};
 
 // ---------------------------------------------------------------------------
 // Timestamp helpers
@@ -327,6 +328,17 @@ function handleSseEvent(event) {
     case 'agent_status':
       if (event.data) handleAgentStatus(event.data);
       break;
+    case 'agent_reasoning':
+      if (event.data && event.data.agent) {
+        const agent = event.data.agent;
+        if (!_agentReasoningLog[agent]) _agentReasoningLog[agent] = [];
+        _agentReasoningLog[agent].push({
+          reasoning: event.data.reasoning,
+          timestamp: new Date().toLocaleTimeString(),
+        });
+        _updateAgentReasoningPanel(agent);
+      }
+      break;
     case 'chat_chunk':
       if (currentStreamBubble && event.data && event.data.text) {
         _appendBubbleText(currentStreamBubble, event.data.text);
@@ -334,8 +346,37 @@ function handleSseEvent(event) {
         if (el) el.scrollTop = el.scrollHeight;
       }
       break;
+    case 'progress':
+      if (currentStreamBubble && event.data && event.data.message) {
+        _appendBubbleText(currentStreamBubble, event.data.message + '\n');
+        const el = document.getElementById('chat-messages');
+        if (el) el.scrollTop = el.scrollHeight;
+      }
+      break;
     case 'chat_done':
       currentStreamBubble = null;
+      break;
+    case 'confirm_plan':
+      if (currentStreamBubble && event.data) {
+        const d = event.data;
+        const cardHtml = `
+          <div class="confirm-plan-card">
+            <div class="confirm-plan-summary">
+              <div><strong>📍 목적지:</strong> ${escHtml(d.destination || '')}</div>
+              <div><strong>📅 일정:</strong> ${escHtml(d.start_date || '')} ~ ${escHtml(d.end_date || '')}</div>
+              <div><strong>💰 예산:</strong> ${Number(d.budget || 0).toLocaleString()}원</div>
+              ${d.interests ? `<div><strong>🎯 관심사:</strong> ${escHtml(d.interests)}</div>` : ''}
+            </div>
+            <div class="confirm-plan-actions">
+              <button class="confirm-plan-btn confirm-yes" onclick="confirmPlan()">✨ 계획 세우기</button>
+              <button class="confirm-plan-btn confirm-edit" onclick="editPlanConditions()">수정하기</button>
+            </div>
+          </div>`;
+        const textEl = currentStreamBubble.querySelector('.chat-text');
+        if (textEl) textEl.insertAdjacentHTML('beforeend', cardHtml);
+        const el = document.getElementById('chat-messages');
+        if (el) el.scrollTop = el.scrollHeight;
+      }
       break;
     case 'plan_update':
       if (event.data) handlePlanUpdate(event.data);
@@ -413,7 +454,26 @@ function handleSseEvent(event) {
 // Agent card helpers
 // ---------------------------------------------------------------------------
 
+function _updateAgentReasoningPanel(agentName) {
+  const el = document.querySelector(`[data-agent="${agentName}"]`);
+  if (!el) return;
+  let reasoningEl = el.querySelector('.agent-reasoning');
+  if (!reasoningEl) {
+    reasoningEl = document.createElement('div');
+    reasoningEl.className = 'agent-reasoning';
+    el.appendChild(reasoningEl);
+  }
+  const logs = _agentReasoningLog[agentName] || [];
+  reasoningEl.innerHTML = logs.map(log =>
+    `<div class="reasoning-entry">
+       <span class="reasoning-time">${escHtml(log.timestamp)}</span>
+       <span class="reasoning-text">${escHtml(log.reasoning)}</span>
+     </div>`
+  ).join('');
+}
+
 function resetAgentCards() {
+  Object.keys(_agentReasoningLog).forEach(k => delete _agentReasoningLog[k]);
   document.querySelectorAll('[data-agent]').forEach(el => {
     el.className = 'agent-card agent-idle';
     el.style.cursor = '';
@@ -426,6 +486,8 @@ function resetAgentCards() {
     if (toggleEl) { toggleEl.style.display = 'none'; toggleEl.textContent = '▾'; }
     const detail = el.querySelector('.agent-detail');
     if (detail) detail.style.display = 'none';
+    const reasoning = el.querySelector('.agent-reasoning');
+    if (reasoning) reasoning.remove();
   });
   checkAgentPanelState();
 }
@@ -463,10 +525,11 @@ function handleAgentStatus(data) {
   const spinner = el.querySelector('.agent-spinner');
   if (spinner) spinner.style.display = data.status === 'working' ? 'inline-block' : 'none';
 
-  // Show expand toggle when agent has results
+  // Show expand toggle when agent has results or reasoning
   const toggleEl = el.querySelector('.agent-toggle');
   if (toggleEl) {
-    if (data.status === 'done' && data.result_count) {
+    const hasReasoning = _agentReasoningLog[data.agent] && _agentReasoningLog[data.agent].length > 0;
+    if (data.status === 'done' && (data.result_count || hasReasoning)) {
       toggleEl.style.display = 'inline';
       toggleEl.textContent = '▾';
     } else {
@@ -474,14 +537,19 @@ function handleAgentStatus(data) {
     }
   }
 
-  // Done-state cards: clicking the card reveals/hides the agent-detail panel
+  // Done-state cards: clicking the card reveals/hides the agent-detail + reasoning panels
   if (data.status === 'done') {
     el.style.cursor = 'pointer';
     el.onclick = function() {
       const detail = el.querySelector('.agent-detail');
-      if (!detail) return;
-      const isHidden = detail.style.display === 'none' || !detail.style.display;
-      detail.style.display = isHidden ? 'block' : 'none';
+      const reasoning = el.querySelector('.agent-reasoning');
+      const hasDetail = detail && detail.innerHTML.trim();
+      const hasReasoning = reasoning && reasoning.innerHTML.trim();
+      if (!hasDetail && !hasReasoning) return;
+      const isHidden = (detail && (detail.style.display === 'none' || !detail.style.display))
+                    || (reasoning && (reasoning.style.display === 'none' || !reasoning.style.display));
+      if (detail) detail.style.display = isHidden ? 'block' : 'none';
+      if (reasoning) reasoning.style.display = isHidden ? 'block' : 'none';
       if (toggleEl) toggleEl.textContent = isHidden ? '▴' : '▾';
     };
   } else {
@@ -501,6 +569,22 @@ function _handleSessionReset() {
   if (messagesEl) messagesEl.innerHTML = '';
   currentStreamBubble = null;
   resetAgentCards();
+}
+
+function confirmPlan() {
+  const input = document.getElementById('chat-input');
+  if (input) {
+    input.value = '네, 계획 세워줘';
+    sendChatMessage();
+  }
+}
+
+function editPlanConditions() {
+  const input = document.getElementById('chat-input');
+  if (input) {
+    input.focus();
+    input.placeholder = '변경하고 싶은 조건을 말씀해주세요...';
+  }
 }
 
 function appendAiBubble(text, ts) {

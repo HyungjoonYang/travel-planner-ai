@@ -1,0 +1,8 @@
+{
+  "response": "안녕하세요! 만나서 반가워요. 저는 여러분의 즐거운 여행을 계획해 드리는 Travel Planner AI입니다. 혹시 지금 계획하고 계신 여행지가 있으신가요? 어디로 떠나고 싶으신지 말씀해 주시면 최적의 일정을 만들어 드릴게요!",
+  "destination": null,
+  "start_date": null,
+  "end_date": null,
+  "budget": null,
+  "interests": null
+}

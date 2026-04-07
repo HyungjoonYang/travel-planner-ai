@@ -6232,8 +6232,9 @@ class TestPlanSuggestionsEvent:
             "Budget for transport",
         ]
 
-    def test_plan_suggestions_emitted_before_chat_chunk(self):
-        """plan_suggestions event must be emitted before the chat_chunk."""
+    def test_plan_suggestions_emitted_before_handler_chat_chunk(self):
+        """plan_suggestions event must be emitted before the handler's chat_chunk
+        (excluding the fast response chunk that comes at the very start)."""
         mock_gemini = MagicMock()
         mock_gemini.suggest_improvements.return_value = "1. suggestion"
         svc = self._make_service(gemini=mock_gemini)
@@ -6246,8 +6247,9 @@ class TestPlanSuggestionsEvent:
 
         types_seq = [e["type"] for e in events]
         ps_idx = types_seq.index("plan_suggestions")
-        cc_idx = types_seq.index("chat_chunk")
-        assert ps_idx < cc_idx
+        # Find the LAST chat_chunk (handler's result), not the first (fast response)
+        last_cc_idx = len(types_seq) - 1 - types_seq[::-1].index("chat_chunk")
+        assert ps_idx < last_cc_idx
 
     def test_plan_suggestions_not_emitted_on_gemini_error(self):
         """plan_suggestions must NOT be emitted when Gemini raises an exception."""
