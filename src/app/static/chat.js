@@ -12,18 +12,12 @@ const _agentReasoningLog = {};
 // Timestamp helpers
 // ---------------------------------------------------------------------------
 
-/** Returns a Korean relative-time string for the given ISO timestamp. */
+/** Returns a time string for the given ISO timestamp (e.g. "오후 6:52"). */
 function formatRelativeTime(ts) {
   if (!ts) return '';
-  const t = ts instanceof Date ? ts.getTime() : new Date(ts).getTime();
-  if (isNaN(t)) return '';
-  const diffMs = Date.now() - t;
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return '방금';
-  if (diffMin < 60) return `${diffMin}분 전`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}시간 전`;
-  return `${Math.floor(diffHr / 24)}일 전`;
+  const d = ts instanceof Date ? ts : new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 /** Refresh all visible .chat-timestamp spans with current relative times. */
@@ -236,6 +230,35 @@ async function sendChatMessage() {
   input.value = '';
   input.disabled = true;
 
+  // Fade out onboarding
+  const onboarding = document.getElementById('chat-onboarding');
+  if (onboarding) {
+    onboarding.classList.add('fade-out');
+    setTimeout(() => onboarding.remove(), 300);
+  }
+
+  // Show processing state on input bar
+  const inputBar = document.querySelector('.chat-input-bar');
+  if (inputBar) inputBar.classList.add('processing');
+
+  // Show skeleton in plan panel if empty
+  const planPanel = document.getElementById('plan-panel');
+  if (planPanel && !planPanel.querySelector('.day-card') && !planPanel.querySelector('.plan-context-card')) {
+    const emptyState = document.getElementById('dashboard-empty-state');
+    if (emptyState) emptyState.style.display = 'none';
+    const existingSkeleton = planPanel.querySelector('.skeleton-loader');
+    if (!existingSkeleton) {
+      const skeletonDiv = document.createElement('div');
+      skeletonDiv.className = 'skeleton-loader';
+      skeletonDiv.innerHTML = `
+        <div class="skeleton-line" style="width:60%"></div>
+        <div class="skeleton-line" style="width:40%"></div>
+        <div class="skeleton-line" style="width:75%"></div>
+        <div class="skeleton-line" style="width:50%"></div>`;
+      planPanel.appendChild(skeletonDiv);
+    }
+  }
+
   // Append user bubble
   const messagesEl = document.getElementById('chat-messages');
   if (messagesEl) {
@@ -263,6 +286,10 @@ async function sendChatMessage() {
   _showTypingIndicator(currentStreamBubble);
 
   await _sendMessageWithRetry(msg);
+
+  // Remove processing state
+  const inputBarEnd = document.querySelector('.chat-input-bar');
+  if (inputBarEnd) inputBarEnd.classList.remove('processing');
 
   input.disabled = false;
   if (input.focus) input.focus();
@@ -563,13 +590,14 @@ function checkAgentPanelState() {
 
   // Build active agent summary for compact label
   const active = [];
+  let anyActive = false;
   cards.forEach(c => {
-    const agent = c.dataset.agent;
     const isActive = c.classList.contains('agent-working') || c.classList.contains('agent-thinking');
     const isDone = c.classList.contains('agent-done');
     const msgEl = c.querySelector('.agent-message');
     const msg = msgEl ? msgEl.textContent : '';
     if (isActive) {
+      anyActive = true;
       const icon = c.querySelector('.agent-icon');
       active.push(`${icon ? icon.textContent : ''} ${msg}`);
     } else if (isDone && msg && msg !== '대기 중') {
@@ -584,8 +612,17 @@ function checkAgentPanelState() {
   } else {
     label.textContent = 'Team · 전원 대기 중';
     compactRow.classList.remove('agent-compact-active');
-    // Hide full cards when idle
-    cardsContainer.style.display = 'none';
+  }
+
+  // Auto-expand when agents are active, auto-collapse when idle
+  if (anyActive) {
+    cardsContainer.style.display = 'block';
+    clearTimeout(window._agentCollapseTimer);
+  } else if (active.length === 0) {
+    clearTimeout(window._agentCollapseTimer);
+    window._agentCollapseTimer = setTimeout(() => {
+      cardsContainer.style.display = 'none';
+    }, 3000);
   }
 }
 
@@ -830,11 +867,21 @@ function handlePlacePreview(data) {
   panel.scrollTop = panel.scrollHeight;
 }
 
+function _flashPanel(panel) {
+  if (!panel) return;
+  panel.classList.remove('panel-updated');
+  void panel.offsetWidth;
+  panel.classList.add('panel-updated');
+}
+
 function handlePlanContext(data) {
   const panel = document.getElementById('plan-panel');
   if (!panel) return;
   // Don't overwrite a full plan with context
   if (panel.querySelector('.day-card')) return;
+  // Hide empty state
+  const emptyState = document.getElementById('dashboard-empty-state');
+  if (emptyState) emptyState.style.display = 'none';
 
   const _field = (icon, label, value) => {
     if (value) return `<div class="ctx-field ctx-known">${icon} <strong>${escHtml(label)}</strong> ${escHtml(String(value))}</div>`;
@@ -872,6 +919,7 @@ function handlePlanContext(data) {
 
   html += `</div>`;
   panel.innerHTML = html;
+  _flashPanel(panel);
 }
 
 function handlePlanUpdate(data) {
@@ -1015,6 +1063,7 @@ function handleSearchResults(data) {
   if (data.type === 'hotels' || data.type === 'flights' || data.type === 'places') {
     _refreshPlanSearchSections(planPanel);
   }
+  _flashPanel(panel);
 }
 
 // ---------------------------------------------------------------------------
@@ -1556,5 +1605,4 @@ function handlePlanShared(data) {
 // Periodic timestamp refresh — update relative times every 30 s
 // ---------------------------------------------------------------------------
 
-setInterval(_updateAllTimestamps, 30000);
 }
