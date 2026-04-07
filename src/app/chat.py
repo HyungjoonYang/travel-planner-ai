@@ -63,6 +63,7 @@ class ChatSession(BaseModel):
     last_plan: Optional[dict] = None    # last plan_update payload
     last_saved_plan_id: Optional[int] = None  # DB plan_id after save_plan
     pending_plan: Optional[dict] = None  # trip details awaiting user confirmation
+    plan_context: Optional[dict] = None  # progressive travel context (partial info)
 
 
 class ChatService:
@@ -3476,10 +3477,14 @@ Return a JSON object with these fields:
                 f"Conversation history:\n{history_str}\n\n"
                 f"User's latest message: \"{intent.raw_message}\"\n"
                 f"Assistant's reply: \"{full_reply[:500]}\"\n\n"
-                "Return a JSON object:\n"
+                "Return a JSON object with ALL fields (use null if unknown):\n"
                 '{"destination": "city or null", "start_date": "YYYY-MM-DD or null",'
                 ' "end_date": "YYYY-MM-DD or null", "budget": number_or_null,'
-                ' "interests": "comma-separated or null"}'
+                ' "interests": "comma-separated or null",'
+                ' "travel_style": "힐링/액티비티/맛집/문화/쇼핑 or null",'
+                ' "companions": "혼자/커플/가족/친구/부모님 or null",'
+                ' "preferences": ["free-form preference strings"] or null,'
+                ' "departure_city": "departure city or null"}'
             )
             with LLMTimer() as extract_timer:
                 extract_resp = await asyncio.to_thread(
@@ -3500,6 +3505,14 @@ Return a JSON object with these fields:
                 latency_ms=extract_timer.elapsed_ms,
                 extra={"extracted_fields": result},
             )
+
+            # Merge extracted fields into session plan_context (progressive memory)
+            ctx = session.plan_context or {}
+            for key, val in result.items():
+                if val is not None and val != "" and val != []:
+                    ctx[key] = val
+            session.plan_context = ctx
+            yield {"type": "plan_context", "data": ctx}
 
             dest = result.get("destination")
             start = result.get("start_date")
@@ -3591,6 +3604,15 @@ Return a JSON object with these fields:
             yield {"type": "confirm_plan", "data": pending}
             return
 
+        # Emit plan_context with whatever we know so far
+        if known:
+            ctx = session.plan_context or {}
+            for key, val in known.items():
+                if val:
+                    ctx[key] = val
+            session.plan_context = ctx
+            yield {"type": "plan_context", "data": ctx}
+
         # Build acknowledgment of known info + ask for ONE missing piece
         parts = []
         if known.get("destination"):
@@ -3624,6 +3646,8 @@ Return a JSON object with these fields:
         """Clear in-memory conversation history and emit session_reset event."""
         session.history.clear()
         session.message_history.clear()
+        session.plan_context = None
+        session.pending_plan = None
         yield {
             "type": "agent_status",
             "data": {"agent": "coordinator", "status": "done", "message": "대화 내역 초기화 완료"},

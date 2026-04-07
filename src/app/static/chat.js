@@ -191,9 +191,11 @@ async function restoreSessionState() {
         handleAgentStatus(state);
       }
     }
-    // Restore last plan
+    // Restore last plan (or plan context if no full plan yet)
     if (data.last_plan) {
       handlePlanUpdate(data.last_plan);
+    } else if (data.plan_context) {
+      handlePlanContext(data.plan_context);
     }
     // Restore message bubbles from DB history
     if (data.message_history && data.message_history.length > 0) {
@@ -423,6 +425,9 @@ function handleSseEvent(event) {
         if (el) el.scrollTop = el.scrollHeight;
       }
       break;
+    case 'plan_context':
+      if (event.data) handlePlanContext(event.data);
+      break;
     case 'plan_update':
       if (event.data) handlePlanUpdate(event.data);
       break;
@@ -541,20 +546,43 @@ function resetAgentCards() {
 // Agent panel compact/expanded toggle
 // ---------------------------------------------------------------------------
 
-// Collapses to one compact row when all agents are idle;
-// auto-expands when any agent becomes active.
+// Always shows compact row with active agent names.
+// Full cards panel only shown on explicit click.
 function checkAgentPanelState() {
   const cards = document.querySelectorAll('[data-agent]');
-  const allIdle = Array.from(cards).every(c => c.classList.contains('agent-idle'));
   const compactRow = document.getElementById('agent-panel-compact-row');
   const cardsContainer = document.getElementById('agent-cards');
-  if (!compactRow || !cardsContainer) return;
-  if (allIdle) {
-    compactRow.style.display = 'flex';
-    cardsContainer.style.display = 'none';
+  const label = document.getElementById('agent-panel-compact-label');
+  if (!compactRow || !cardsContainer || !label) return;
+
+  // Always show compact row
+  compactRow.style.display = 'flex';
+
+  // Build active agent summary for compact label
+  const active = [];
+  cards.forEach(c => {
+    const agent = c.dataset.agent;
+    const isActive = c.classList.contains('agent-working') || c.classList.contains('agent-thinking');
+    const isDone = c.classList.contains('agent-done');
+    const msgEl = c.querySelector('.agent-message');
+    const msg = msgEl ? msgEl.textContent : '';
+    if (isActive) {
+      const icon = c.querySelector('.agent-icon');
+      active.push(`${icon ? icon.textContent : ''} ${msg}`);
+    } else if (isDone && msg && msg !== '대기 중') {
+      const icon = c.querySelector('.agent-icon');
+      active.push(`${icon ? icon.textContent : ''}✓`);
+    }
+  });
+
+  if (active.length > 0) {
+    label.textContent = active.join(' · ');
+    compactRow.classList.add('agent-compact-active');
   } else {
-    compactRow.style.display = 'none';
-    cardsContainer.style.display = 'block';
+    label.textContent = 'Team · 전원 대기 중';
+    compactRow.classList.remove('agent-compact-active');
+    // Hide full cards when idle
+    cardsContainer.style.display = 'none';
   }
 }
 
@@ -747,6 +775,54 @@ function _budgetBarHtml(spent, budget) {
     <div class="progress-bar" id="plan-budget-bar" style="width:${pct}%;background:${barColor}"></div>
   </div>
   <div class="meta">${pct}% 사용</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Progressive Plan Context — builds up as conversation unfolds
+// ---------------------------------------------------------------------------
+
+function handlePlanContext(data) {
+  const panel = document.getElementById('plan-panel');
+  if (!panel) return;
+  // Don't overwrite a full plan with context
+  if (panel.querySelector('.day-card')) return;
+
+  const _field = (icon, label, value) => {
+    if (value) return `<div class="ctx-field ctx-known">${icon} <strong>${escHtml(label)}</strong> ${escHtml(String(value))}</div>`;
+    return `<div class="ctx-field ctx-unknown">${icon} <strong>${escHtml(label)}</strong> <span class="ctx-placeholder">?</span></div>`;
+  };
+
+  // Required fields
+  let budgetStr = null;
+  if (data.budget) budgetStr = Number(data.budget).toLocaleString() + '원';
+  let dateStr = null;
+  if (data.start_date && data.end_date) {
+    dateStr = `${data.start_date} ~ ${data.end_date}`;
+  } else if (data.start_date) {
+    dateStr = `${data.start_date} ~`;
+  }
+
+  let html = `<div class="section-title">✈️ Travel Plan</div>`;
+  html += `<div class="plan-context-card">`;
+  html += _field('📍', '목적지', data.destination);
+  html += _field('📅', '일정', dateStr);
+  html += _field('💰', '예산', budgetStr);
+
+  // Optional tags
+  const tags = [];
+  if (data.travel_style) tags.push(data.travel_style);
+  if (data.companions) tags.push(data.companions);
+  if (data.departure_city) tags.push('출발: ' + data.departure_city);
+  if (data.interests) tags.push(data.interests);
+  if (data.preferences && data.preferences.length) {
+    data.preferences.forEach(p => tags.push(p));
+  }
+  if (tags.length) {
+    html += `<div class="ctx-tags">${tags.map(t => `<span class="ctx-tag">${escHtml(t)}</span>`).join('')}</div>`;
+  }
+
+  html += `</div>`;
+  panel.innerHTML = html;
 }
 
 function handlePlanUpdate(data) {
