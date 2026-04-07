@@ -127,6 +127,11 @@ class ChatService:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _detect_language(text: str) -> str:
+        """Detect user language from message text. Returns 'Korean' or 'English'."""
+        korean_chars = sum(1 for c in text if '\uac00' <= c <= '\ud7a3' or '\u3131' <= c <= '\u318e')
+        return "Korean" if korean_chars > 0 else "English"
+
     @staticmethod
     def _build_fast_response(message: str) -> str:
         """Build a quick acknowledgment message based on the user's input."""
@@ -222,7 +227,7 @@ Return a JSON object with these fields:
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
                         response_schema=Intent,
-                        thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+                        thinking_config=types.ThinkingConfig(thinking_level="medium"),
                     ),
                 )
             intent = Intent.model_validate_json(response.text)
@@ -554,9 +559,10 @@ Return a JSON object with these fields:
         }
 
         try:
+            user_lang = self._detect_language(intent.raw_message or "")
             result = await asyncio.to_thread(
                 self._gemini.generate_itinerary,
-                dest, start, end, budget, interests,
+                dest, start, end, budget, interests, user_lang,
             )
 
             place_count = sum(len(day.places) for day in result.days)
@@ -833,20 +839,23 @@ Return a JSON object with these fields:
                     end = start + timedelta(days=3)
                 current_days = last_plan.get("days", [])
 
+                user_lang = self._detect_language(intent.raw_message or "")
                 result = await asyncio.to_thread(
                     self._gemini.refine_itinerary,
                     dest, start, end, budget, intent.interests or "",
                     current_days,
                     f"Day {day_number}: {instruction}",
+                    user_lang,
                 )
             else:
                 dest = intent.destination or "목적지"
                 budget = intent.budget or 0
                 start, end = self._parse_dates(intent, require=True)
+                user_lang = self._detect_language(intent.raw_message or "")
 
                 result = await asyncio.to_thread(
                     self._gemini.generate_itinerary,
-                    dest, start, end, budget, intent.interests or "",
+                    dest, start, end, budget, intent.interests or "", user_lang,
                 )
 
             day_index = day_number - 1
@@ -914,21 +923,24 @@ Return a JSON object with these fields:
                 current_days = last_plan.get("days", [])
                 interests = last_plan.get("interests", intent.interests or "")
 
+                user_lang = self._detect_language(intent.raw_message or "")
                 result = await asyncio.to_thread(
                     self._gemini.refine_itinerary,
                     dest, start, end, float(budget), interests,
                     current_days,
                     instruction,
+                    user_lang,
                 )
             else:
                 dest = intent.destination or "목적지"
                 budget = intent.budget or 0
                 interests = intent.interests or ""
                 start, end = self._parse_dates(intent, require=True)
+                user_lang = self._detect_language(intent.raw_message or "")
 
                 result = await asyncio.to_thread(
                     self._gemini.generate_itinerary,
-                    dest, start, end, budget, interests,
+                    dest, start, end, budget, interests, user_lang,
                 )
 
             place_count = sum(len(day.places) for day in result.days)
@@ -3436,7 +3448,7 @@ Return a JSON object with these fields:
                     model="gemini-3-flash-preview",
                     contents=chat_prompt,
                     config=types.GenerateContentConfig(
-                        thinking_config=types.ThinkingConfig(thinking_level="low"),
+                        thinking_config=types.ThinkingConfig(thinking_level="medium"),
                     ),
                 )
                 for chunk in stream:
@@ -3476,7 +3488,7 @@ Return a JSON object with these fields:
                     contents=extract_prompt,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
-                        thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+                        thinking_config=types.ThinkingConfig(thinking_level="medium"),
                     ),
                 )
             result = json.loads(extract_resp.text)

@@ -275,7 +275,7 @@ class TestThinkingConfig:
         assert hasattr(config, "thinking_config"), "config must have thinking_config"
         level = config.thinking_config.thinking_level
         level_str = level.value if hasattr(level, "value") else str(level)
-        assert level_str.upper() == "MINIMAL"
+        assert level_str.upper() == "MEDIUM"
 
     def test_general_conversation_uses_low_thinking(self):
         """_general_with_gemini should use thinking_level='low' for streaming conversation."""
@@ -306,7 +306,7 @@ class TestThinkingConfig:
         assert hasattr(config, "thinking_config"), "config must have thinking_config"
         level = config.thinking_config.thinking_level
         level_str = level.value if hasattr(level, "value") else str(level)
-        assert level_str.upper() == "LOW"
+        assert level_str.upper() == "MEDIUM"
 
     def test_generate_itinerary_uses_medium_thinking(self):
         """GeminiService.generate_itinerary should use thinking_level='medium'."""
