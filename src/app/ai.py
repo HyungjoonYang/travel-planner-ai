@@ -5,6 +5,7 @@ from google.genai import types
 from pydantic import BaseModel
 
 from app.config import GEMINI_API_KEY
+from app.llm_logger import log_llm_call, LLMTimer
 
 
 class AIPlace(BaseModel):
@@ -76,14 +77,23 @@ Instructions:
         client = genai.Client(api_key=self._api_key)
         prompt = self._build_prompt(destination, start_date, end_date, budget, interests)
 
-        response = client.models.generate_content(
+        with LLMTimer() as timer:
+            response = client.models.generate_content(
+                model=self.MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=AIItineraryResult,
+                    thinking_config=types.ThinkingConfig(thinking_level="medium"),
+                ),
+            )
+        log_llm_call(
+            caller="generate_itinerary",
             model=self.MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=AIItineraryResult,
-                thinking_config=types.ThinkingConfig(thinking_level="medium"),
-            ),
+            prompt=prompt,
+            response_text=response.text,
+            latency_ms=timer.elapsed_ms,
+            extra={"destination": destination, "budget": budget},
         )
 
         return AIItineraryResult.model_validate_json(response.text)
@@ -229,14 +239,23 @@ Instructions:
 - Each place must have name, category, address, estimated_cost, and ai_reason"""
 
         client = genai.Client(api_key=self._api_key)
-        response = client.models.generate_content(
+        with LLMTimer() as timer:
+            response = client.models.generate_content(
+                model=self.MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=AIItineraryResult,
+                    thinking_config=types.ThinkingConfig(thinking_level="medium"),
+                ),
+            )
+        log_llm_call(
+            caller="refine_itinerary",
             model=self.MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=AIItineraryResult,
-                thinking_config=types.ThinkingConfig(thinking_level="medium"),
-            ),
+            prompt=prompt,
+            response_text=response.text,
+            latency_ms=timer.elapsed_ms,
+            extra={"instruction": instruction[:200]},
         )
 
         return AIItineraryResult.model_validate_json(response.text)
