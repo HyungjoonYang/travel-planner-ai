@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-07T16:36:36Z (Monitor Run #136)
-Run count: 155
+Last run: 2026-04-07T18:00:00Z (Evolve Run #128)
+Run count: 156
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 103 (#102 Chat: set_day_label intent — DayItinerary.label persisted; day_update SSE with label; DayItineraryOut includes label; 11 tests)
-Current focus: #103 E2E: message timestamp Playwright scenarios
-Next planned: #104 Chat: quick_summary intent
+Tasks completed: 104 (#103 E2E: message timestamp — 3 Playwright scenarios: new bubbles show 방금, multi-exchange timestamps, reconnect restores 분 전)
+Current focus: #104 Chat: quick_summary intent
+Next planned: #105 Frontend: day label badge on day cards
 
 ## LTES Snapshot
 
-- Latency: ~42680ms (monitor run)
-- Traffic: 1 commit/24h
+- Latency: ~50000ms (evolve run)
+- Traffic: 1 commit/run
 - Errors: 0 test failures (1598 passed, 12 skipped), error_rate=0.0%
-- Saturation: 2 tasks ready
+- Saturation: 6 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #104 Chat: quick_summary intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #128 — 2026-04-07T18:00:00Z
+- **Task**: #103 - E2E: message timestamp Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1598/1598 passed, 12 skipped; 3 new Playwright E2E scenarios added (new bubbles show '방금' with parseable data-ts on user+AI bubbles; each bubble in multi-exchange has .chat-timestamp; restored bubbles after reconnect show '분 전' with parseable data-ts)
+- **Files changed**: e2e/chat.spec.ts (+175/-123)
+- **Builder note**: Added dedicated test.describe('message timestamp E2E (Task #103)') block with 3 scenarios. Removed 2 misplaced timestamp tests from reorder_days block (superseded by stronger assertions in the new block). Python tests: 1598 passed, 12 skipped (pre-existing LLM smoke skips due to API rate limiting — unrelated). Ruff: all checks passed.
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #127 — 2026-04-07T17:00:00Z
 - **Task**: #102 - Chat: `set_day_label` intent — set a custom title/label for a day [feature]

@@ -7,10 +7,10 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 155,
-    "successful_runs": 149,
+    "total_runs": 156,
+    "successful_runs": 150,
     "failed_runs": 1,
-    "success_rate": 0.961,
+    "success_rate": 0.962,
     "budget_remaining": 0.95,
     "status": "HEALTHY"
   },
@@ -653,8 +653,8 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-07-1700",
-    "task": "#102 - Chat: set_day_label intent — set a custom title/label for a day",
+    "run_id": "2026-04-07-1800",
+    "task": "#103 - E2E: message timestamp Playwright scenarios",
     "result": "success",
     "tests_passed": 1598,
     "tests_total": 1610
