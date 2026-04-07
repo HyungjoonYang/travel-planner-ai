@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-07T21:00:00Z (Evolve Run #130)
-Run count: 159
+Last run: 2026-04-07T22:00:00Z (Evolve Run #131)
+Run count: 160
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 106 (#105 Frontend: day label badge on day cards — .day-label-badge badge renders when day.label present; handleDayUpdate refreshes/removes badge; CSS; 3 new tests)
-Current focus: #106 E2E: quick_summary Playwright scenarios
-Next planned: #107 Chat: swap_places intent
+Tasks completed: 107 (#106 E2E: quick_summary Playwright scenarios — 2 new Playwright scenarios: summary reply (destination/dates/budget) + no-plan fallback; 1611/1611 tests passing)
+Current focus: #107 Chat: swap_places intent
+Next planned: #108 Chat: find_alternatives intent
 
 ## LTES Snapshot
 
 - Latency: ~50000ms (evolve run)
 - Traffic: 1 commit
 - Errors: 0 test failures (1611 passed, 12 skipped), error_rate=0.0%
-- Saturation: 4 tasks ready (#106, #107, #108, #109)
+- Saturation: 3 tasks ready (#107, #108, #109)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #107 Chat: swap_places intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #131 — 2026-04-07T22:00:00Z
+- **Task**: #106 - E2E: `quick_summary` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1611/1611 passed, 12 skipped; 2 new Playwright E2E scenarios added (quick_summary summary reply with destination/dates/budget; no-plan fallback '아직 만들어진 여행 계획이 없어요')
+- **Files changed**: e2e/chat.spec.ts (+142/-0)
+- **Builder note**: Added 2 Playwright scenarios at end of e2e/chat.spec.ts. Scenario 1 mocks SSE with coordinator thinking/done + planner working/done + chat_chunk containing destination (도쿄), date range, budget percentage (68%). Scenario 2 mocks no-plan state with fallback chat_chunk. Both use existing mockChatSession SSE-mock pattern.
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #130 — 2026-04-07T21:00:00Z
 - **Task**: #105 - Frontend: day label badge on day cards [improvement]
