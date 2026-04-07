@@ -17,7 +17,7 @@ body {
 
 /* ── Navigation ─────────────────────────────────────────────────────────────── */
 nav {
-  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -33,22 +33,24 @@ nav h1:hover {
 /* ── Cards ──────────────────────────────────────────────────────────────────── */
 .card {
   box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition), transform var(--transition);
+  border-radius: 14px;
+  transition: box-shadow var(--transition), transform var(--transition), border-color var(--transition);
 }
 
 .card[style*="cursor:pointer"]:hover,
 .card[onclick]:hover {
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  border-color: rgba(43,122,120,.2);
 }
 
 /* ── Buttons ────────────────────────────────────────────────────────────────── */
 .btn-primary {
-  box-shadow: 0 2px 8px rgba(201,169,110,.25);
+  box-shadow: 0 2px 8px rgba(43,122,120,.2);
   transition: background .15s, box-shadow .15s, transform .1s;
 }
 .btn-primary:hover {
-  box-shadow: 0 4px 12px rgba(201,169,110,.35);
+  box-shadow: 0 4px 12px rgba(43,122,120,.3);
   transform: translateY(-1px);
 }
 .btn-primary:active {
@@ -57,7 +59,8 @@ nav h1:hover {
 
 /* ── Chat interface ─────────────────────────────────────────────────────────── */
 .chat-col {
-  box-shadow: 2px 0 8px rgba(0,0,0,.04);
+  box-shadow: 2px 0 12px rgba(0,0,0,.05);
+  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 40%, #f5f6f8 100%);
 }
 
 .chat-bubble {
@@ -65,22 +68,22 @@ nav h1:hover {
   transition: opacity .2s;
 }
 .chat-bubble.chat-ai {
-  background: linear-gradient(135deg, #f0ece5 0%, #e8e3db 100%);
+  background: var(--bg-subtle, #f1f3f6);
 }
 .chat-bubble.chat-user {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: var(--accent, #2b7a78);
 }
 
 .chat-input-bar input {
   transition: border-color .2s, box-shadow .2s;
 }
 .chat-input-bar input:focus {
-  box-shadow: 0 0 0 3px rgba(201,169,110,.18);
+  box-shadow: 0 0 0 3px rgba(43,122,120,.1);
 }
 
 /* ── Chat onboarding ────────────────────────────────────────────────────────── */
 .chat-onboarding {
-  background: linear-gradient(160deg, rgba(201,169,110,.04) 0%, transparent 60%);
+  background: radial-gradient(ellipse at 50% 30%, rgba(43,122,120,.04) 0%, transparent 70%);
 }
 
 .chat-chip {
@@ -90,7 +93,7 @@ nav h1:hover {
 .chat-chip:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--accent);
-  background: rgba(201,169,110,.06);
+  background: var(--accent-bg, rgba(43,122,120,.06));
   transform: translateY(-2px);
 }
 
@@ -160,13 +163,13 @@ nav a.active::after {
 form input:focus,
 form select:focus,
 form textarea:focus {
-  box-shadow: 0 0 0 3px rgba(201,169,110,.15);
+  box-shadow: 0 0 0 3px rgba(43,122,120,.12);
   border-color: var(--accent);
 }
 
 /* ── Dashboard col ──────────────────────────────────────────────────────────── */
 .dashboard-col {
-  background: linear-gradient(180deg, #f7f5f1 0%, var(--bg) 100%);
+  background: var(--bg);
 }
 
 /* ── Section titles ─────────────────────────────────────────────────────────── */
@@ -188,4 +191,32 @@ form textarea:focus {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0,0,0,.25);
+}
+
+/* ── Chat bubble entrance animation ────────────────────────────────────────── */
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.chat-bubble {
+  animation: bubble-in 0.2s ease-out;
+}
+
+/* ── Input bar processing pulse ────────────────────────────────────────────── */
+.chat-input-bar.processing input {
+  border-color: var(--accent);
+  animation: input-pulse 2s infinite;
+}
+@keyframes input-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(43,122,120,.08); }
+  50%      { box-shadow: 0 0 0 4px rgba(43,122,120,.2); }
+}
+
+/* ── Onboarding fade-out ───────────────────────────────────────────────────── */
+.chat-onboarding.fade-out {
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  padding: 0;
 }
