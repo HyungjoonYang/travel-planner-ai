@@ -133,25 +133,17 @@ class ChatService:
         # Greetings
         greetings = ["안녕", "하이", "hi", "hello", "hey", "ㅎㅇ"]
         if any(msg_lower.startswith(g) for g in greetings):
-            return "안녕하세요! 여행 계획을 도와드릴게요 ✨\n"
+            return ""  # let streaming handle the greeting reply naturally
         # Confirmation (for confirm_plan)
         confirms = ["네", "응", "좋아", "ㅇㅇ", "확인", "세워줘", "진행", "go", "yes"]
         if any(msg_lower.startswith(c) for c in confirms):
-            return "네, 바로 준비할게요! 🚀\n"
-        # Info-providing (dates, budget, etc.)
-        info_keywords = ["월", "일정", "예산", "만원", "원", "기간", "날짜", "박"]
-        if any(kw in msg_lower for kw in info_keywords):
-            return "네, 알겠습니다! 📝\n"
+            return "좋아요, 바로 준비해볼게요! ✈️\n"
         # Search-related
         search_keywords = ["검색", "찾아", "호텔", "숙소", "항공", "맛집"]
         if any(kw in msg_lower for kw in search_keywords):
-            return "네, 찾아볼게요! 🔍\n"
-        # Plan-related keywords
-        plan_keywords = ["계획", "여행", "추천", "플랜"]
-        if any(kw in msg_lower for kw in plan_keywords):
-            return "네, 알겠습니다! 확인해볼게요 ✨\n"
-        # Default
-        return "네, 확인해볼게요!\n"
+            return "잠깐만요, 찾아볼게요! 🔍\n"
+        # Default — empty string so streaming handles it naturally
+        return ""
 
     # ------------------------------------------------------------------
     # Intent extraction
@@ -492,20 +484,20 @@ Return a JSON object with these fields:
         if dest and dest.lower().strip() in self._BROAD_REGIONS:
             yield {
                 "type": "chat_chunk",
-                "data": {"text": f"{dest}은(는) 범위가 넓어요! 구체적인 도시를 알려주시겠어요? (예: 방콕, 파리, 도쿄 등)"},
+                "data": {"text": f"{dest} 여행 좋죠! 혹시 특별히 가고 싶은 도시가 있으세요? 예를 들어 방콕, 호치민, 발리 같은 곳이요~ 😊"},
             }
             return
 
-        # If essential info is missing, ask the user instead of using defaults
+        # If essential info is missing, ask naturally
         missing = []
         if not dest:
-            missing.append("목적지")
+            missing.append("어디로 가고 싶으세요")
         if not start:
-            missing.append("일정(날짜)")
+            missing.append("언제쯤 떠나실 생각이세요")
         if not budget:
-            missing.append("예산")
+            missing.append("예산은 어느 정도로 생각하고 계세요")
         if missing:
-            ask = "여행 계획을 세우려면 " + ", ".join(missing) + "이(가) 필요해요. 알려주시겠어요?"
+            ask = missing[0] + "? 😊"
             yield {"type": "chat_chunk", "data": {"text": ask}}
             return
 
@@ -519,7 +511,7 @@ Return a JSON object with these fields:
                 "interests": interests,
             }
             session.pending_plan = pending
-            yield {"type": "chat_chunk", "data": {"text": f"{dest} 여행 조건이 준비되었어요! 확인해주세요.\n"}}
+            yield {"type": "chat_chunk", "data": {"text": f"좋아요! {dest} 여행 조건을 정리해봤어요~ 한번 확인해주세요!\n"}}
             yield {"type": "confirm_plan", "data": pending}
             return
 
@@ -624,7 +616,7 @@ Return a JSON object with these fields:
         if not pending:
             yield {
                 "type": "chat_chunk",
-                "data": {"text": "아직 확정할 여행 조건이 없어요. 목적지, 일정, 예산을 알려주세요!"},
+                "data": {"text": "아직 확정할 여행 조건이 없어요. 어디로 가고 싶으신지부터 얘기해볼까요? 😊"},
             }
             return
 
@@ -3401,19 +3393,26 @@ Return a JSON object with these fields:
 
         # Phase 1: Stream the conversational reply (plain text, no JSON)
         chat_prompt = (
-            "You are a friendly, knowledgeable travel planning assistant called Travel Planner AI.\n"
-            "Your job is to help users plan trips through natural conversation.\n"
+            "You are a warm, enthusiastic travel consultant who genuinely loves helping people plan trips.\n"
+            "Think of yourself as a friend who happens to be a travel expert — someone who gets excited about their trip ideas, "
+            "shares personal-feeling recommendations, and builds up the journey together step by step.\n\n"
             f"Today's date is {today_str}. The current year is {current_year}.\n"
             "The user is based in South Korea. Use KRW (Korean Won) for all budget/cost values.\n\n"
-            "Conversation history:\n"
+            "Conversation so far:\n"
             f"{history_str}\n\n"
-            f"User's latest message: \"{intent.raw_message}\"\n\n"
-            "Instructions:\n"
-            "1. Respond naturally and helpfully in the SAME LANGUAGE the user used (Korean if they write Korean).\n"
-            "2. If the user mentions travel-related info (destination, dates, budget, interests), acknowledge it.\n"
-            "3. If key info is still missing, ask ONE follow-up question (don't ask for everything at once).\n"
-            "4. If the user is just chatting or greeting, be warm and gently steer toward travel planning.\n"
-            "5. Keep your response concise and conversational.\n"
+            f"User just said: \"{intent.raw_message}\"\n\n"
+            "How to respond:\n"
+            "- ALWAYS respond in the same language the user uses (Korean → Korean, English → English).\n"
+            "- Be conversational and warm, like chatting with a friend. Use casual-polite tone (해요체) in Korean.\n"
+            "- When the user shares a destination or preference, react with genuine enthusiasm and add a small insider tip or fun fact.\n"
+            "  Example: '방콕이요! 좋은 선택이에요~ 요즘 카오산로드보다 탈랏롯파이 야시장이 훨씬 핫하거든요 🔥'\n"
+            "- Build up the trip gradually. Don't rush to collect all info at once.\n"
+            "  If one thing is missing, weave the question naturally into the conversation.\n"
+            "  Bad: '일정을 알려주세요.' Good: '혹시 며칠 정도 다녀오실 생각이세요? 3박이면 알차게 돌 수 있고, 5박이면 여유롭게 즐길 수 있어요~'\n"
+            "- When suggesting or acknowledging budget, frame it helpfully.\n"
+            "  Example: '150만원이면 동남아 3박은 꽤 여유로운 편이에요! 맛집 투어도 충분히 가능하고요 😊'\n"
+            "- Keep responses concise (2-4 sentences). Don't monologue.\n"
+            "- If the user is just chatting casually, be friendly and naturally steer toward travel.\n"
         )
 
         try:
@@ -3547,7 +3546,7 @@ Return a JSON object with these fields:
             }
             session.pending_plan = pending
             yield {"type": "chat_chunk", "data": {
-                "text": f"{dest} 여행 조건이 모두 준비되었어요!",
+                "text": f"좋아요! {dest} 여행 조건을 정리해봤어요~ 한번 확인해주세요!",
             }}
             yield {"type": "confirm_plan", "data": pending}
             return
@@ -3565,17 +3564,17 @@ Return a JSON object with these fields:
         if parts:
             ack = ", ".join(parts) + "이시군요! "
 
-        # Ask for the FIRST missing piece only
+        # Ask for the FIRST missing piece only — conversationally
         question_map = {
-            "destination": "어디로 여행을 가고 싶으신가요?",
-            "dates": "언제쯤 여행을 계획하고 계신가요?",
-            "budget": "예산은 어느 정도로 생각하고 계신가요?",
+            "destination": "어디로 떠나고 싶으세요? 요즘 마음에 두고 있는 곳이 있나요? 😊",
+            "dates": "혹시 언제쯤 떠나실 생각이세요? 대략적으로라도 괜찮아요~",
+            "budget": "예산은 어느 정도로 생각하고 계세요? 대략적인 범위만 알려주셔도 돼요!",
         }
         ask = question_map.get(missing[0], "") if missing else ""
 
         response_text = (ack + ask).strip()
         if not response_text:
-            response_text = "어디로 여행을 가고 싶으신가요?"
+            response_text = "어디로 떠나고 싶으세요? 요즘 마음에 두고 있는 곳이 있나요? 😊"
 
         yield {"type": "chat_chunk", "data": {"text": response_text}}
 

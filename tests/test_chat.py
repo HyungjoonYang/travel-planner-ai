@@ -597,7 +597,7 @@ class TestServiceHandlerIntegration:
         chunks = [e for e in events if e["type"] == "chat_chunk"]
         assert len(chunks) >= 1
         text = " ".join(c["data"]["text"] for c in chunks)
-        assert "일정" in text or "날짜" in text
+        assert "일정" in text or "날짜" in text or "언제" in text
 
     # --- search_places → WebSearchService ---
 
