@@ -10,10 +10,10 @@ Covers:
 
 import asyncio
 import json
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from app.ai import AIItineraryResult, AIDayItinerary, AIPlace, GeminiService
-from app.chat import ChatService, Intent
+from app.chat import ChatService
 
 
 # ---------------------------------------------------------------------------

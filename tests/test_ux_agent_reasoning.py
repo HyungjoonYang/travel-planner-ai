@@ -13,7 +13,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from app.ai import AIItineraryResult, AIDayItinerary, AIPlace
-from app.chat import ChatService, Intent
+from app.chat import ChatService
 from app.hotel_search import HotelSearchResult, HotelResult
 from app.flight_search import FlightSearchResult, FlightResult
 
