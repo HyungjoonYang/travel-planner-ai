@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -49,7 +49,8 @@ class Intent(BaseModel):
     expense_name: Optional[str] = None
     expense_amount: Optional[float] = None
     expense_category: Optional[str] = None
-    place_index: Optional[int] = None  # 1-based place index for remove_place
+    place_index: Optional[int] = None  # 1-based place index for remove_place / swap_places (day 1)
+    place_index_2: Optional[int] = None  # 1-based place index for swap_places (day 2)
     place_category: Optional[str] = None  # category for add_place (e.g. "sightseeing", "food", "cafe")
     raw_message: str = ""
 
@@ -188,7 +189,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -213,7 +214,8 @@ Return a JSON object with these fields:
 - Use action "suggest_improvements" when user asks for suggestions, improvements, or feedback on their current travel plan (e.g. "개선할 점 있어?", "추천 사항 있어?", "어떻게 더 좋게 할 수 있을까?", "any suggestions?", "how to improve?", "what would you recommend changing?", "더 좋은 방법 있어?", "계획 피드백 줘")
 - Use action "remove_place" when user wants to remove/delete a specific place from a day's itinerary (e.g. "1일차 첫 번째 장소 삭제", "Day 2에서 센소지 빼줘", "3일차에서 루브르 박물관 제거", "remove Senso-ji from day 2", "day 1 first place delete"); set day_number to the referenced day, query to the place name if mentioned, and place_index to the 1-based position if an ordinal is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2, "마지막" → -1)
 - Use action "add_place" when user wants to add/append a custom place to a specific day (e.g. "1일차에 서울숲 추가해줘", "Day 2에 경복궁 넣어줘", "3일차에 맛집 추가", "add Gyeongbokgung to day 1", "Day 3에 카페 추가"); set day_number to the referenced day, query to the place name, and place_category to the category if mentioned (e.g. "맛집" → "food", "카페" → "cafe", "관광지" → "sightseeing"), else null
-- place_index: 1-based index of the place to remove within the day's places list, if an ordinal position is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2); null if removing by name or unspecified
+- place_index: 1-based index of the place to remove/swap within the first day's places list, if an ordinal position is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2); null if removing by name or unspecified
+- place_index_2: 1-based index of the place within the second day's places list for swap_places (e.g. "두 번째" → 2); null if not specified (defaults to same index as place_index)
 - place_category: category for the place to add (e.g. "sightseeing", "food", "cafe", "museum", "park", "landmark"); null if not specified
 - Use action "share_plan" when user wants to share or get a shareable link for the current or a specific travel plan (e.g. "이 계획 공유해줘", "공유 링크 만들어줘", "친구한테 공유하고 싶어", "share this plan", "get a shareable link", "링크 공유", "공유"); set plan_id if a specific plan is referenced
 - Use action "reorder_days" when user wants to swap or reorder two days in their itinerary (e.g. "1일차와 3일차 순서 바꿔줘", "Day 2랑 Day 4 교환해줘", "swap day 1 and day 3", "2일차와 4일차 바꿔줘"); set day_number to the first day and day_number_2 to the second day
@@ -223,6 +225,7 @@ Return a JSON object with these fields:
 - Use action "move_place" when user wants to move/transfer a specific place from one day to another day (e.g. "1일차 두 번째 장소를 3일차로 옮겨줘", "Day 2에서 센소지를 Day 4로 이동해줘", "3일차 첫 번째 장소를 1일차로 옮겨", "move place from day 1 to day 3", "2일차 루브르를 3일차로 이동"); set day_number to the SOURCE day, day_number_2 to the TARGET day, query to the place name if mentioned, and place_index to the 1-based position if an ordinal is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2, "마지막" → -1)
 - Use action "set_day_label" when user wants to give a custom title/label/name to a specific day (e.g. "1일차 이름을 '미식 투어'로 해줘", "Day 2 제목을 '자연 탐방'으로 설정해줘", "3일차 이름 바꿔줘, '쇼핑 데이'로", "set day 1 label to 'Food Tour'", "name day 3 'Beach Day'", "Day 2 타이틀을 '박물관 투어'로 해줘"); set day_number to the referenced day and query to the label text
 - Use action "quick_summary" when user wants a concise overview or summary of the current travel plan (e.g. "현재 일정 요약해줘", "일정 요약", "여행 계획 요약", "지금 계획 어때?", "summary of my trip", "what's my itinerary?", "계획 개요", "trip overview", "현재 일정 간단히 알려줘")
+- Use action "swap_places" when user wants to swap/exchange a specific place from one day with a specific place from another day (e.g. "1일차 첫 번째 장소와 2일차 두 번째 장소 바꿔줘", "Day 1 두 번째와 Day 3 첫 번째 장소 교환해줘", "swap day 1 place 1 with day 2 place 2", "1일차 센소지를 2일차 시부야와 바꿔줘"); set day_number to the first day, day_number_2 to the second day, place_index to the 1-based index of the place in the first day (default 1), and place_index_2 to the 1-based index of the place in the second day (default 1)
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -428,6 +431,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "quick_summary":
             async for event in self._handle_quick_summary(session):
+                yield _track_and_collect(event)
+        elif intent.action == "swap_places":
+            async for event in self._handle_swap_places(intent, session, db):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -3200,6 +3206,270 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": "장소를 이동하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
+
+    async def _handle_swap_places(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Swap a specific place in day A with a specific place in day B (bidirectional).
+
+        Uses day_number / place_index for the first day and
+        day_number_2 / place_index_2 for the second day.
+        Emits day_update for BOTH days.
+        """
+        day_a = intent.day_number
+        day_b = intent.day_number_2
+        idx_a = intent.place_index or 1   # default first place
+        idx_b = intent.place_index_2 or idx_a  # default same index
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": "장소 교환 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if not day_a or not day_b:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "교환할 두 날짜를 지정해주세요"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "교환할 두 날짜(예: '1일차 첫 번째 장소와 2일차 두 번째 장소 바꿔줘')를 알려주세요."},
+            }
+            return
+
+        if day_a == day_b:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": "같은 날짜입니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"Day {day_a}와 Day {day_b}는 동일한 날짜입니다."},
+            }
+            return
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    TravelPlan as TravelPlanModel,
+                )
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is None:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                    }
+                    return
+
+                days = (
+                    db.query(DayItineraryModel)
+                    .filter(DayItineraryModel.travel_plan_id == plan_id)
+                    .order_by(DayItineraryModel.date)
+                    .all()
+                )
+                total = len(days)
+
+                for day_num in (day_a, day_b):
+                    if day_num < 1 or day_num > total:
+                        yield {
+                            "type": "agent_status",
+                            "data": {"agent": "planner", "status": "error", "message": f"Day {day_num}이 범위를 벗어났습니다"},
+                        }
+                        yield {
+                            "type": "chat_chunk",
+                            "data": {"text": f"Day {day_num}은 이 계획에 없습니다 (총 {total}일)."},
+                        }
+                        return
+
+                day_obj_a = days[day_a - 1]
+                day_obj_b = days[day_b - 1]
+
+                places_a = sorted(day_obj_a.places, key=lambda x: x.order)
+                places_b = sorted(day_obj_b.places, key=lambda x: x.order)
+
+                actual_idx_a = len(places_a) + idx_a if idx_a < 0 else idx_a - 1
+                actual_idx_b = len(places_b) + idx_b if idx_b < 0 else idx_b - 1
+
+                if not (0 <= actual_idx_a < len(places_a)):
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_a}에 #{idx_a} 장소가 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_a}에 {idx_a}번째 장소가 없습니다 (총 {len(places_a)}개)."},
+                    }
+                    return
+
+                if not (0 <= actual_idx_b < len(places_b)):
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_b}에 #{idx_b} 장소가 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_b}에 {idx_b}번째 장소가 없습니다 (총 {len(places_b)}개)."},
+                    }
+                    return
+
+                place_a = places_a[actual_idx_a]
+                place_b = places_b[actual_idx_b]
+                name_a, name_b = place_a.name, place_b.name
+
+                # Swap day_itinerary_id between the two places
+                order_a, order_b = place_a.order, place_b.order
+                place_a.day_itinerary_id = day_obj_b.id
+                place_a.order = order_b
+                place_b.day_itinerary_id = day_obj_a.id
+                place_b.order = order_a
+
+                db.commit()
+                db.refresh(day_obj_a)
+                db.refresh(day_obj_b)
+
+                def _places_data(day_obj):
+                    return [
+                        {
+                            "name": p.name,
+                            "category": p.category,
+                            "address": p.address,
+                            "estimated_cost": p.estimated_cost,
+                            "ai_reason": p.ai_reason,
+                            "order": p.order,
+                        }
+                        for p in sorted(day_obj.places, key=lambda x: x.order)
+                    ]
+
+                yield {
+                    "type": "day_update",
+                    "data": {
+                        "day_number": day_a,
+                        "date": day_obj_a.date.isoformat(),
+                        "notes": day_obj_a.notes,
+                        "transport": day_obj_a.transport,
+                        "places": _places_data(day_obj_a),
+                    },
+                }
+                yield {
+                    "type": "day_update",
+                    "data": {
+                        "day_number": day_b,
+                        "date": day_obj_b.date.isoformat(),
+                        "notes": day_obj_b.notes,
+                        "transport": day_obj_b.transport,
+                        "places": _places_data(day_obj_b),
+                    },
+                }
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_a} ↔ Day {day_b} 장소 교환 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_a}의 '{name_a}'와 Day {day_b}의 '{name_b}'을 교환했습니다."},
+                }
+
+            except Exception as exc:
+                logger.error("_handle_swap_places: failed — %s: %s", type(exc).__name__, exc, exc_info=True)
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "error", "message": "장소 교환 실패"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"장소 교환 중 오류가 발생했습니다: {exc}"},
+                }
+        else:
+            # In-memory plan
+            last_plan = session.last_plan
+            if last_plan:
+                days = last_plan.get("days", [])
+                total = len(days)
+
+                for day_num in (day_a, day_b):
+                    if day_num < 1 or day_num > total:
+                        yield {
+                            "type": "agent_status",
+                            "data": {"agent": "planner", "status": "error", "message": f"Day {day_num}이 범위를 벗어났습니다"},
+                        }
+                        yield {
+                            "type": "chat_chunk",
+                            "data": {"text": f"Day {day_num}은 이 계획에 없습니다 (총 {total}일)."},
+                        }
+                        return
+
+                import copy
+                day_obj_a = days[day_a - 1]
+                day_obj_b = days[day_b - 1]
+                places_a = day_obj_a.get("places", [])
+                places_b = day_obj_b.get("places", [])
+
+                actual_idx_a = len(places_a) + idx_a if idx_a < 0 else idx_a - 1
+                actual_idx_b = len(places_b) + idx_b if idx_b < 0 else idx_b - 1
+
+                if not (0 <= actual_idx_a < len(places_a)):
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_a}에 #{idx_a} 장소가 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_a}에 {idx_a}번째 장소가 없습니다 (총 {len(places_a)}개)."},
+                    }
+                    return
+
+                if not (0 <= actual_idx_b < len(places_b)):
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_b}에 #{idx_b} 장소가 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"Day {day_b}에 {idx_b}번째 장소가 없습니다 (총 {len(places_b)}개)."},
+                    }
+                    return
+
+                # Swap in-place
+                place_a_copy = copy.deepcopy(places_a[actual_idx_a])
+                place_b_copy = copy.deepcopy(places_b[actual_idx_b])
+                name_a = place_a_copy.get("name", "장소A")
+                name_b = place_b_copy.get("name", "장소B")
+
+                places_a[actual_idx_a] = place_b_copy
+                places_b[actual_idx_b] = place_a_copy
+
+                yield {"type": "day_update", "data": {**day_obj_a, "day_number": day_a}}
+                yield {"type": "day_update", "data": {**day_obj_b, "day_number": day_b}}
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_a} ↔ Day {day_b} 장소 교환 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {day_a}의 '{name_a}'와 Day {day_b}의 '{name_b}'을 교환했습니다 (미저장 — 저장 후 영구 보관됩니다)."},
+                }
+                return
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": "장소 교환 완료"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "장소를 교환하려면 먼저 여행 계획을 만들거나 저장해주세요."},
             }
 
     async def _handle_get_weather(

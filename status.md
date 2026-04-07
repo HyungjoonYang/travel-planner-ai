@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-07T22:00:56Z (Monitor Run #140)
-Run count: 162
+Last run: 2026-04-07T23:00:00Z (Evolve Run #132)
+Run count: 163
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 107 (#106 E2E: quick_summary Playwright scenarios — 2 new Playwright scenarios: summary reply (destination/dates/budget) + no-plan fallback; 1611/1611 tests passing)
-Current focus: #107 Chat: swap_places intent
-Next planned: #108 Chat: find_alternatives intent
+Tasks completed: 108 (#107 Chat: swap_places intent — bidirectional place swap between days; day_update SSE for both days; 12 new tests; 1623/1623 tests passing)
+Current focus: #108 Chat: find_alternatives intent
+Next planned: #109 E2E: set_day_label + day label display Playwright scenarios
 
 ## LTES Snapshot
 
 - Latency: ~56000ms (monitor run)
 - Traffic: 29 commits (last 24h)
 - Errors: 0 test failures (1611 passed, 12 skipped), error_rate=0.0%
-- Saturation: 3 tasks ready (#107, #108, #109)
+- Saturation: 2 tasks ready (#108, #109)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #108 Chat: find_alternatives intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #132 — 2026-04-07T23:00:00Z
+- **Task**: #107 - Chat: `swap_places` intent — swap places between two days [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1623/1623 passed, 12 skipped; 12 new tests added (TestSwapPlacesHandler: happy path in-memory + DB, agent activation, session state update, chat_done sentinel, 4 error paths, DB integration with out-of-range)
+- **Files changed**: src/app/chat.py, tests/test_chat.py (+338/-2)
+- **Builder note**: Implemented swap_places intent. Added place_index_2 to Intent model for second day's place index. Handler supports in-memory and DB plans, emits day_update SSE for both days (day_a and day_b) on success. Error paths: missing days, out-of-range days, out-of-range place indices, same-day swap, no plan. DB: swaps day_itinerary_id for both places.
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #131 — 2026-04-07T22:00:00Z
 - **Task**: #106 - E2E: `quick_summary` Playwright scenarios [test]
