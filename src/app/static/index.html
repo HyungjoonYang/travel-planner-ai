@@ -135,11 +135,22 @@
   .budget-row { display: flex; justify-content: space-between; }
   .day-card { margin-bottom: .75rem; }
   .plan-search-section { margin-top: 1rem; }
-  /* ── Compact agent panel (all-idle collapsed row) ────────────────────────── */
+  /* ── Compact agent panel (always compact, shows active agents inline) ──── */
   #agent-panel-compact-row { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem;
     cursor: pointer; border-radius: 4px; color: var(--muted); font-size: .875rem; }
   #agent-panel-compact-row:hover { background: var(--bg); }
   #agent-panel-compact-row .compact-expand-hint { margin-left: auto; font-size: .8rem; }
+  .agent-compact-active { color: var(--primary, #2c2c2c); animation: pulse 2s infinite; }
+  /* ── Plan context card (progressive memory) ────────────────────────────── */
+  .plan-context-card { padding: .75rem; }
+  .ctx-field { padding: .4rem 0; font-size: .9rem; display: flex; align-items: center; gap: .4rem; }
+  .ctx-known { color: var(--primary, #2c2c2c); }
+  .ctx-unknown { color: var(--muted, #999); opacity: 0.5; }
+  .ctx-placeholder { font-style: italic; }
+  .ctx-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; padding-top: .5rem;
+    border-top: 1px solid var(--border); }
+  .ctx-tag { background: var(--bg, #f5f5f3); padding: .2rem .6rem; border-radius: 12px;
+    font-size: .8rem; color: var(--primary, #2c2c2c); }
   /* ── Mobile responsive: viewport ≤ 768px stacks chat above dashboard ─────── */
   @media (max-width: 768px) {
     .chat-layout { flex-direction: column; height: auto; overflow: visible; }
