@@ -3081,3 +3081,175 @@ test.describe("message timestamp E2E (Task #103)", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// quick_summary intent — E2E Playwright scenarios (Task #106 / Issue #169)
+// ---------------------------------------------------------------------------
+
+test.describe("quick_summary intent (Task #106)", () => {
+  /**
+   * Scenario A: User asks for a trip summary when a plan exists.
+   *
+   * SSE stream includes:
+   *   coordinator thinking → done
+   *   planner working → done ("요약 완료")
+   *   chat_chunk with destination, date range, and budget percentage
+   *
+   * Done criteria:
+   *   - Chat bubble contains the destination (도쿄)
+   *   - Chat bubble contains the date range (2026-05-01 ~ 2026-05-04)
+   *   - Chat bubble contains budget info (예산)
+   *   - planner agent reaches agent-done state
+   */
+  test("quick_summary: summary reply contains destination, dates, and budget", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "quick_summary 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "working",
+          message: "일정 요약 준비 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "done",
+          message: "요약 완료",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: {
+          text: "📋 **현재 여행 계획 요약**\n\n🗺️ 목적지: 도쿄\n📅 일정: 2026-05-01 ~ 2026-05-04 (4일)\n💰 예산: 68% 사용 (1,360,000원 / 2,000,000원)\n\n📍 일별 장소 수:\n  • Day 1: 3곳\n  • Day 2: 4곳\n  • Day 3: 2곳\n  • Day 4: 1곳",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "현재 일정 요약해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner agent must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/
+    );
+
+    // Chat bubble must contain destination
+    await expect(page.locator("#chat-messages")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+
+    // Chat bubble must contain date range
+    await expect(page.locator("#chat-messages")).toContainText("2026-05-01");
+    await expect(page.locator("#chat-messages")).toContainText("2026-05-04");
+
+    // Chat bubble must contain budget information
+    await expect(page.locator("#chat-messages")).toContainText("예산");
+    await expect(page.locator("#chat-messages")).toContainText("68%");
+  });
+
+  /**
+   * Scenario B: User asks for a trip summary when NO plan exists yet.
+   *
+   * SSE stream includes:
+   *   coordinator thinking → done
+   *   planner working → done ("요약할 계획 없음")
+   *   chat_chunk with fallback message
+   *
+   * Done criteria:
+   *   - Chat bubble contains the fallback text about no plan
+   *   - planner agent reaches agent-done state
+   *   - No crash / no empty bubble
+   */
+  test("quick_summary: fallback message when no plan exists", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "quick_summary 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "working",
+          message: "일정 요약 준비 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "done",
+          message: "요약할 계획 없음",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: {
+          text: "아직 만들어진 여행 계획이 없어요. 여행 계획을 먼저 만들어보세요! (예: '도쿄 3박4일 여행 계획 세워줘')",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "일정 요약해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state even when no plan exists
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Chat must show the fallback message — not empty
+    await expect(page.locator("#chat-messages")).toContainText(
+      "아직 만들어진 여행 계획이 없어요",
+      { timeout: 10_000 }
+    );
+
+    // Fallback must mention how to create a plan
+    await expect(page.locator("#chat-messages")).toContainText("여행 계획");
+  });
+});
