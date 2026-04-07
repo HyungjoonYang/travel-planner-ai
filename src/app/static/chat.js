@@ -48,6 +48,28 @@ function _appendBubbleText(bubble, text) {
   else if (bubble) bubble.textContent += text;
 }
 
+/** Show a typing indicator (animated dots) inside a bubble. */
+function _showTypingIndicator(bubble) {
+  if (!bubble) return;
+  let indicator = bubble.querySelector('.typing-indicator');
+  if (!indicator) {
+    indicator = document.createElement('span');
+    indicator.className = 'typing-indicator';
+    indicator.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+    const textEl = bubble.querySelector('.chat-text');
+    if (textEl) textEl.after(indicator);
+    else bubble.appendChild(indicator);
+  }
+  indicator.style.display = 'inline-flex';
+}
+
+/** Hide the typing indicator inside a bubble. */
+function _hideTypingIndicator(bubble) {
+  if (!bubble) return;
+  const indicator = bubble.querySelector('.typing-indicator');
+  if (indicator) indicator.remove();
+}
+
 /** Create a chat bubble div with a text span and a timestamp span.
  *  @param {string} role  'user' | 'ai'
  *  @param {string} text  Initial text content
@@ -219,6 +241,7 @@ async function sendChatMessage() {
 
   // Create empty AI bubble — text is appended by chat_chunk events
   currentStreamBubble = appendAiBubble('');
+  _showTypingIndicator(currentStreamBubble);
 
   await _sendMessageWithRetry(msg);
 
@@ -341,19 +364,24 @@ function handleSseEvent(event) {
       break;
     case 'chat_chunk':
       if (currentStreamBubble && event.data && event.data.text) {
+        _hideTypingIndicator(currentStreamBubble);
         _appendBubbleText(currentStreamBubble, event.data.text);
+        _showTypingIndicator(currentStreamBubble);
         const el = document.getElementById('chat-messages');
         if (el) el.scrollTop = el.scrollHeight;
       }
       break;
     case 'progress':
       if (currentStreamBubble && event.data && event.data.message) {
+        _hideTypingIndicator(currentStreamBubble);
         _appendBubbleText(currentStreamBubble, event.data.message + '\n');
+        _showTypingIndicator(currentStreamBubble);
         const el = document.getElementById('chat-messages');
         if (el) el.scrollTop = el.scrollHeight;
       }
       break;
     case 'chat_done':
+      _hideTypingIndicator(currentStreamBubble);
       currentStreamBubble = null;
       break;
     case 'confirm_plan':

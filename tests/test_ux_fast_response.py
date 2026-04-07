@@ -198,6 +198,9 @@ class TestProgressEvents:
         intent_resp.text = json.dumps({
             "action": "create_plan",
             "destination": "파리",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 1500000,
             "raw_message": "파리 여행",
         })
         mock_client.models.generate_content.return_value = intent_resp
@@ -224,6 +227,9 @@ class TestProgressEvents:
         intent_resp.text = json.dumps({
             "action": "create_plan",
             "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 1500000,
             "raw_message": "도쿄",
         })
         mock_client.models.generate_content.return_value = intent_resp

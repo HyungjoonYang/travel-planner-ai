@@ -160,7 +160,7 @@ class TestPromptSimplified:
 
     def test_prompt_still_includes_budget(self):
         prompt = self.svc._build_prompt("Paris", date(2026, 6, 1), date(2026, 6, 2), 1200.0, "art")
-        assert "1200" in prompt
+        assert "1,200" in prompt
 
     def test_prompt_still_includes_interests(self):
         prompt = self.svc._build_prompt("Tokyo", date(2026, 5, 1), date(2026, 5, 3), 500.0, "anime, ramen")

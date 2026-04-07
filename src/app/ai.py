@@ -50,14 +50,14 @@ Trip Details:
 - Start Date: {start_date}
 - End Date: {end_date}
 - Duration: {num_days} days
-- Budget: ${budget} USD total
+- Budget: {budget:,.0f}원 (KRW) total
 - Interests: {interests_str}
 
 Instructions:
 - Create exactly {num_days} days (one entry per day from {start_date} to {end_date})
 - For each day, recommend 3-5 specific real places (attractions, restaurants, cafes, etc.)
-- Include estimated costs per place in USD
-- Keep total_estimated_cost within the ${budget} budget
+- Include estimated costs per place in KRW (Korean Won)
+- Keep total_estimated_cost within the {budget:,.0f}원 budget
 - Provide a brief ai_reason why each place is recommended
 - Use realistic transport options (walking, subway, taxi, bus)
 - Each day's date field must be in YYYY-MM-DD format"""
@@ -163,7 +163,7 @@ Trip Details:
 - Start Date: {start_date}
 - End Date: {end_date}
 - Duration: {num_days} days
-- Budget: ${budget} USD total
+- Budget: {budget:,.0f}원 (KRW) total
 - Interests: {interests if interests else "sightseeing, food, culture"}
 
 Current Itinerary:
@@ -176,7 +176,7 @@ Instructions:
 - Apply the user's instruction to update the itinerary
 - Keep the same number of days ({num_days} days, {start_date} to {end_date})
 - Maintain each day's date field in YYYY-MM-DD format
-- Keep total_estimated_cost within the ${budget} budget
+- Keep total_estimated_cost within the {budget:,.0f}원 budget
 - Preserve unchanged days as-is; only modify days affected by the instruction
 - Each place must have name, category, address, estimated_cost, and ai_reason"""
 

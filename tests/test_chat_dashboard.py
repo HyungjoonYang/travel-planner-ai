@@ -158,18 +158,21 @@ class TestPlanUpdateEventShape:
         assert "total_estimated_cost" in data
         assert data["total_estimated_cost"] == 500.0
 
-    def test_plan_update_budget_defaults_when_intent_has_no_budget(self):
+    def test_plan_update_asks_for_missing_budget(self):
         mock_gemini = MagicMock()
         mock_gemini.generate_itinerary.return_value = _fake_itinerary()
         svc = _make_svc(gemini=mock_gemini)
         session = svc.create_session()
-        intent = Intent(action="create_plan", destination="도쿄", budget=None, raw_message="도쿄")
+        intent = Intent(action="create_plan", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", budget=None, raw_message="도쿄")
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "도쿄")
-        plan_data = next(e["data"] for e in events if e["type"] == "plan_update")
-        # Should always have a budget (default fallback)
-        assert "budget" in plan_data
-        assert plan_data["budget"] > 0
+        # Should ask for missing budget instead of defaulting
+        plan_events = [e for e in events if e["type"] == "plan_update"]
+        assert len(plan_events) == 0, "Should NOT create plan when budget is missing"
+        chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chunks) >= 1
+        text = " ".join(c["data"]["text"] for c in chunks)
+        assert "예산" in text
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +237,7 @@ class TestSearchResultsEventShape:
         kwargs[dest_key] = mock_svc_obj
         svc = _make_svc(**kwargs)
         session = svc.create_session()
-        intent = Intent(action=action, destination="도쿄", raw_message="도쿄")
+        intent = Intent(action=action, destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄")
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "도쿄")
         sr = [e for e in events if e["type"] == "search_results"]
@@ -300,7 +303,7 @@ class TestAgentStatusResultCount:
         mock_hotel.search_hotels.return_value = _fake_hotels()
         svc = _make_svc(hotel=mock_hotel)
         session = svc.create_session()
-        intent = Intent(action="search_hotels", destination="도쿄", raw_message="도쿄")
+        intent = Intent(action="search_hotels", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄")
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "도쿄")
         done = next(
@@ -317,7 +320,7 @@ class TestAgentStatusResultCount:
         mock_flight.search_flights.return_value = _fake_flights()
         svc = _make_svc(flight=mock_flight)
         session = svc.create_session()
-        intent = Intent(action="search_flights", destination="도쿄", raw_message="도쿄")
+        intent = Intent(action="search_flights", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="도쿄")
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "도쿄")
         done = next(
@@ -521,7 +524,7 @@ class TestHotelsDedicatedSection:
         mock_hotel.search_hotels.return_value = _fake_hotels()
         svc = _make_svc(hotel=mock_hotel)
         session = svc.create_session()
-        intent = Intent(action="search_hotels", destination="도쿄", raw_message="호텔 찾아줘")
+        intent = Intent(action="search_hotels", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="호텔 찾아줘")
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "호텔 찾아줘")
         sr = [e for e in events if e["type"] == "search_results" and e["data"]["type"] == "hotels"]
@@ -587,7 +590,7 @@ class TestFlightsDedicatedSection:
         mock_flight.search_flights.return_value = _fake_flights()
         svc = _make_svc(flight=mock_flight)
         session = svc.create_session()
-        intent = Intent(action="search_flights", destination="도쿄", raw_message="항공편 찾아줘")
+        intent = Intent(action="search_flights", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="항공편 찾아줘")
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "항공편 찾아줘")
         sr = [e for e in events if e["type"] == "search_results" and e["data"]["type"] == "flights"]
@@ -635,7 +638,7 @@ class TestFlightsDedicatedSection:
         mock_flight.search_flights.return_value = _fake_flights()
         svc = _make_svc(flight=mock_flight)
         session = svc.create_session()
-        intent = Intent(action="search_flights", destination="도쿄", raw_message="항공편")
+        intent = Intent(action="search_flights", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="항공편")
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "항공편")
         done = next(
@@ -652,7 +655,7 @@ class TestFlightsDedicatedSection:
         mock_hotel.search_hotels.return_value = _fake_hotels()
         svc = _make_svc(hotel=mock_hotel)
         session = svc.create_session()
-        intent = Intent(action="search_hotels", destination="도쿄", raw_message="호텔")
+        intent = Intent(action="search_hotels", destination="도쿄", start_date="2026-05-01", end_date="2026-05-03", raw_message="호텔")
         with patch.object(svc, "extract_intent", return_value=intent):
             events = _collect(svc, session.session_id, "호텔")
         done = next(

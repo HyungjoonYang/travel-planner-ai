@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 SESSION_TTL_SECONDS = 1800  # 30 minutes
 _MAX_HISTORY_TURNS = 10     # max conversation turns kept in message_history
 
-_DEFAULT_DEPARTURE = "Seoul"  # default origin for flight search
+_DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
@@ -419,8 +419,8 @@ Return a JSON object with these fields:
     # Intent handlers
     # ------------------------------------------------------------------
 
-    def _parse_dates(self, intent: Intent) -> tuple[date, date]:
-        """Parse start/end dates from intent, falling back to sensible defaults."""
+    def _parse_dates(self, intent: Intent) -> tuple[Optional[date], Optional[date]]:
+        """Parse start/end dates from intent. Returns (None, None) if not provided."""
         try:
             start = date.fromisoformat(intent.start_date) if intent.start_date else None
         except ValueError:
@@ -430,9 +430,8 @@ Return a JSON object with these fields:
         except ValueError:
             end = None
 
-        if start is None:
-            start = date.today() + timedelta(days=30)
-        if end is None:
+        # If start is given but end is not, default to 3-day trip
+        if start and not end:
             end = start + timedelta(days=3)
         return start, end
 
@@ -465,17 +464,30 @@ Return a JSON object with these fields:
         return {k: round(v, 2) for k, v in breakdown.items()}
 
     async def _handle_create_plan(self, intent: Intent) -> AsyncGenerator[dict, None]:
-        dest = intent.destination or "목적지"
-        budget = intent.budget or 2000.0
+        dest = intent.destination
+        budget = intent.budget
         interests = intent.interests or ""
         start, end = self._parse_dates(intent)
+
+        # If essential info is missing, ask the user instead of using defaults
+        missing = []
+        if not dest:
+            missing.append("목적지")
+        if not start:
+            missing.append("일정(날짜)")
+        if not budget:
+            missing.append("예산")
+        if missing:
+            ask = "여행 계획을 세우려면 " + ", ".join(missing) + "이(가) 필요해요. 알려주시겠어요?"
+            yield {"type": "chat_chunk", "data": {"text": ask}}
+            return
 
         interests_desc = f", 관심사: {interests}" if interests else ""
         yield {
             "type": "agent_reasoning",
             "data": {
                 "agent": "planner",
-                "reasoning": f"{dest} {(end - start).days + 1}일 여행 계획을 예산 ${budget:.0f} 기준으로 생성합니다{interests_desc}.",
+                "reasoning": f"{dest} {(end - start).days + 1}일 여행 계획을 예산 {budget:,.0f}원 기준으로 생성합니다{interests_desc}.",
             },
         }
 
@@ -517,7 +529,7 @@ Return a JSON object with these fields:
                 "data": {
                     "agent": "budget_analyst",
                     "status": "done",
-                    "message": f"총 ${result.total_estimated_cost:.0f} 예산 배분 완료",
+                    "message": f"총 {result.total_estimated_cost:,.0f}원 예산 배분 완료",
                     "result_count": len(breakdown) - 1,  # exclude "total"
                 },
             }
@@ -757,7 +769,7 @@ Return a JSON object with these fields:
             last_plan = session.last_plan
             if last_plan:
                 dest = last_plan.get("destination", intent.destination or "목적지")
-                budget = last_plan.get("budget", intent.budget or 2000.0)
+                budget = last_plan.get("budget", intent.budget or 0)
                 start_str = last_plan.get("start_date")
                 end_str = last_plan.get("end_date")
                 try:
@@ -769,7 +781,7 @@ Return a JSON object with these fields:
                 except ValueError:
                     end = None
                 if start is None:
-                    start = date.today() + timedelta(days=30)
+                    start = date.today()
                 if end is None:
                     end = start + timedelta(days=3)
                 current_days = last_plan.get("days", [])
@@ -782,7 +794,7 @@ Return a JSON object with these fields:
                 )
             else:
                 dest = intent.destination or "목적지"
-                budget = intent.budget or 2000.0
+                budget = intent.budget or 0
                 start, end = self._parse_dates(intent)
 
                 result = await asyncio.to_thread(
@@ -837,7 +849,7 @@ Return a JSON object with these fields:
             last_plan = session.last_plan
             if last_plan:
                 dest = last_plan.get("destination", intent.destination or "목적지")
-                budget = last_plan.get("budget", intent.budget or 2000.0)
+                budget = last_plan.get("budget", intent.budget or 0)
                 start_str = last_plan.get("start_date")
                 end_str = last_plan.get("end_date")
                 try:
@@ -849,7 +861,7 @@ Return a JSON object with these fields:
                 except ValueError:
                     end = None
                 if start is None:
-                    start = date.today() + timedelta(days=30)
+                    start = date.today()
                 if end is None:
                     end = start + timedelta(days=3)
                 current_days = last_plan.get("days", [])
@@ -863,7 +875,7 @@ Return a JSON object with these fields:
                 )
             else:
                 dest = intent.destination or "목적지"
-                budget = intent.budget or 2000.0
+                budget = intent.budget or 0
                 interests = intent.interests or ""
                 start, end = self._parse_dates(intent)
 
@@ -938,14 +950,14 @@ Return a JSON object with these fields:
                 dest = last_plan.get("destination", intent.destination or "여행 계획")
                 start_str = last_plan.get("start_date")
                 end_str = last_plan.get("end_date")
-                budget = last_plan.get("budget", intent.budget or 2000.0)
+                budget = last_plan.get("budget", intent.budget or 0)
                 interests = last_plan.get("interests", intent.interests or "")
             else:
                 dest = intent.destination or "여행 계획"
                 start, end = self._parse_dates(intent)
                 start_str = start.isoformat()
                 end_str = end.isoformat()
-                budget = intent.budget or 2000.0
+                budget = intent.budget or 0
                 interests = intent.interests or ""
 
             try:
@@ -3453,7 +3465,7 @@ Return a JSON object with these fields:
                 "destination": dest,
                 "start_date": known.get("start_date"),
                 "end_date": known.get("end_date"),
-                "budget": float(known.get("budget", "2000")),
+                "budget": float(known["budget"]),
                 "interests": intent.interests or "",
             }
             session.pending_plan = pending
