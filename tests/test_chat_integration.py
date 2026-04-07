@@ -70,19 +70,24 @@ def _make_gemini_mock_response(intent_dict: dict, conversation_response: str = "
     if intent_dict.get("action") == "general" and not conversation_response:
         conversation_response = f"네, 알겠습니다. {intent_dict.get('raw_message', '')}"
 
-    conversation_dict = {
-        "response": conversation_response,
+    # For streaming phase: text reply as stream chunks
+    stream_chunk = MagicMock()
+    stream_chunk.text = conversation_response
+
+    # For extraction phase: JSON fields
+    extract_dict = {
         "destination": intent_dict.get("destination"),
         "start_date": intent_dict.get("start_date"),
         "end_date": intent_dict.get("end_date"),
         "budget": intent_dict.get("budget"),
         "interests": intent_dict.get("interests"),
     }
-    conv_response = MagicMock()
-    conv_response.text = json.dumps(conversation_dict)
+    extract_response = MagicMock()
+    extract_response.text = json.dumps(extract_dict)
 
     mock_client = MagicMock()
-    mock_client.models.generate_content.side_effect = [intent_response, conv_response]
+    mock_client.models.generate_content.side_effect = [intent_response, extract_response]
+    mock_client.models.generate_content_stream.return_value = [stream_chunk]
     return mock_client
 
 
