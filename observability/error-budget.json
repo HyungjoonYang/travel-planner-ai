@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 157,
-    "successful_runs": 151,
+    "total_runs": 158,
+    "successful_runs": 152,
     "failed_runs": 1,
     "success_rate": 0.962,
     "budget_remaining": 0.95,
