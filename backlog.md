@@ -6,18 +6,17 @@
 
 ## In Progress
 
-_(없음)_
-
-## Ready
-
-### Phase 10: Chat + Multi-Agent Dashboard (continued)
-
 - [ ] #100 - E2E: `duplicate_day` Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #96
   - files: e2e/chat.spec.ts
   - done: 2+ Playwright scenarios (happy path: places duplicated to target, source unchanged; error: day not found); no existing tests broken
   - gh: #138
+  - ❌ QA fail (Run #125, 2026-04-07): e2e_integration — Playwright browser (chromium_headless_shell) not installed. Code is correct (+263 lines, 2 scenarios). Fix: run `npx playwright install` before QA step.
+
+## Ready
+
+### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
 - [ ] #101 - Chat: `move_place` intent — move a place from one day to another [feature]
   - ref: markdowns/feat-chat-dashboard.md
