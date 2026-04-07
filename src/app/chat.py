@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -189,7 +189,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -226,6 +226,7 @@ Return a JSON object with these fields:
 - Use action "set_day_label" when user wants to give a custom title/label/name to a specific day (e.g. "1일차 이름을 '미식 투어'로 해줘", "Day 2 제목을 '자연 탐방'으로 설정해줘", "3일차 이름 바꿔줘, '쇼핑 데이'로", "set day 1 label to 'Food Tour'", "name day 3 'Beach Day'", "Day 2 타이틀을 '박물관 투어'로 해줘"); set day_number to the referenced day and query to the label text
 - Use action "quick_summary" when user wants a concise overview or summary of the current travel plan (e.g. "현재 일정 요약해줘", "일정 요약", "여행 계획 요약", "지금 계획 어때?", "summary of my trip", "what's my itinerary?", "계획 개요", "trip overview", "현재 일정 간단히 알려줘")
 - Use action "swap_places" when user wants to swap/exchange a specific place from one day with a specific place from another day (e.g. "1일차 첫 번째 장소와 2일차 두 번째 장소 바꿔줘", "Day 1 두 번째와 Day 3 첫 번째 장소 교환해줘", "swap day 1 place 1 with day 2 place 2", "1일차 센소지를 2일차 시부야와 바꿔줘"); set day_number to the first day, day_number_2 to the second day, place_index to the 1-based index of the place in the first day (default 1), and place_index_2 to the 1-based index of the place in the second day (default 1)
+- Use action "find_alternatives" when user wants to find alternative/replacement places for a specific slot in their itinerary (e.g. "1일차 첫 번째 장소 대신 다른 곳 추천해줘", "Day 2 두 번째 장소 대체 장소 찾아줘", "센소지 대신 갈 곳 알려줘", "suggest alternatives for day 1 place 2", "1일차 두 번째 장소 바꿀 곳 추천", "대체 장소 찾아줘", "다른 곳 추천해줘"); set day_number to the referenced day (default 1), place_index to the 1-based position if mentioned, query to the place name to replace if mentioned, and place_category to the preferred category if mentioned
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -434,6 +435,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "swap_places":
             async for event in self._handle_swap_places(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "find_alternatives":
+            async for event in self._handle_find_alternatives(intent, session):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -3470,6 +3474,123 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": "장소를 교환하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
+
+    async def _handle_find_alternatives(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+    ) -> AsyncGenerator[dict, None]:
+        """Search for alternative replacement places for a specific itinerary slot.
+
+        Uses day_number + place_index (1-based) to identify the target slot and
+        optionally query (place name) / place_category to narrow the search.
+        Falls back to a helpful message when no destination is known.
+
+        Emits: place_scout working→done, search_results (type=alternatives), chat_chunk.
+        """
+        day_number = intent.day_number or 1
+        place_idx = intent.place_index  # 1-based, may be None
+        place_name_hint = intent.query or ""
+        category = intent.place_category or ""
+
+        # Resolve destination from intent or session plan
+        destination = intent.destination
+        if not destination and session.last_plan:
+            destination = session.last_plan.get("destination") or ""
+        destination = destination or ""
+
+        yield {
+            "type": "agent_status",
+            "data": {
+                "agent": "place_scout",
+                "status": "working",
+                "message": f"{destination or '목적지'} 대체 장소 검색 중...",
+            },
+        }
+        await asyncio.sleep(0)
+
+        # If no destination is known, we cannot search
+        if not destination:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "place_scout", "status": "done", "message": "목적지 정보 없음"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "대체 장소를 찾으려면 여행 계획을 먼저 만들거나 목적지를 알려주세요."},
+            }
+            return
+
+        # Determine the current place name from session plan for context
+        current_place = place_name_hint
+        if not current_place and session.last_plan:
+            days = session.last_plan.get("days", [])
+            day_idx = day_number - 1
+            if 0 <= day_idx < len(days):
+                places = days[day_idx].get("places", [])
+                if place_idx and 1 <= place_idx <= len(places):
+                    current_place = places[place_idx - 1].get("name", "")
+
+        # Build interests/query string for search
+        if current_place:
+            interests = f"{category} 대체 추천 (replacing {current_place})" if category else f"{current_place} 대체 장소 추천"
+        else:
+            interests = f"{category} 추천 장소" if category else "관광지 추천"
+
+        try:
+            result = await asyncio.to_thread(
+                self._web_search.search_places,
+                destination,
+                interests,
+                category,
+            )
+
+            place_count = len(result.places)
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "place_scout",
+                    "status": "done",
+                    "message": f"{place_count}개 대체 장소 찾음",
+                    "result_count": place_count,
+                },
+            }
+
+            results_data = result.model_dump()
+            results_data["for_place"] = current_place
+            results_data["day_number"] = day_number
+            results_data["place_index"] = place_idx
+
+            yield {
+                "type": "search_results",
+                "data": {"type": "alternatives", "results": results_data},
+            }
+
+            if current_place:
+                chat_text = (
+                    f"Day {day_number}의 '{current_place}' 대신 방문할 수 있는 "
+                    f"{destination} 장소 {place_count}개를 찾았습니다."
+                )
+            else:
+                chat_text = f"Day {day_number}에 추천할 {destination} 장소 {place_count}개를 찾았습니다."
+
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": chat_text},
+            }
+
+        except Exception as exc:
+            logger.error(
+                "_handle_find_alternatives: failed — %s: %s", type(exc).__name__, exc, exc_info=True
+            )
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "place_scout", "status": "error", "message": "대체 장소 검색 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"대체 장소 검색 중 오류가 발생했습니다: {exc}"},
             }
 
     async def _handle_get_weather(
