@@ -9031,3 +9031,251 @@ class TestSwapPlacesHandler:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# Task #108: find_alternatives intent handler
+# done_criteria: search_results SSE with alternatives; agent_status for place_scout;
+#                2+ tests (happy path, no-plan fallback)
+
+class TestFindAlternativesHandler:
+    """_handle_find_alternatives: search replacement places for a specific day slot."""
+
+    # ------------------------------------------------------------------
+    # Intent model acceptance
+    # ------------------------------------------------------------------
+
+    def test_find_alternatives_intent_accepted_by_model(self):
+        """Intent model must accept find_alternatives action."""
+        from app.chat import Intent
+        intent = Intent(
+            action="find_alternatives",
+            day_number=1,
+            place_index=2,
+            query="센소지",
+            place_category="sightseeing",
+            raw_message="1일차 두 번째 장소 대체 추천해줘",
+        )
+        assert intent.action == "find_alternatives"
+        assert intent.day_number == 1
+        assert intent.place_index == 2
+        assert intent.query == "센소지"
+        assert intent.place_category == "sightseeing"
+
+    # ------------------------------------------------------------------
+    # Happy path: session has a plan with matching place
+    # ------------------------------------------------------------------
+
+    def test_find_alternatives_happy_path_emits_search_results(self):
+        """find_alternatives with a plan emits place_scout working/done + search_results."""
+        from app.web_search import DestinationSearchResult, PlaceSearchResult
+
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {
+                    "day_number": 1,
+                    "date": "2026-05-01",
+                    "places": [
+                        {"name": "센소지", "category": "sightseeing"},
+                        {"name": "아키하바라", "category": "shopping"},
+                    ],
+                },
+            ],
+        }
+
+        mock_result = DestinationSearchResult(
+            destination="도쿄",
+            query="도쿄 아키하바라 대체 장소 추천",
+            places=[
+                PlaceSearchResult(name="시부야 스카이", category="sightseeing", description="전망대"),
+                PlaceSearchResult(name="오다이바", category="sightseeing", description="해변 공원"),
+                PlaceSearchResult(name="우에노 공원", category="park", description="공원"),
+            ],
+            summary="도쿄 주요 관광지",
+        )
+
+        with patch.object(svc._web_search, "search_places", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="find_alternatives",
+                 day_number=1,
+                 place_index=2,
+                 raw_message="1일차 두 번째 장소 대체 추천해줘",
+             )):
+            events = _collect_events(svc, session.session_id, "1일차 두 번째 장소 대체 추천해줘")
+
+        # place_scout must go working → done
+        agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "place_scout"]
+        statuses = [e["data"]["status"] for e in agent_events]
+        assert "working" in statuses
+        assert "done" in statuses
+
+        # done event must include result_count
+        done_event = next(e for e in agent_events if e["data"]["status"] == "done")
+        assert done_event["data"].get("result_count") == 3
+
+        # search_results event must be emitted with type=alternatives
+        search_events = [e for e in events if e["type"] == "search_results"]
+        assert len(search_events) == 1
+        sr = search_events[0]
+        assert sr["data"]["type"] == "alternatives"
+        assert len(sr["data"]["results"]["places"]) == 3
+
+        # results must carry context fields
+        results_data = sr["data"]["results"]
+        assert results_data["for_place"] == "아키하바라"
+        assert results_data["day_number"] == 1
+        assert results_data["place_index"] == 2
+
+        # chat_chunk must mention the day and the replaced place
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "Day 1" in combined or "1" in combined
+        assert "아키하바라" in combined
+
+        # must end with chat_done
+        assert events[-1]["type"] == "chat_done"
+
+    def test_find_alternatives_activates_place_scout_agent(self):
+        """find_alternatives must emit place_scout agent_status events."""
+        from app.web_search import DestinationSearchResult
+
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "days": [
+                {"day_number": 1, "date": "2026-06-01", "places": [
+                    {"name": "에펠탑", "category": "landmark"},
+                ]},
+            ],
+        }
+
+        mock_result = DestinationSearchResult(
+            destination="파리",
+            query="에펠탑 대체",
+            places=[{"name": "루브르 박물관", "category": "museum", "description": "세계적 박물관", "address": "", "tips": ""}],
+            summary="파리 명소",
+        )
+
+        with patch.object(svc._web_search, "search_places", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="find_alternatives",
+                 day_number=1,
+                 place_index=1,
+                 raw_message="에펠탑 대신 갈 곳 추천해줘",
+             )):
+            events = _collect_events(svc, session.session_id, "에펠탑 대신 갈 곳 추천해줘")
+
+        agent_events = [e for e in events if e["type"] == "agent_status"]
+        place_scout_events = [e for e in agent_events if e["data"]["agent"] == "place_scout"]
+        assert len(place_scout_events) >= 2
+
+    # ------------------------------------------------------------------
+    # No-plan fallback
+    # ------------------------------------------------------------------
+
+    def test_find_alternatives_no_plan_no_destination_emits_helpful_message(self):
+        """find_alternatives with no plan and no destination emits a helpful chat_chunk, no search call."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # No last_plan set
+
+        with patch.object(svc._web_search, "search_places") as mock_search, \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="find_alternatives",
+                 day_number=1,
+                 raw_message="대체 장소 찾아줘",
+             )):
+            events = _collect_events(svc, session.session_id, "대체 장소 찾아줘")
+
+        # search_places must NOT be called when there's no destination
+        mock_search.assert_not_called()
+
+        # No search_results event
+        search_events = [e for e in events if e["type"] == "search_results"]
+        assert len(search_events) == 0
+
+        # A chat_chunk with a helpful message must be present
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert len(combined) > 10  # non-empty helpful text
+
+        # place_scout done (not error) for a graceful fallback
+        agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "place_scout"]
+        statuses = [e["data"]["status"] for e in agent_events]
+        assert "error" not in statuses
+
+        assert events[-1]["type"] == "chat_done"
+
+    def test_find_alternatives_no_plan_but_destination_in_intent_searches(self):
+        """find_alternatives with no plan but destination in intent proceeds with search."""
+        from app.web_search import DestinationSearchResult
+
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # No last_plan, but intent carries destination
+
+        mock_result = DestinationSearchResult(
+            destination="오사카",
+            query="오사카 맛집 추천",
+            places=[
+                {"name": "도톤보리", "category": "food", "description": "유명 맛집 거리", "address": "", "tips": ""},
+                {"name": "구로몬 시장", "category": "food", "description": "신선한 식재료", "address": "", "tips": ""},
+            ],
+            summary="오사카 맛집",
+        )
+
+        with patch.object(svc._web_search, "search_places", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="find_alternatives",
+                 destination="오사카",
+                 day_number=2,
+                 place_category="food",
+                 raw_message="2일차 맛집 대체 추천해줘",
+             )):
+            events = _collect_events(svc, session.session_id, "2일차 맛집 대체 추천해줘")
+
+        search_events = [e for e in events if e["type"] == "search_results"]
+        assert len(search_events) == 1
+        assert search_events[0]["data"]["type"] == "alternatives"
+        assert len(search_events[0]["data"]["results"]["places"]) == 2
+
+        assert events[-1]["type"] == "chat_done"
+
+    def test_find_alternatives_chat_done_is_last_event(self):
+        """find_alternatives always ends with chat_done regardless of path."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="find_alternatives",
+            raw_message="대체 추천해줘",
+        )):
+            events = _collect_events(svc, session.session_id, "대체 추천해줘")
+
+        assert events[-1]["type"] == "chat_done"
+
+    def test_find_alternatives_search_error_emits_error_status(self):
+        """find_alternatives emits place_scout error on search failure."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [{"day_number": 1, "date": "2026-05-01", "places": [{"name": "센소지"}]}],
+        }
+
+        with patch.object(svc._web_search, "search_places", side_effect=RuntimeError("API timeout")), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="find_alternatives",
+                 day_number=1,
+                 place_index=1,
+                 raw_message="대체 장소 추천해줘",
+             )):
+            events = _collect_events(svc, session.session_id, "대체 장소 추천해줘")
+
+        agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "place_scout"]
+        assert any(e["data"]["status"] == "error" for e in agent_events)
+        assert events[-1]["type"] == "chat_done"

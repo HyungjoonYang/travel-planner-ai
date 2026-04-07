@@ -12,18 +12,43 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #108 - Chat: `find_alternatives` intent — suggest replacement places for a slot [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: search_results SSE with alternatives; agent_status for place_scout; 2+ tests (happy path, no-plan fallback)
-  - gh: #171
-
 - [ ] #109 - E2E: `set_day_label` + day label display Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #105
   - files: e2e/chat.spec.ts
   - done: 2+ Playwright assertions: label visible after day_update SSE; absent when label is null; no existing tests broken
   - gh: #172
+
+- [ ] #110 - E2E: `find_alternatives` Playwright scenarios [test]
+  - ref: markdowns/feat-chat-dashboard.md
+  - depends: #108
+  - files: e2e/chat.spec.ts
+  - done: 2+ Playwright scenarios — alternatives render in search_results panel; fallback when no plan exists; no existing tests broken
+  - gh: #178
+
+- [ ] #111 - Chat: `add_day` intent — extend trip by appending a new day [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: `add_day` in dispatcher + extraction prompt; `_handle_add_day()` extends plan end_date, generates new day via GeminiService, persists to DB, emits `day_update` + planner agent_status; 2+ tests (happy path, no-plan fallback)
+  - gh: #179
+
+- [ ] #112 - Chat: `remove_day` intent — remove a day from the trip [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: `remove_day` in dispatcher + extraction prompt; `_handle_remove_day()` deletes itinerary row, updates plan end_date, renumbers remaining days, emits `day_update` for shifted days + `plan_update`; 2+ tests (happy path, no-plan fallback, out-of-range)
+  - gh: #180
+
+- [ ] #113 - E2E: `place_preview` card display during `create_plan` [test]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: e2e/chat.spec.ts
+  - done: 2+ Playwright scenarios — `.place-card` elements appear in plan panel after `place_preview` SSE events; each card shows name + category; cards accumulate as events arrive
+  - gh: #181
+
+- [ ] #114 - Chat: `update_day_note` intent — overwrite or clear a day's note [feature]
+  - ref: markdowns/feat-chat-dashboard.md
+  - files: src/app/chat.py, tests/test_chat.py
+  - done: `update_day_note` in dispatcher + extraction prompt (distinct from `add_day_note` append); `_handle_update_day_note()` replaces or clears note in DB, emits `day_update`; 2+ tests (replace, clear, no-plan fallback)
+  - gh: #182
 
 ## Blocked
 
@@ -151,6 +176,7 @@ _(없음)_
 - [x] #105 - Frontend: day label badge on day cards [improvement] — 2026-04-07
 - [x] #106 - E2E: `quick_summary` Playwright scenarios [test] — 2026-04-07
 - [x] #107 - Chat: `swap_places` intent — swap places between two days [feature] — 2026-04-07
+- [x] #108 - Chat: `find_alternatives` intent — suggest replacement places for a slot [feature] — 2026-04-07
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -163,5 +189,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 108 done, 2 ready (0 in progress)
+- Total tasks: 109 done, 6 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

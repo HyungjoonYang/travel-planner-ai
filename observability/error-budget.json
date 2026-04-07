@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-07",
-    "total_runs": 163,
-    "successful_runs": 157,
+    "total_runs": 164,
+    "successful_runs": 158,
     "failed_runs": 1,
     "success_rate": 0.963,
     "budget_remaining": 0.95,
@@ -653,11 +653,11 @@
   ],
   "consecutive_qa_failures": 0,
   "history_tail": {
-    "run_id": "2026-04-07-2300",
-    "task": "#107 - Chat: swap_places intent — swap places between two days",
+    "run_id": "2026-04-07-2400",
+    "task": "#108 - Chat: find_alternatives intent — suggest replacement places for a slot",
     "result": "success",
-    "tests_passed": 1623,
-    "tests_total": 1623
+    "tests_passed": 1630,
+    "tests_total": 1630
   },
   "history_tail_prev2_prev": {
     "run_id": "2026-04-07-1600",
