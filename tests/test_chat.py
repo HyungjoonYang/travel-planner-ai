@@ -7583,3 +7583,256 @@ class TestClearDay:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# Task #96: duplicate_day intent handler
+# done_criteria: "2일차 일정을 4일차에도 넣어줘" → places duplicated to target day;
+#                day_update SSE; source day unchanged; error when day not found; 2+ tests
+
+class TestDuplicateDay:
+    """_handle_duplicate_day: copy places from source day to target day; source unchanged; emits day_update."""
+
+    def test_duplicate_day_intent_accepted_by_model(self):
+        """Intent model must accept duplicate_day as a valid action."""
+        intent = Intent(
+            action="duplicate_day",
+            day_number=2,
+            day_number_2=4,
+            raw_message="2일차 일정을 4일차에도 넣어줘",
+        )
+        assert intent.action == "duplicate_day"
+        assert intent.day_number == 2
+        assert intent.day_number_2 == 4
+
+    def test_duplicate_day_in_memory_emits_day_update_with_copied_places(self):
+        """duplicate_day copies source day's places to target and emits day_update for target."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [{"name": "센소지", "category": "sightseeing"}]},
+                {"day_number": 2, "date": "2026-05-02", "places": [{"name": "신주쿠", "category": "shopping"}, {"name": "시부야", "category": "shopping"}]},
+                {"day_number": 3, "date": "2026-05-03", "places": []},
+                {"day_number": 4, "date": "2026-05-04", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="duplicate_day", day_number=2, day_number_2=4, raw_message="2일차 일정을 4일차에도 넣어줘"
+        )):
+            events = _collect_events(svc, session.session_id, "2일차 일정을 4일차에도 넣어줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 1, "Exactly one day_update for target day"
+        upd = day_updates[0]["data"]
+        assert upd["day_number"] == 4
+        place_names = [p["name"] for p in upd["places"]]
+        assert "신주쿠" in place_names
+        assert "시부야" in place_names
+
+    def test_duplicate_day_source_day_unchanged_in_memory(self):
+        """duplicate_day must not alter the source day's places."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [{"name": "아사쿠사", "category": "sightseeing"}]},
+                {"day_number": 2, "date": "2026-05-02", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="duplicate_day", day_number=1, day_number_2=2, raw_message="1일차를 2일차에도 넣어줘"
+        )):
+            _collect_events(svc, session.session_id, "1일차를 2일차에도 넣어줘")
+
+        src_places = session.last_plan["days"][0]["places"]
+        assert len(src_places) == 1
+        assert src_places[0]["name"] == "아사쿠사"
+
+    def test_duplicate_day_out_of_range_emits_error_chunk(self):
+        """duplicate_day with out-of-range day emits error chat_chunk, no day_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": []},
+                {"day_number": 2, "date": "2026-05-02", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="duplicate_day", day_number=1, day_number_2=5, raw_message="1일차를 5일차에 복사해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차를 5일차에 복사해줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0, "No day_update for out-of-range target"
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        assert any("5" in e["data"]["text"] for e in chat_chunks)
+
+    def test_duplicate_day_no_plan_emits_chat_chunk(self):
+        """duplicate_day with no plan returns a helpful message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="duplicate_day", day_number=1, day_number_2=2, raw_message="1일차를 2일차에 복사해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차를 2일차에 복사해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        assert any("계획" in e["data"]["text"] for e in chat_chunks)
+
+    def test_duplicate_day_missing_day_numbers_emits_error(self):
+        """duplicate_day without source or target day emits instructional chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="duplicate_day", raw_message="일정 복사해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "일정 복사해줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        text = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "날짜" in text or "복사" in text
+
+    def test_duplicate_day_db_copies_places_and_emits_day_update(self):
+        """duplicate_day with saved plan copies Place rows in DB and emits day_update for target."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="도쿄",
+                start_date=date_type(2026, 5, 1),
+                end_date=date_type(2026, 5, 4),
+                budget=2000000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 2), notes="")
+            day3 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 3), notes="")
+            day4 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 4), notes="")
+            db.add_all([day1, day2, day3, day4])
+            db.commit()
+            db.refresh(day1)
+            db.refresh(day2)
+            db.refresh(day3)
+            db.refresh(day4)
+
+            # Source: day2 has 2 places
+            p1 = PlaceModel(day_itinerary_id=day2.id, name="신주쿠", category="shopping", estimated_cost=0.0, order=0)
+            p2 = PlaceModel(day_itinerary_id=day2.id, name="시부야", category="shopping", estimated_cost=0.0, order=1)
+            # Day1 should remain untouched
+            p3 = PlaceModel(day_itinerary_id=day1.id, name="센소지", category="sightseeing", estimated_cost=0.0, order=0)
+            db.add_all([p1, p2, p3])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="duplicate_day", day_number=2, day_number_2=4, raw_message="2일차 일정을 4일차에도 넣어줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "2일차 일정을 4일차에도 넣어줘", db)
+
+            # day4 must have copies of day2's places
+            db.expire_all()
+            places_in_day4 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day4.id).all()
+            names_in_day4 = {p.name for p in places_in_day4}
+            assert "신주쿠" in names_in_day4
+            assert "시부야" in names_in_day4
+
+            # Source day2 must be unchanged
+            places_in_day2 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day2.id).all()
+            assert len(places_in_day2) == 2
+
+            # Day1 untouched
+            places_in_day1 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day1.id).all()
+            assert len(places_in_day1) == 1
+
+            # day_update emitted for target day with copied places
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 1
+            assert day_updates[0]["data"]["day_number"] == 4
+            place_names = {p["name"] for p in day_updates[0]["data"]["places"]}
+            assert "신주쿠" in place_names
+            assert "시부야" in place_names
+
+            # Confirm chat_chunk
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            assert any("2" in e["data"]["text"] and "4" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_duplicate_day_db_out_of_range_emits_error(self):
+        """duplicate_day with out-of-range target day in DB path emits error chat_chunk, no day_update."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="파리",
+                start_date=date_type(2026, 6, 1),
+                end_date=date_type(2026, 6, 2),
+                budget=1500000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 2), notes="")
+            db.add_all([day1, day2])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="duplicate_day", day_number=1, day_number_2=5, raw_message="1일차를 5일차에 복사해줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "1일차를 5일차에 복사해줘", db)
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 0, "No day_update for out-of-range target"
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert len(chat_chunks) >= 1
+            assert any("5" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)

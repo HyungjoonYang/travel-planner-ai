@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #96 - Chat: `duplicate_day` intent — copy a day's itinerary to another day [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: "2일차 일정을 4일차에도 넣어줘" → places duplicated to target day; day_update SSE; source day unchanged; error when day not found; 2+ tests
-  - gh: #122
-
 - [ ] #100 - E2E: `duplicate_day` Playwright scenarios [test]
   - ref: markdowns/feat-chat-dashboard.md
   - depends: #96
@@ -167,6 +161,7 @@ _(없음)_
 - [x] #93 - E2E: `reorder_days` Playwright scenarios — happy path + out-of-range error [test] — 2026-04-06
 - [x] #94 - Chat: `clear_day` intent — remove all places from a day via chat [feature] — 2026-04-07
 - [x] #95 - Frontend: message timestamp display in chat bubbles [improvement] — 2026-04-07
+- [x] #96 - Chat: `duplicate_day` intent — copy a day's itinerary to another day [feature] — 2026-04-07
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -179,5 +174,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 99 done, 6 ready (0 in progress)
+- Total tasks: 100 done, 5 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)

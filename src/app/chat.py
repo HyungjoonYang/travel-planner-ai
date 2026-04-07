@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -188,7 +188,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -217,8 +217,9 @@ Return a JSON object with these fields:
 - place_category: category for the place to add (e.g. "sightseeing", "food", "cafe", "museum", "park", "landmark"); null if not specified
 - Use action "share_plan" when user wants to share or get a shareable link for the current or a specific travel plan (e.g. "이 계획 공유해줘", "공유 링크 만들어줘", "친구한테 공유하고 싶어", "share this plan", "get a shareable link", "링크 공유", "공유"); set plan_id if a specific plan is referenced
 - Use action "reorder_days" when user wants to swap or reorder two days in their itinerary (e.g. "1일차와 3일차 순서 바꿔줘", "Day 2랑 Day 4 교환해줘", "swap day 1 and day 3", "2일차와 4일차 바꿔줘"); set day_number to the first day and day_number_2 to the second day
-- day_number_2: second day number for reorder_days swap (e.g. "1일차와 3일차 바꿔줘" → day_number=1, day_number_2=3); null for all other actions
+- day_number_2: second day number for reorder_days swap or duplicate_day target (e.g. "1일차와 3일차 바꿔줘" → day_number=1, day_number_2=3; "2일차를 4일차에 복사" → day_number=2, day_number_2=4); null for all other actions
 - Use action "clear_day" when user wants to remove ALL places from a specific day (e.g. "3일차 일정 다 지워줘", "Day 2 일정 전부 삭제", "2일차 장소 모두 제거", "clear all places from day 3", "day 1 일정 비워줘"); set day_number to the referenced day
+- Use action "duplicate_day" when user wants to copy all places from one day to another day (e.g. "2일차 일정을 4일차에도 넣어줘", "1일차 복사해서 3일차에 붙여줘", "Day 2 일정을 Day 4로 복사", "copy day 1 to day 3", "2일차랑 똑같이 4일차도 만들어줘"); set day_number to the SOURCE day and day_number_2 to the TARGET day
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -412,6 +413,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "clear_day":
             async for event in self._handle_clear_day(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "duplicate_day":
+            async for event in self._handle_duplicate_day(intent, session, db):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -2729,6 +2733,199 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": "일정을 초기화하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
+
+    async def _handle_duplicate_day(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Copy all places from a source day to a target day.
+
+        Reads day_number (source) and day_number_2 (target) from intent. Copies
+        all Place rows from source day to target day in DB (if available) or
+        duplicates the places list in session.last_plan. Source day remains
+        unchanged. Emits day_update for the target day and a confirming
+        chat_chunk. Returns an error chat_chunk when day numbers are missing or
+        out of range.
+        """
+        src = intent.day_number
+        tgt = intent.day_number_2
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": "일정 복사 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if not src or not tgt:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "복사할 원본 날짜와 대상 날짜를 지정해주세요"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "복사할 날짜(예: '2일차를 4일차에')를 알려주세요."},
+            }
+            return
+
+        if src == tgt:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": "같은 날짜입니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"Day {src}와 Day {tgt}는 동일한 날짜입니다."},
+            }
+            return
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    Place as PlaceModel,
+                    TravelPlan as TravelPlanModel,
+                )
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is None:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                    }
+                    return
+
+                days = (
+                    db.query(DayItineraryModel)
+                    .filter(DayItineraryModel.travel_plan_id == plan_id)
+                    .order_by(DayItineraryModel.date)
+                    .all()
+                )
+
+                total = len(days)
+                for day_num in (src, tgt):
+                    if day_num < 1 or day_num > total:
+                        yield {
+                            "type": "agent_status",
+                            "data": {"agent": "planner", "status": "error", "message": f"Day {day_num}이 범위를 벗어났습니다"},
+                        }
+                        yield {
+                            "type": "chat_chunk",
+                            "data": {"text": f"Day {day_num}은 이 계획에 없습니다 (총 {total}일)."},
+                        }
+                        return
+
+                day_obj_src = days[src - 1]
+                day_obj_tgt = days[tgt - 1]
+
+                # Delete existing places in target day
+                db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day_obj_tgt.id).delete()
+
+                # Copy places from source to target
+                for p in sorted(day_obj_src.places, key=lambda x: x.order):
+                    db.add(PlaceModel(
+                        day_itinerary_id=day_obj_tgt.id,
+                        name=p.name,
+                        category=p.category,
+                        address=p.address,
+                        estimated_cost=p.estimated_cost,
+                        ai_reason=p.ai_reason,
+                        order=p.order,
+                    ))
+
+                db.commit()
+                db.refresh(day_obj_tgt)
+
+                yield {
+                    "type": "day_update",
+                    "data": {
+                        "day_number": tgt,
+                        "date": day_obj_tgt.date.isoformat(),
+                        "notes": day_obj_tgt.notes,
+                        "transport": day_obj_tgt.transport,
+                        "places": [
+                            {
+                                "name": p.name,
+                                "category": p.category,
+                                "address": p.address,
+                                "estimated_cost": p.estimated_cost,
+                                "ai_reason": p.ai_reason,
+                                "order": p.order,
+                            }
+                            for p in sorted(day_obj_tgt.places, key=lambda x: x.order)
+                        ],
+                    },
+                }
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {src} → Day {tgt} 복사 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {src}의 일정을 Day {tgt}에 복사했습니다."},
+                }
+
+            except Exception as exc:
+                logger.error("_handle_duplicate_day: failed — %s: %s", type(exc).__name__, exc, exc_info=True)
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "error", "message": "일정 복사 실패"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"일정 복사 중 오류가 발생했습니다: {exc}"},
+                }
+        else:
+            # In-memory plan duplicate
+            last_plan = session.last_plan
+            if last_plan:
+                days = last_plan.get("days", [])
+                total = len(days)
+                for day_num in (src, tgt):
+                    if day_num < 1 or day_num > total:
+                        yield {
+                            "type": "agent_status",
+                            "data": {"agent": "planner", "status": "error", "message": f"Day {day_num}이 범위를 벗어났습니다"},
+                        }
+                        yield {
+                            "type": "chat_chunk",
+                            "data": {"text": f"Day {day_num}은 이 계획에 없습니다 (총 {total}일)."},
+                        }
+                        return
+
+                import copy
+                day_obj_src = days[src - 1]
+                day_obj_tgt = days[tgt - 1]
+
+                # Copy places from source (deep copy) to target
+                day_obj_tgt["places"] = copy.deepcopy(day_obj_src.get("places", []))
+
+                yield {"type": "day_update", "data": {**day_obj_tgt, "day_number": tgt}}
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {src} → Day {tgt} 복사 완료!"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"Day {src}의 일정을 Day {tgt}에 복사했습니다 (미저장 — 저장 후 영구 보관됩니다)."},
+                }
+                return
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": "일정 복사 완료"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "일정을 복사하려면 먼저 여행 계획을 만들거나 저장해주세요."},
             }
 
     async def _handle_get_weather(
