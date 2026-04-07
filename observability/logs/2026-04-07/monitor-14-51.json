@@ -1,0 +1,24 @@
+{
+  "run_id": "monitor-2026-04-07-1451",
+  "timestamp": "2026-04-07T14:51:32Z",
+  "type": "monitor",
+  "health": "GREEN",
+  "ltes": {
+    "latency_ms": 45110,
+    "traffic_commits_24h": 28,
+    "error_rate_pct": 0.0,
+    "saturation_tasks_remaining": 5
+  },
+  "tests": {
+    "total": 1588,
+    "passed": 1576,
+    "failed": 0,
+    "skipped": 12,
+    "pass_rate": 0.9924
+  },
+  "error_budget": {
+    "status": "HEALTHY",
+    "budget_remaining": 0.95,
+    "consecutive_qa_failures": 0
+  }
+}
