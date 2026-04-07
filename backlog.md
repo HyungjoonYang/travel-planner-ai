@@ -12,13 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #100 - E2E: `duplicate_day` Playwright scenarios [test]
-  - ref: markdowns/feat-chat-dashboard.md
-  - depends: #96
-  - files: e2e/chat.spec.ts
-  - done: 2+ Playwright scenarios (happy path: places duplicated to target, source unchanged; error: day not found); no existing tests broken
-  - gh: #138
-
 - [ ] #101 - Chat: `move_place` intent — move a place from one day to another [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, tests/test_chat.py
@@ -162,6 +155,7 @@ _(없음)_
 - [x] #94 - Chat: `clear_day` intent — remove all places from a day via chat [feature] — 2026-04-07
 - [x] #95 - Frontend: message timestamp display in chat bubbles [improvement] — 2026-04-07
 - [x] #96 - Chat: `duplicate_day` intent — copy a day's itinerary to another day [feature] — 2026-04-07
+- [x] #100 - E2E: `duplicate_day` Playwright scenarios [test] — 2026-04-07
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -174,5 +168,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 100 done, 5 ready (0 in progress)
+- Total tasks: 101 done, 4 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
