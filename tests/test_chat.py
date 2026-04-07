@@ -3934,8 +3934,8 @@ class TestRefinePlan:
             _collect_events(svc, session.session_id, "맛집 위주로 바꿔줘")
 
         call_args = mock_gemini.refine_itinerary.call_args[0]
-        # instruction is the last positional arg
-        assert "맛집 위주로 바꿔줘" in call_args[-1]
+        # instruction is the second-to-last positional arg (last is user_language)
+        assert "맛집 위주로 바꿔줘" in call_args[-2]
 
     # --- fallback to generate when no last_plan ---
 

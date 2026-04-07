@@ -41,6 +41,7 @@ class GeminiService:
         end_date: date,
         budget: float,
         interests: str,
+        user_language: str = "Korean",
     ) -> str:
         num_days = (end_date - start_date).days + 1
         interests_str = interests if interests else "sightseeing, food, culture"
@@ -62,7 +63,7 @@ Instructions:
 - Provide a brief ai_reason why each place is recommended
 - Use realistic transport options (walking, subway, taxi, bus)
 - Each day's date field must be in YYYY-MM-DD format
-- IMPORTANT: Write ALL text content in Korean (한국어). This includes: notes, ai_reason, category names, and place descriptions. Place names should use their commonly known Korean names (e.g. "오호리 공원" not "Ohori Park", "후쿠오카 성" not "Fukuoka Castle Ruins")"""
+- IMPORTANT: Write ALL text content in {user_language}. This includes: notes, ai_reason, category names, and place descriptions. Use place names commonly known in {user_language}."""
 
     def generate_itinerary(
         self,
@@ -71,12 +72,13 @@ Instructions:
         end_date: date,
         budget: float,
         interests: str = "",
+        user_language: str = "Korean",
     ) -> AIItineraryResult:
         if not self._api_key:
             raise ValueError("GEMINI_API_KEY is not configured")
 
         client = genai.Client(api_key=self._api_key)
-        prompt = self._build_prompt(destination, start_date, end_date, budget, interests)
+        prompt = self._build_prompt(destination, start_date, end_date, budget, interests, user_language=user_language)
 
         with LLMTimer() as timer:
             response = client.models.generate_content(
@@ -206,6 +208,7 @@ Be specific, friendly, and concise. Respond in the same language the traveler us
         interests: str,
         current_days: list[dict],
         instruction: str,
+        user_language: str = "Korean",
     ) -> AIItineraryResult:
         if not self._api_key:
             raise ValueError("GEMINI_API_KEY is not configured")
@@ -238,7 +241,7 @@ Instructions:
 - Keep total_estimated_cost within the {budget:,.0f}원 budget
 - Preserve unchanged days as-is; only modify days affected by the instruction
 - Each place must have name, category, address, estimated_cost, and ai_reason
-- IMPORTANT: Write ALL text content in Korean (한국어). This includes: notes, ai_reason, category names, and place descriptions. Place names should use their commonly known Korean names."""
+- IMPORTANT: Write ALL text content in {user_language}. This includes: notes, ai_reason, category names, and place descriptions. Use place names commonly known in {user_language}."""
 
         client = genai.Client(api_key=self._api_key)
         with LLMTimer() as timer:
