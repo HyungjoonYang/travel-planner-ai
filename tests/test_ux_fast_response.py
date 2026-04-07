@@ -30,15 +30,21 @@ def _collect_events(service: ChatService, session_id: str, message: str) -> list
 
 
 def _make_gemini_mock(intent_dict: dict, conversation_text: str = "안녕하세요!") -> MagicMock:
-    """Create a mock Gemini client that returns intent on first call, conversation on second."""
+    """Create a mock Gemini client that returns intent on first call, streams conversation, then extracts fields."""
     intent_resp = MagicMock()
     intent_resp.text = json.dumps(intent_dict)
 
-    conv_resp = MagicMock()
-    conv_resp.text = json.dumps({"response": conversation_text}) if isinstance(conversation_text, str) else conversation_text
+    # Phase 2 extraction response (no travel fields by default)
+    extract_resp = MagicMock()
+    extract_resp.text = json.dumps({"destination": None, "start_date": None, "end_date": None, "budget": None, "interests": None})
+
+    # Streaming chunk for conversational reply
+    stream_chunk = MagicMock()
+    stream_chunk.text = conversation_text
 
     mock_client = MagicMock()
-    mock_client.models.generate_content.side_effect = [intent_resp, conv_resp]
+    mock_client.models.generate_content.side_effect = [intent_resp, extract_resp]
+    mock_client.models.generate_content_stream.return_value = [stream_chunk]
     return mock_client
 
 
@@ -281,28 +287,31 @@ class TestThinkingConfig:
         assert level_str.upper() == "MINIMAL"
 
     def test_general_conversation_uses_low_thinking(self):
-        """_general_with_gemini should use thinking_level='low' for fast conversation."""
+        """_general_with_gemini should use thinking_level='low' for streaming conversation."""
         intent_resp = MagicMock()
         intent_resp.text = json.dumps({"action": "general", "raw_message": "안녕"})
 
-        conv_resp = MagicMock()
-        conv_resp.text = json.dumps({"response": "안녕하세요!"})
+        stream_chunk = MagicMock()
+        stream_chunk.text = "안녕하세요!"
+
+        extract_resp = MagicMock()
+        extract_resp.text = json.dumps({"destination": None, "start_date": None, "end_date": None, "budget": None, "interests": None})
 
         mock_client = MagicMock()
-        mock_client.models.generate_content.side_effect = [intent_resp, conv_resp]
+        mock_client.models.generate_content.side_effect = [intent_resp, extract_resp]
+        mock_client.models.generate_content_stream.return_value = [stream_chunk]
 
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key")
             session = svc.create_session()
             _collect_events(svc, session.session_id, "안녕")
 
-        # Second call is the conversation call
-        calls = mock_client.models.generate_content.call_args_list
-        assert len(calls) >= 2, "Should have at least 2 Gemini calls (intent + conversation)"
-        conv_call = calls[1]
-        # _general_with_gemini uses asyncio.to_thread, so check positional or keyword args
-        config = conv_call.kwargs.get("config") or (conv_call[1].get("config") if len(conv_call) > 1 else None)
-        assert config is not None, "conversation call must have config"
+        # The streaming call should use thinking_level='low'
+        stream_calls = mock_client.models.generate_content_stream.call_args_list
+        assert len(stream_calls) >= 1, "Should have at least 1 streaming call for conversation"
+        stream_call = stream_calls[0]
+        config = stream_call.kwargs.get("config") or (stream_call[1].get("config") if len(stream_call) > 1 else None)
+        assert config is not None, "streaming conversation call must have config"
         assert hasattr(config, "thinking_config"), "config must have thinking_config"
         level = config.thinking_config.thinking_level
         level_str = level.value if hasattr(level, "value") else str(level)

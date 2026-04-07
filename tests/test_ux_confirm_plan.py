@@ -44,16 +44,22 @@ def _make_itinerary_result() -> AIItineraryResult:
     )
 
 
-def _make_gemini_general_response_with_all_fields() -> dict:
-    """Gemini response where all travel fields are extracted."""
+def _make_gemini_extract_response_with_all_fields() -> dict:
+    """Gemini extraction JSON response where all travel fields are extracted."""
     return {
-        "response": "도쿄 5월 여행, 200만원 예산이시군요!",
         "destination": "도쿄",
         "start_date": "2026-05-01",
         "end_date": "2026-05-03",
         "budget": 2000000,
         "interests": "음식, 문화",
     }
+
+
+def _make_stream_chunk(text: str) -> MagicMock:
+    """Create a mock stream chunk with .text attribute."""
+    chunk = MagicMock()
+    chunk.text = text
+    return chunk
 
 
 # ---------------------------------------------------------------------------
@@ -70,11 +76,14 @@ class TestGeneralGeminiConfirmPlan:
         intent_resp = MagicMock()
         intent_resp.text = json.dumps({"action": "general", "raw_message": "도쿄 5월 3일간 200만원"})
 
-        conv_resp = MagicMock()
-        conv_resp.text = json.dumps(_make_gemini_general_response_with_all_fields())
+        extract_resp = MagicMock()
+        extract_resp.text = json.dumps(_make_gemini_extract_response_with_all_fields())
 
         mock_client = MagicMock()
-        mock_client.models.generate_content.side_effect = [intent_resp, conv_resp]
+        mock_client.models.generate_content.side_effect = [intent_resp, extract_resp]
+        mock_client.models.generate_content_stream.return_value = [
+            _make_stream_chunk("도쿄 5월 여행, 200만원 예산이시군요!")
+        ]
 
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key")
@@ -92,11 +101,14 @@ class TestGeneralGeminiConfirmPlan:
         intent_resp = MagicMock()
         intent_resp.text = json.dumps({"action": "general", "raw_message": "도쿄"})
 
-        conv_resp = MagicMock()
-        conv_resp.text = json.dumps(_make_gemini_general_response_with_all_fields())
+        extract_resp = MagicMock()
+        extract_resp.text = json.dumps(_make_gemini_extract_response_with_all_fields())
 
         mock_client = MagicMock()
-        mock_client.models.generate_content.side_effect = [intent_resp, conv_resp]
+        mock_client.models.generate_content.side_effect = [intent_resp, extract_resp]
+        mock_client.models.generate_content_stream.return_value = [
+            _make_stream_chunk("도쿄 5월 여행, 200만원 예산이시군요!")
+        ]
 
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key")
@@ -116,9 +128,8 @@ class TestGeneralGeminiConfirmPlan:
         intent_resp = MagicMock()
         intent_resp.text = json.dumps({"action": "general", "raw_message": "도쿄 가고 싶어"})
 
-        conv_resp = MagicMock()
-        conv_resp.text = json.dumps({
-            "response": "도쿄 여행이요! 언제쯤 가실 예정인가요?",
+        extract_resp = MagicMock()
+        extract_resp.text = json.dumps({
             "destination": "도쿄",
             "start_date": None,
             "end_date": None,
@@ -127,7 +138,10 @@ class TestGeneralGeminiConfirmPlan:
         })
 
         mock_client = MagicMock()
-        mock_client.models.generate_content.side_effect = [intent_resp, conv_resp]
+        mock_client.models.generate_content.side_effect = [intent_resp, extract_resp]
+        mock_client.models.generate_content_stream.return_value = [
+            _make_stream_chunk("도쿄 여행이요! 언제쯤 가실 예정인가요?")
+        ]
 
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key")
@@ -189,11 +203,14 @@ class TestPendingPlanSession:
         intent_resp = MagicMock()
         intent_resp.text = json.dumps({"action": "general", "raw_message": "여행"})
 
-        conv_resp = MagicMock()
-        conv_resp.text = json.dumps(_make_gemini_general_response_with_all_fields())
+        extract_resp = MagicMock()
+        extract_resp.text = json.dumps(_make_gemini_extract_response_with_all_fields())
 
         mock_client = MagicMock()
-        mock_client.models.generate_content.side_effect = [intent_resp, conv_resp]
+        mock_client.models.generate_content.side_effect = [intent_resp, extract_resp]
+        mock_client.models.generate_content_stream.return_value = [
+            _make_stream_chunk("도쿄 5월 여행, 200만원 예산이시군요!")
+        ]
 
         with patch("app.chat.genai.Client", return_value=mock_client):
             svc = ChatService(api_key="fake-key")

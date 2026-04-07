@@ -3306,8 +3306,8 @@ Return a JSON object with these fields:
         history = list(session.message_history)
 
         try:
-            suggestions = await asyncio.to_thread(
-                self._gemini.suggest_improvements,
+            stream = await asyncio.to_thread(
+                self._gemini.suggest_improvements_stream,
                 current_plan,
                 history,
             )
@@ -3328,14 +3328,19 @@ Return a JSON object with these fields:
                     "message": "예산 분석 완료",
                 },
             }
+
+            # Stream suggestion text chunk by chunk
+            full_text = ""
+            for chunk in stream:
+                if chunk.text:
+                    full_text += chunk.text
+                    yield {"type": "chat_chunk", "data": {"text": chunk.text}}
+
+            suggestions = full_text or "개선 제안을 생성하지 못했습니다."
             parsed = self._parse_suggestions(suggestions)
             yield {
                 "type": "plan_suggestions",
                 "data": {"suggestions": parsed, "raw": suggestions},
-            }
-            yield {
-                "type": "chat_chunk",
-                "data": {"text": suggestions},
             }
 
         except Exception as exc:
@@ -3383,7 +3388,7 @@ Return a JSON object with these fields:
         intent: Intent,
         session: "ChatSession",
     ) -> AsyncGenerator[dict, None]:
-        """Gemini-powered general conversation handler."""
+        """Gemini-powered general conversation handler with streaming."""
         history_lines = []
         for entry in session.message_history[-(_MAX_HISTORY_TURNS * 2):]:
             role = entry.get("role", "user").capitalize()
@@ -3394,7 +3399,8 @@ Return a JSON object with these fields:
         today_str = date.today().isoformat()
         current_year = date.today().year
 
-        prompt = (
+        # Phase 1: Stream the conversational reply (plain text, no JSON)
+        chat_prompt = (
             "You are a friendly, knowledgeable travel planning assistant called Travel Planner AI.\n"
             "Your job is to help users plan trips through natural conversation.\n"
             f"Today's date is {today_str}. The current year is {current_year}.\n"
@@ -3407,34 +3413,55 @@ Return a JSON object with these fields:
             "2. If the user mentions travel-related info (destination, dates, budget, interests), acknowledge it.\n"
             "3. If key info is still missing, ask ONE follow-up question (don't ask for everything at once).\n"
             "4. If the user is just chatting or greeting, be warm and gently steer toward travel planning.\n"
-            "5. Extract any travel details mentioned so far in the conversation.\n\n"
-            "Return a JSON object with exactly these fields:\n"
-            '{"response": "your conversational reply here",'
-            ' "destination": "city/country or null",'
-            ' "start_date": "YYYY-MM-DD or null",'
-            ' "end_date": "YYYY-MM-DD or null",'
-            ' "budget": number_or_null,'
-            ' "interests": "comma-separated or null"}'
+            "5. Keep your response concise and conversational.\n"
         )
 
         try:
             client = genai.Client(api_key=self._api_key)
-            response = await asyncio.to_thread(
-                client.models.generate_content,
+
+            # Stream text chunks to the client in real-time
+            full_reply = ""
+            stream = await asyncio.to_thread(
+                client.models.generate_content_stream,
                 model="gemini-3-flash-preview",
-                contents=prompt,
+                contents=chat_prompt,
                 config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
                     thinking_config=types.ThinkingConfig(thinking_level="low"),
                 ),
             )
-            result = json.loads(response.text)
-            reply = result.get("response", "")
+            for chunk in stream:
+                if chunk.text:
+                    full_reply += chunk.text
+                    yield {"type": "chat_chunk", "data": {"text": chunk.text}}
 
-            if reply:
-                yield {"type": "chat_chunk", "data": {"text": reply}}
+            if not full_reply.strip():
+                yield {"type": "chat_chunk", "data": {"text": "죄송합니다, 응답을 생성하지 못했어요."}}
+                return
 
-            # Check if all key fields are available → emit confirm_plan for user confirmation
+            # Phase 2: Extract travel fields from conversation (lightweight JSON call)
+            extract_prompt = (
+                f"Today's date is {today_str}. Current year is {current_year}.\n"
+                "The user is based in South Korea. Budget values are in KRW.\n"
+                "From the conversation below, extract any travel planning details mentioned so far.\n\n"
+                f"Conversation history:\n{history_str}\n\n"
+                f"User's latest message: \"{intent.raw_message}\"\n"
+                f"Assistant's reply: \"{full_reply[:500]}\"\n\n"
+                "Return a JSON object:\n"
+                '{"destination": "city or null", "start_date": "YYYY-MM-DD or null",'
+                ' "end_date": "YYYY-MM-DD or null", "budget": number_or_null,'
+                ' "interests": "comma-separated or null"}'
+            )
+            extract_resp = await asyncio.to_thread(
+                client.models.generate_content,
+                model="gemini-3-flash-preview",
+                contents=extract_prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+                ),
+            )
+            result = json.loads(extract_resp.text)
+
             dest = result.get("destination")
             start = result.get("start_date")
             end = result.get("end_date")
