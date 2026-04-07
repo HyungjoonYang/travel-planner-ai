@@ -2387,130 +2387,6 @@ test.describe("reorder_days E2E (Task #93)", () => {
       "도톤보리 거리"
     );
   });
-
-  /**
-   * Scenario: Chat bubbles show a relative timestamp.
-   * After sending a message the user bubble must have a .chat-timestamp span
-   * containing "방금" (since it was just created).
-   * The AI bubble (streamed via chat_chunk) must also show a timestamp.
-   * After SSE reconnect (restoreSessionState), restored bubbles keep timestamps.
-   */
-  test("chat bubbles display relative timestamps", async ({ page }) => {
-    await mockChatSession(page, [
-      { type: "chat_chunk", data: { text: "안녕하세요!" } },
-      { type: "chat_done", data: {} },
-    ]);
-
-    await goToChat(page);
-
-    // Send a message
-    await page.fill("#chat-input", "안녕");
-    await page.click('button:has-text("전송")');
-
-    // Wait for AI reply to complete
-    await expect(page.locator(".chat-bubble.chat-ai .chat-text")).toContainText(
-      "안녕하세요!",
-      { timeout: 10_000 }
-    );
-
-    // User bubble must show a timestamp
-    const userBubble = page.locator(".chat-bubble.chat-user").last();
-    await expect(userBubble.locator(".chat-timestamp")).toBeVisible();
-    await expect(userBubble.locator(".chat-timestamp")).toContainText("방금");
-
-    // AI bubble must also show a timestamp
-    const aiBubble = page.locator(".chat-bubble.chat-ai").last();
-    await expect(aiBubble.locator(".chat-timestamp")).toBeVisible();
-    await expect(aiBubble.locator(".chat-timestamp")).toContainText("방금");
-  });
-
-  /**
-   * Scenario: Restored message bubbles (after SSE reconnect) carry timestamps.
-   * The GET /chat/sessions/{id} response now includes created_at on each message.
-   *
-   * Note: This test is placed inside the reorder_days describe block for historical
-   * reasons (it was added alongside Task #93), but it covers a general timestamp feature.
-   */
-  test("restored bubbles carry timestamps after reconnect", async ({ page }) => {
-    const historyTs = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5 min ago
-
-    // Mock session creation
-    await page.route("**/chat/sessions", async (route) => {
-      if (route.request().method() === "POST") {
-        await route.fulfill({
-          status: 201,
-          contentType: "application/json",
-          body: JSON.stringify({
-            session_id: MOCK_SESSION_ID,
-            created_at: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
-            agent_states: {},
-            last_plan: null,
-            message_history: [],
-          }),
-        });
-      } else {
-        await route.continue();
-      }
-    });
-
-    // Mock GET session (restore path) with message history including created_at
-    await page.route(`**/chat/sessions/${MOCK_SESSION_ID}`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          session_id: MOCK_SESSION_ID,
-          created_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 3_600_000).toISOString(),
-          agent_states: {},
-          last_plan: null,
-          message_history: [
-            { role: "user", content: "이전 메시지", created_at: historyTs },
-            { role: "assistant", content: "이전 답변", created_at: historyTs },
-          ],
-        }),
-      });
-    });
-
-    // Mock SSE stream (empty — just triggers the restore path)
-    await page.route("**/chat/sessions/*/messages", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "text/event-stream",
-        body: buildSse({ type: "chat_done", data: {} }),
-      });
-    });
-
-    await goToChat(page);
-
-    // Trigger restoreSessionState by sending a message (retryCount=0 path)
-    await page.fill("#chat-input", "안녕");
-    await page.click('button:has-text("전송")');
-
-    // Give time for restore
-    await page.waitForTimeout(1_000);
-
-    // Force restore by evaluating the function directly
-    await page.evaluate(() => {
-      if (typeof restoreSessionState === "function") restoreSessionState();
-    });
-
-    // Wait for restored bubbles to appear
-    await expect(page.locator('.chat-bubble[data-restored="1"]')).toHaveCount(
-      2,
-      { timeout: 5_000 }
-    );
-
-    // Each restored bubble must carry a .chat-timestamp with "5분 전"
-    const restoredBubbles = page.locator('.chat-bubble[data-restored="1"]');
-    for (let i = 0; i < 2; i++) {
-      await expect(restoredBubbles.nth(i).locator(".chat-timestamp")).toBeVisible();
-      await expect(restoredBubbles.nth(i).locator(".chat-timestamp")).toContainText(
-        "분 전"
-      );
-    }
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2987,5 +2863,221 @@ test.describe("duplicate_day E2E (Task #100)", () => {
     await expect(page.locator("#day-2026-06-01 .day-places")).toContainText(
       "도톤보리 거리"
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// message timestamp E2E scenarios (Task #103 / Issue #141)
+// ---------------------------------------------------------------------------
+
+test.describe("message timestamp E2E (Task #103)", () => {
+  /**
+   * Scenario 1: Newly sent chat bubbles display relative timestamps.
+   *
+   * Done criteria:
+   *   - user bubble has .chat-timestamp visible and contains "방금"
+   *   - AI bubble (built from chat_chunk stream) has .chat-timestamp visible and contains "방금"
+   *   - data-ts attribute is present on both bubbles with a parseable ISO string
+   */
+  test("new chat bubbles show relative timestamp (방금)", async ({ page }) => {
+    await mockChatSession(page, [
+      { type: "chat_chunk", data: { text: "안녕하세요!" } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    await page.fill("#chat-input", "안녕");
+    await page.click('button:has-text("전송")');
+
+    // Wait for AI reply to complete
+    await expect(page.locator(".chat-bubble.chat-ai .chat-text")).toContainText(
+      "안녕하세요!",
+      { timeout: 10_000 }
+    );
+
+    // User bubble: .chat-timestamp visible and contains "방금"
+    const userBubble = page.locator(".chat-bubble.chat-user").last();
+    await expect(userBubble.locator(".chat-timestamp")).toBeVisible();
+    await expect(userBubble.locator(".chat-timestamp")).toContainText("방금");
+
+    // User bubble: data-ts attribute must hold a parseable ISO timestamp
+    const userTs = await userBubble.getAttribute("data-ts");
+    expect(userTs).toBeTruthy();
+    expect(new Date(userTs!).getTime()).toBeGreaterThan(0);
+
+    // AI bubble: .chat-timestamp visible and contains "방금"
+    const aiBubble = page.locator(".chat-bubble.chat-ai").last();
+    await expect(aiBubble.locator(".chat-timestamp")).toBeVisible();
+    await expect(aiBubble.locator(".chat-timestamp")).toContainText("방금");
+
+    // AI bubble: data-ts attribute must hold a parseable ISO timestamp
+    const aiTs = await aiBubble.getAttribute("data-ts");
+    expect(aiTs).toBeTruthy();
+    expect(new Date(aiTs!).getTime()).toBeGreaterThan(0);
+  });
+
+  /**
+   * Scenario 2: Multiple messages each have independent timestamps.
+   *
+   * Done criteria:
+   *   - After two exchanges, all 4 bubbles (2 user + 2 AI) each have a .chat-timestamp
+   */
+  test("each chat bubble has its own timestamp element", async ({ page }) => {
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: MOCK_SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route("**/chat/sessions/*/messages", async (route) => {
+      callCount++;
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+        body: buildSse(
+          { type: "chat_chunk", data: { text: `응답 ${callCount}` } },
+          { type: "chat_done", data: {} }
+        ),
+      });
+    });
+
+    await goToChat(page);
+
+    // First exchange
+    await page.fill("#chat-input", "첫 번째 메시지");
+    await page.click('button:has-text("전송")');
+    await expect(page.locator(".chat-bubble.chat-ai .chat-text").last()).toContainText(
+      "응답 1",
+      { timeout: 10_000 }
+    );
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // Second exchange
+    await page.fill("#chat-input", "두 번째 메시지");
+    await page.click('button:has-text("전송")');
+    await expect(page.locator(".chat-bubble.chat-ai .chat-text").last()).toContainText(
+      "응답 2",
+      { timeout: 10_000 }
+    );
+
+    // All 4 bubbles (2 user + 2 AI) must each have a .chat-timestamp
+    const allBubbles = page.locator(".chat-bubble");
+    const count = await allBubbles.count();
+    expect(count).toBeGreaterThanOrEqual(4);
+
+    for (let i = 0; i < count; i++) {
+      await expect(allBubbles.nth(i).locator(".chat-timestamp")).toBeVisible();
+    }
+  });
+
+  /**
+   * Scenario 3: Restored bubbles (after SSE reconnect via restoreSessionState)
+   * carry timestamps derived from message_history.created_at.
+   *
+   * Done criteria:
+   *   - Restored bubbles have [data-restored="1"]
+   *   - Each restored bubble shows a .chat-timestamp containing "분 전"
+   *     (since created_at is 5 minutes in the past)
+   *   - data-ts attribute is set and parseable
+   */
+  test("restored bubbles carry timestamps after reconnect", async ({ page }) => {
+    const historyTs = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5 min ago
+
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: MOCK_SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+            message_history: [],
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // Mock GET session (restore path) with message history including created_at
+    await page.route(`**/chat/sessions/${MOCK_SESSION_ID}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: MOCK_SESSION_ID,
+          created_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+          agent_states: {},
+          last_plan: null,
+          message_history: [
+            { role: "user", content: "이전 메시지", created_at: historyTs },
+            { role: "assistant", content: "이전 답변", created_at: historyTs },
+          ],
+        }),
+      });
+    });
+
+    // Mock SSE stream (empty — just triggers restore path on chat_done)
+    await page.route("**/chat/sessions/*/messages", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: buildSse({ type: "chat_done", data: {} }),
+      });
+    });
+
+    await goToChat(page);
+
+    // Send a message to initialise the session, then force a restore
+    await page.fill("#chat-input", "안녕");
+    await page.click('button:has-text("전송")');
+
+    await page.waitForTimeout(1_000);
+
+    // Force restoreSessionState call
+    await page.evaluate(() => {
+      if (typeof restoreSessionState === "function") restoreSessionState();
+    });
+
+    // Restored bubbles must appear
+    await expect(page.locator('.chat-bubble[data-restored="1"]')).toHaveCount(
+      2,
+      { timeout: 5_000 }
+    );
+
+    // Each restored bubble must show a timestamp in the past ("분 전")
+    const restoredBubbles = page.locator('.chat-bubble[data-restored="1"]');
+    for (let i = 0; i < 2; i++) {
+      await expect(restoredBubbles.nth(i).locator(".chat-timestamp")).toBeVisible();
+      await expect(restoredBubbles.nth(i).locator(".chat-timestamp")).toContainText(
+        "분 전"
+      );
+    }
+
+    // data-ts must also be set on restored bubbles and parseable
+    for (let i = 0; i < 2; i++) {
+      const ts = await restoredBubbles.nth(i).getAttribute("data-ts");
+      expect(ts).toBeTruthy();
+      expect(new Date(ts!).getTime()).toBeGreaterThan(0);
+    }
   });
 });
