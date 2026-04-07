@@ -13,6 +13,7 @@ from google.genai import types
 from pydantic import BaseModel
 
 from app.ai import GeminiService
+from app.llm_logger import log_llm_call, LLMTimer
 from app.calendar_service import CalendarService
 from app.config import GEMINI_API_KEY
 from app.flight_search import FlightSearchService
@@ -212,17 +213,26 @@ Return a JSON object with these fields:
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
-            response = client.models.generate_content(
-                model="gemini-3-flash-preview",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=Intent,
-                    thinking_config=types.ThinkingConfig(thinking_level="minimal"),
-                ),
-            )
+            with LLMTimer() as timer:
+                response = client.models.generate_content(
+                    model="gemini-3-flash-preview",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=Intent,
+                        thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+                    ),
+                )
             intent = Intent.model_validate_json(response.text)
             intent.raw_message = message
+            log_llm_call(
+                caller="extract_intent",
+                model="gemini-3-flash-preview",
+                prompt=prompt,
+                response_text=response.text,
+                latency_ms=timer.elapsed_ms,
+                extra={"action": intent.action},
+            )
             return intent
         except Exception as exc:
             logger.error("extract_intent: Gemini call failed — %s: %s", type(exc).__name__, exc, exc_info=True)
@@ -423,8 +433,12 @@ Return a JSON object with these fields:
     # Intent handlers
     # ------------------------------------------------------------------
 
-    def _parse_dates(self, intent: Intent) -> tuple[Optional[date], Optional[date]]:
-        """Parse start/end dates from intent. Returns (None, None) if not provided."""
+    def _parse_dates(self, intent: Intent, *, require: bool = False) -> tuple[Optional[date], Optional[date]]:
+        """Parse start/end dates from intent.
+
+        If *require* is True, returns sensible defaults instead of None
+        (used by handlers that must have dates to proceed).
+        """
         try:
             start = date.fromisoformat(intent.start_date) if intent.start_date else None
         except ValueError:
@@ -434,8 +448,13 @@ Return a JSON object with these fields:
         except ValueError:
             end = None
 
-        # If start is given but end is not, default to 3-day trip
-        if start and not end:
+        if require:
+            if start is None:
+                start = date.today() + timedelta(days=30)
+            if end is None:
+                end = start + timedelta(days=3)
+        elif start and not end:
+            # If start is given but end is not, default to 3-day trip
             end = start + timedelta(days=3)
         return start, end
 
@@ -480,25 +499,14 @@ Return a JSON object with these fields:
         interests = intent.interests or ""
         start, end = self._parse_dates(intent)
 
-        # If destination is too broad (region/continent), ask for a specific city
-        if dest and dest.lower().strip() in self._BROAD_REGIONS:
-            yield {
-                "type": "chat_chunk",
-                "data": {"text": f"{dest} 여행 좋죠! 혹시 특별히 가고 싶은 도시가 있으세요? 예를 들어 방콕, 호치민, 발리 같은 곳이요~ 😊"},
-            }
-            return
-
-        # If essential info is missing, ask naturally
-        missing = []
-        if not dest:
-            missing.append("어디로 가고 싶으세요")
-        if not start:
-            missing.append("언제쯤 떠나실 생각이세요")
-        if not budget:
-            missing.append("예산은 어느 정도로 생각하고 계세요")
-        if missing:
-            ask = missing[0] + "? 😊"
-            yield {"type": "chat_chunk", "data": {"text": ask}}
+        # If destination is too broad or essential info is missing,
+        # delegate to conversational AI instead of hardcoding responses
+        is_broad = dest and dest.lower().strip() in self._BROAD_REGIONS
+        missing_fields = not dest or not start or not budget
+        if is_broad or missing_fields:
+            if session:
+                async for event in self._general_with_gemini(intent, session):
+                    yield event
             return
 
         # If not coming from confirm_plan, show confirmation card first
@@ -635,7 +643,7 @@ Return a JSON object with these fields:
 
     async def _handle_search_hotels(self, intent: Intent) -> AsyncGenerator[dict, None]:
         dest = intent.destination or "목적지"
-        start, end = self._parse_dates(intent)
+        start, end = self._parse_dates(intent, require=True)
         budget_per_night = int(intent.budget / (end - start).days) if intent.budget else 0
 
         yield {
@@ -690,7 +698,7 @@ Return a JSON object with these fields:
 
     async def _handle_search_flights(self, intent: Intent) -> AsyncGenerator[dict, None]:
         dest = intent.destination or "목적지"
-        start, end = self._parse_dates(intent)
+        start, end = self._parse_dates(intent, require=True)
 
         yield {
             "type": "agent_reasoning",
@@ -832,7 +840,7 @@ Return a JSON object with these fields:
             else:
                 dest = intent.destination or "목적지"
                 budget = intent.budget or 0
-                start, end = self._parse_dates(intent)
+                start, end = self._parse_dates(intent, require=True)
 
                 result = await asyncio.to_thread(
                     self._gemini.generate_itinerary,
@@ -914,7 +922,7 @@ Return a JSON object with these fields:
                 dest = intent.destination or "목적지"
                 budget = intent.budget or 0
                 interests = intent.interests or ""
-                start, end = self._parse_dates(intent)
+                start, end = self._parse_dates(intent, require=True)
 
                 result = await asyncio.to_thread(
                     self._gemini.generate_itinerary,
@@ -929,7 +937,7 @@ Return a JSON object with these fields:
                 "data": {
                     "agent": "budget_analyst",
                     "status": "done",
-                    "message": f"총 ${result.total_estimated_cost:.0f} 예산 재배분 완료",
+                    "message": f"총 {result.total_estimated_cost:,.0f}원 예산 재배분 완료",
                     "result_count": len(breakdown) - 1,
                 },
             }
@@ -991,7 +999,7 @@ Return a JSON object with these fields:
                 interests = last_plan.get("interests", intent.interests or "")
             else:
                 dest = intent.destination or "여행 계획"
-                start, end = self._parse_dates(intent)
+                start, end = self._parse_dates(intent, require=True)
                 start_str = start.isoformat()
                 end_str = end.isoformat()
                 budget = intent.budget or 0
@@ -2692,7 +2700,7 @@ Return a JSON object with these fields:
     ) -> AsyncGenerator[dict, None]:
         """Fetch weather forecast for the trip destination and dates."""
         dest = intent.destination or (session.last_plan or {}).get("destination") or "목적지"
-        start, end = self._parse_dates(intent)
+        start, end = self._parse_dates(intent, require=True)
         start_str = start.isoformat()
         end_str = end.isoformat()
 
@@ -3420,18 +3428,27 @@ Return a JSON object with these fields:
 
             # Stream text chunks to the client in real-time
             full_reply = ""
-            stream = await asyncio.to_thread(
-                client.models.generate_content_stream,
+            with LLMTimer() as stream_timer:
+                stream = await asyncio.to_thread(
+                    client.models.generate_content_stream,
+                    model="gemini-3-flash-preview",
+                    contents=chat_prompt,
+                    config=types.GenerateContentConfig(
+                        thinking_config=types.ThinkingConfig(thinking_level="low"),
+                    ),
+                )
+                for chunk in stream:
+                    if chunk.text:
+                        full_reply += chunk.text
+                        yield {"type": "chat_chunk", "data": {"text": chunk.text}}
+            log_llm_call(
+                caller="_general_with_gemini.stream",
                 model="gemini-3-flash-preview",
-                contents=chat_prompt,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(thinking_level="low"),
-                ),
+                prompt=chat_prompt,
+                response_text=full_reply,
+                latency_ms=stream_timer.elapsed_ms,
+                streaming=True,
             )
-            for chunk in stream:
-                if chunk.text:
-                    full_reply += chunk.text
-                    yield {"type": "chat_chunk", "data": {"text": chunk.text}}
 
             if not full_reply.strip():
                 yield {"type": "chat_chunk", "data": {"text": "죄송합니다, 응답을 생성하지 못했어요."}}
@@ -3450,16 +3467,25 @@ Return a JSON object with these fields:
                 ' "end_date": "YYYY-MM-DD or null", "budget": number_or_null,'
                 ' "interests": "comma-separated or null"}'
             )
-            extract_resp = await asyncio.to_thread(
-                client.models.generate_content,
-                model="gemini-3-flash-preview",
-                contents=extract_prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    thinking_config=types.ThinkingConfig(thinking_level="minimal"),
-                ),
-            )
+            with LLMTimer() as extract_timer:
+                extract_resp = await asyncio.to_thread(
+                    client.models.generate_content,
+                    model="gemini-3-flash-preview",
+                    contents=extract_prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+                    ),
+                )
             result = json.loads(extract_resp.text)
+            log_llm_call(
+                caller="_general_with_gemini.extract",
+                model="gemini-3-flash-preview",
+                prompt=extract_prompt,
+                response_text=extract_resp.text,
+                latency_ms=extract_timer.elapsed_ms,
+                extra={"extracted_fields": result},
+            )
 
             dest = result.get("destination")
             start = result.get("start_date")
