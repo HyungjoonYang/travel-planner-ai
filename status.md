@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-07T15:00:00Z (Evolve Run #125)
-Run count: 151
+Last run: 2026-04-07T16:00:00Z (Evolve Run #126)
+Run count: 152
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 101 (#100 E2E: duplicate_day Playwright scenarios — 2 scenarios: happy path + out-of-range error path)
-Current focus: #101 Chat: move_place intent
-Next planned: #102 Chat: set_day_label intent
+Tasks completed: 102 (#101 Chat: move_place intent — place removed from source, appended to target; day_update SSE for both days; 11 tests)
+Current focus: #102 Chat: set_day_label intent
+Next planned: #103 E2E: message timestamp Playwright scenarios
 
 ## LTES Snapshot
 
 - Latency: ~50000ms (evolve run)
-- Traffic: 29 commits/24h
-- Errors: 0 test failures (1576 passed, 12 skipped), error_rate=0.0%
-- Saturation: 4 tasks ready
+- Traffic: 30 commits/24h
+- Errors: 0 test failures (1587 passed, 12 skipped), error_rate=0.0%
+- Saturation: 3 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #102 Chat: set_day_label intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #126 — 2026-04-07T16:00:00Z
+- **Task**: #101 - Chat: `move_place` intent — move a place from one day to another [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1587/1587 passed, 12 skipped; 11 new tests added (TestMovePlaceHandler: 9 in-memory + 2 DB integration)
+- **Files changed**: src/app/chat.py (+290/-2), tests/test_chat.py (+11 tests)
+- **Builder note**: move_place supports match by place_index (1-based) or by name (partial case-insensitive). Place row updated in DB (day_itinerary_id) and in-memory (pop from source, append to target). day_update SSE emitted for BOTH source and target days. Error chat_chunk when day out of range or place not found. All done criteria satisfied.
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #125 — 2026-04-07T15:00:00Z
 - **Task**: #100 - E2E: `duplicate_day` Playwright scenarios [test]

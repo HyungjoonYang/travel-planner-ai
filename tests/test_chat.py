@@ -7836,3 +7836,358 @@ class TestDuplicateDay:
         finally:
             db.close()
             Base.metadata.drop_all(bind=engine)
+
+
+# Task #101: move_place intent handler
+# done_criteria: "1일차 두 번째 장소를 3일차로 옮겨줘" → place removed from source, appended to target;
+#                day_update SSE for both days; error when day/place not found; 2+ tests
+
+class TestMovePlaceHandler:
+    """_handle_move_place: move a place from source day to target day; emits day_update for both days."""
+
+    def test_move_place_intent_accepted_by_model(self):
+        """Intent model must accept move_place as a valid action."""
+        intent = Intent(
+            action="move_place",
+            day_number=1,
+            day_number_2=3,
+            place_index=2,
+            raw_message="1일차 두 번째 장소를 3일차로 옮겨줘",
+        )
+        assert intent.action == "move_place"
+        assert intent.day_number == 1
+        assert intent.day_number_2 == 3
+        assert intent.place_index == 2
+
+    def test_move_place_activates_planner_agent(self):
+        """move_place must activate the planner agent."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [{"name": "센소지", "category": "sightseeing"}, {"name": "아키하바라", "category": "shopping"}]},
+                {"day_number": 2, "date": "2026-05-02", "places": []},
+                {"day_number": 3, "date": "2026-05-03", "places": []},
+            ],
+        }
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="move_place", day_number=1, day_number_2=3, place_index=2, raw_message="1일차 두 번째 장소를 3일차로 옮겨줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 두 번째 장소를 3일차로 옮겨줘")
+
+        agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "planner"]
+        assert any(e["data"]["status"] == "working" for e in agent_events)
+
+    def test_move_place_by_index_emits_day_update_for_both_days(self):
+        """move_place by index removes place from source and appends to target; day_update for both."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [
+                    {"name": "센소지", "category": "sightseeing"},
+                    {"name": "아키하바라", "category": "shopping"},
+                ]},
+                {"day_number": 2, "date": "2026-05-02", "places": []},
+                {"day_number": 3, "date": "2026-05-03", "places": [{"name": "신주쿠", "category": "shopping"}]},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="move_place", day_number=1, day_number_2=3, place_index=2, raw_message="1일차 두 번째 장소를 3일차로 옮겨줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 두 번째 장소를 3일차로 옮겨줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 2, "day_update for both source and target"
+
+        day_numbers = {e["data"]["day_number"] for e in day_updates}
+        assert day_numbers == {1, 3}
+
+        # Source day 1: 아키하바라 removed, only 센소지 remains
+        src_update = next(e for e in day_updates if e["data"]["day_number"] == 1)
+        src_names = [p["name"] for p in src_update["data"]["places"]]
+        assert "아키하바라" not in src_names
+        assert "센소지" in src_names
+
+        # Target day 3: 아키하바라 appended
+        tgt_update = next(e for e in day_updates if e["data"]["day_number"] == 3)
+        tgt_names = [p["name"] for p in tgt_update["data"]["places"]]
+        assert "아키하바라" in tgt_names
+        assert "신주쿠" in tgt_names
+
+    def test_move_place_by_name_emits_day_update_for_both_days(self):
+        """move_place by name removes the named place from source and appends to target."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "days": [
+                {"day_number": 1, "date": "2026-06-01", "places": [
+                    {"name": "루브르 박물관", "category": "museum"},
+                    {"name": "에펠탑", "category": "landmark"},
+                ]},
+                {"day_number": 2, "date": "2026-06-02", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="move_place", day_number=1, day_number_2=2, query="루브르", raw_message="1일차 루브르를 2일차로 옮겨줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 루브르를 2일차로 옮겨줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 2
+
+        src_update = next(e for e in day_updates if e["data"]["day_number"] == 1)
+        assert "루브르 박물관" not in [p["name"] for p in src_update["data"]["places"]]
+        assert "에펠탑" in [p["name"] for p in src_update["data"]["places"]]
+
+        tgt_update = next(e for e in day_updates if e["data"]["day_number"] == 2)
+        assert "루브르 박물관" in [p["name"] for p in tgt_update["data"]["places"]]
+
+    def test_move_place_source_place_removed_from_session_last_plan(self):
+        """After move_place, session.last_plan source day must not contain the moved place."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [
+                    {"name": "센소지", "category": "sightseeing"},
+                    {"name": "도쿄 타워", "category": "landmark"},
+                ]},
+                {"day_number": 2, "date": "2026-05-02", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="move_place", day_number=1, day_number_2=2, place_index=1, raw_message="1일차 첫 번째 장소를 2일차로 옮겨줘"
+        )):
+            _collect_events(svc, session.session_id, "1일차 첫 번째 장소를 2일차로 옮겨줘")
+
+        src_places = session.last_plan["days"][0]["places"]
+        tgt_places = session.last_plan["days"][1]["places"]
+        assert len(src_places) == 1
+        assert src_places[0]["name"] == "도쿄 타워"
+        assert any(p["name"] == "센소지" for p in tgt_places)
+
+    def test_move_place_out_of_range_day_emits_error(self):
+        """move_place with out-of-range target day emits error chat_chunk, no day_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [{"name": "센소지", "category": "sightseeing"}]},
+                {"day_number": 2, "date": "2026-05-02", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="move_place", day_number=1, day_number_2=5, place_index=1, raw_message="1일차 첫 번째 장소를 5일차로 옮겨줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 첫 번째 장소를 5일차로 옮겨줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        assert any("5" in e["data"]["text"] for e in chat_chunks)
+
+    def test_move_place_place_not_found_emits_error(self):
+        """move_place when the named place is not in source day emits error chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {"day_number": 1, "date": "2026-05-01", "places": [{"name": "센소지", "category": "sightseeing"}]},
+                {"day_number": 2, "date": "2026-05-02", "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="move_place", day_number=1, day_number_2=2, query="없는장소", raw_message="1일차 없는장소를 2일차로 이동해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 없는장소를 2일차로 이동해줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert any("없는장소" in e["data"]["text"] for e in chat_chunks)
+
+    def test_move_place_no_plan_emits_chat_chunk(self):
+        """move_place with no plan returns a helpful message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="move_place", day_number=1, day_number_2=2, place_index=1, raw_message="1일차 첫 번째 장소를 2일차로 옮겨줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 첫 번째 장소를 2일차로 옮겨줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+    def test_move_place_missing_day_numbers_emits_error(self):
+        """move_place without source or target day emits instructional chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="move_place", raw_message="장소 이동해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "장소 이동해줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+
+    def test_move_place_db_moves_place_and_emits_day_update_for_both(self):
+        """move_place with saved plan updates Place's day_itinerary_id and emits day_update for both days."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="도쿄",
+                start_date=date_type(2026, 5, 1),
+                end_date=date_type(2026, 5, 3),
+                budget=2000000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 2), notes="")
+            day3 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 5, 3), notes="")
+            db.add_all([day1, day2, day3])
+            db.commit()
+            db.refresh(day1)
+            db.refresh(day2)
+            db.refresh(day3)
+
+            # Source: day1 has 2 places
+            p1 = PlaceModel(day_itinerary_id=day1.id, name="센소지", category="sightseeing", estimated_cost=0.0, order=0)
+            p2 = PlaceModel(day_itinerary_id=day1.id, name="아키하바라", category="shopping", estimated_cost=0.0, order=1)
+            # Target: day3 has 1 place
+            p3 = PlaceModel(day_itinerary_id=day3.id, name="신주쿠", category="shopping", estimated_cost=0.0, order=0)
+            db.add_all([p1, p2, p3])
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="move_place", day_number=1, day_number_2=3, place_index=2, raw_message="1일차 두 번째 장소를 3일차로 옮겨줘"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "1일차 두 번째 장소를 3일차로 옮겨줘", db)
+
+            db.expire_all()
+
+            # day1 must no longer contain 아키하바라
+            places_in_day1 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day1.id).all()
+            names_in_day1 = {p.name for p in places_in_day1}
+            assert "아키하바라" not in names_in_day1
+            assert "센소지" in names_in_day1
+
+            # day3 must contain 아키하바라 appended after existing places
+            places_in_day3 = db.query(PlaceModel).filter(PlaceModel.day_itinerary_id == day3.id).all()
+            names_in_day3 = {p.name for p in places_in_day3}
+            assert "아키하바라" in names_in_day3
+            assert "신주쿠" in names_in_day3
+
+            # day_update emitted for BOTH source and target
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 2
+
+            day_numbers_updated = {e["data"]["day_number"] for e in day_updates}
+            assert day_numbers_updated == {1, 3}
+
+            src_upd = next(e for e in day_updates if e["data"]["day_number"] == 1)
+            assert "아키하바라" not in [p["name"] for p in src_upd["data"]["places"]]
+
+            tgt_upd = next(e for e in day_updates if e["data"]["day_number"] == 3)
+            tgt_names = [p["name"] for p in tgt_upd["data"]["places"]]
+            assert "아키하바라" in tgt_names
+            assert "신주쿠" in tgt_names
+
+            # Confirm chat_chunk
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert any("아키하바라" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    def test_move_place_db_place_not_found_emits_error(self):
+        """move_place with saved plan when place not found emits error, no day_update."""
+        from app.database import Base
+        from app.models import (
+            DayItinerary as DayItineraryModel,
+            Place as PlaceModel,
+            TravelPlan as TravelPlanModel,
+        )
+        from datetime import date as date_type
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            plan = TravelPlanModel(
+                destination="파리",
+                start_date=date_type(2026, 6, 1),
+                end_date=date_type(2026, 6, 2),
+                budget=1500000.0,
+                interests="",
+                status="draft",
+            )
+            db.add(plan)
+            db.commit()
+            db.refresh(plan)
+
+            day1 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 1), notes="")
+            day2 = DayItineraryModel(travel_plan_id=plan.id, date=date_type(2026, 6, 2), notes="")
+            db.add_all([day1, day2])
+            db.commit()
+            db.refresh(day1)
+            db.refresh(day2)
+
+            p1 = PlaceModel(day_itinerary_id=day1.id, name="루브르 박물관", category="museum", estimated_cost=0.0, order=0)
+            db.add(p1)
+            db.commit()
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan.id
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="move_place", day_number=1, day_number_2=2, query="없는장소", raw_message="1일차 없는장소를 2일차로 이동"
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "1일차 없는장소를 2일차로 이동", db)
+
+            day_updates = [e for e in events if e["type"] == "day_update"]
+            assert len(day_updates) == 0
+
+            chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+            assert any("없는장소" in e["data"]["text"] for e in chat_chunks)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)

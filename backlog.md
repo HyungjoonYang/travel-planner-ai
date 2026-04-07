@@ -12,12 +12,6 @@ _(없음)_
 
 ### Phase 10: Chat + Multi-Agent Dashboard (continued)
 
-- [ ] #101 - Chat: `move_place` intent — move a place from one day to another [feature]
-  - ref: markdowns/feat-chat-dashboard.md
-  - files: src/app/chat.py, tests/test_chat.py
-  - done: "1일차 두 번째 장소를 3일차로 옮겨줘" → place removed from source, appended to target; day_update SSE for both days; error when day/place not found; 2+ tests
-  - gh: #139
-
 - [ ] #102 - Chat: `set_day_label` intent — set a custom title/label for a day [feature]
   - ref: markdowns/feat-chat-dashboard.md
   - files: src/app/chat.py, src/app/schemas.py, tests/test_chat.py
@@ -156,6 +150,7 @@ _(없음)_
 - [x] #95 - Frontend: message timestamp display in chat bubbles [improvement] — 2026-04-07
 - [x] #96 - Chat: `duplicate_day` intent — copy a day's itinerary to another day [feature] — 2026-04-07
 - [x] #100 - E2E: `duplicate_day` Playwright scenarios [test] — 2026-04-07
+- [x] #101 - Chat: `move_place` intent — move a place from one day to another [feature] — 2026-04-07
 
 ### Phase 9: User Experience & Polish (remaining, completed)
 - [x] #35 - Per-day cost summary (`GET /plans/{id}/itineraries/{day_id}/stats` → place count, total estimated cost, category breakdown dict) [feature] — 2026-04-04
@@ -168,5 +163,5 @@ _(없음)_
 ## Metrics
 
 - Velocity: 1 task/run
-- Total tasks: 101 done, 4 ready (0 in progress)
+- Total tasks: 102 done, 3 ready (0 in progress)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
