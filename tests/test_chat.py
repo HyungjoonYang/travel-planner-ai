@@ -5985,7 +5985,9 @@ class TestSuggestImprovements:
     def test_suggest_improvements_activates_place_scout(self):
         """place_scout must be activated when suggest_improvements is triggered."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "여기에 개선 제안이 있습니다."
+        _si_chunk = MagicMock()
+        _si_chunk.text = "여기에 개선 제안이 있습니다."
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6000,7 +6002,9 @@ class TestSuggestImprovements:
     def test_suggest_improvements_activates_budget_analyst(self):
         """budget_analyst must be activated when suggest_improvements is triggered."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "예산 최적화 제안입니다."
+        _si_chunk = MagicMock()
+        _si_chunk.text = "예산 최적화 제안입니다."
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6015,7 +6019,9 @@ class TestSuggestImprovements:
     def test_suggest_improvements_emits_chat_chunk(self):
         """A chat_chunk with the suggestions text must be emitted."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "1. 도쿄 타워 추가 권장\n2. 식비 절감 가능"
+        _si_chunk = MagicMock()
+        _si_chunk.text = "1. 도쿄 타워 추가 권장\n2. 식비 절감 가능"
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6032,7 +6038,9 @@ class TestSuggestImprovements:
     def test_suggest_improvements_is_read_only_no_plan_update(self):
         """suggest_improvements must not emit plan_update events (read-only)."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "몇 가지 제안이 있습니다."
+        _si_chunk = MagicMock()
+        _si_chunk.text = "몇 가지 제안이 있습니다."
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6047,7 +6055,9 @@ class TestSuggestImprovements:
     def test_suggest_improvements_calls_gemini_suggest_improvements(self):
         """GeminiService.suggest_improvements must be called with plan and history."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "좋은 제안입니다."
+        _si_chunk = MagicMock()
+        _si_chunk.text = "좋은 제안입니다."
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
         # Seed a plan so it's passed to Gemini
@@ -6059,14 +6069,16 @@ class TestSuggestImprovements:
         )):
             _collect_events(svc, session.session_id, "any suggestions?")
 
-        mock_gemini.suggest_improvements.assert_called_once()
-        call_args = mock_gemini.suggest_improvements.call_args[0]
+        mock_gemini.suggest_improvements_stream.assert_called_once()
+        call_args = mock_gemini.suggest_improvements_stream.call_args[0]
         assert call_args[0] == {"destination": "도쿄", "days": [], "budget": 1000.0}
 
     def test_suggest_improvements_place_scout_and_budget_analyst_done_on_success(self):
         """Both place_scout and budget_analyst must reach 'done' status on success."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "제안 목록입니다."
+        _si_chunk = MagicMock()
+        _si_chunk.text = "제안 목록입니다."
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6087,7 +6099,7 @@ class TestSuggestImprovements:
     def test_suggest_improvements_gemini_error_emits_error_status(self):
         """When Gemini fails, error agent_status events must be emitted."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.side_effect = RuntimeError("Gemini unavailable")
+        mock_gemini.suggest_improvements_stream.side_effect = RuntimeError("Gemini unavailable")
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6105,7 +6117,9 @@ class TestSuggestImprovements:
     def test_suggest_improvements_no_plan_passes_empty_dict(self):
         """When no last_plan exists, suggest_improvements is called with an empty dict."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "아직 계획이 없어서 제안이 어렵습니다."
+        _si_chunk = MagicMock()
+        _si_chunk.text = "아직 계획이 없어서 제안이 어렵습니다."
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service_with_mocks(gemini=mock_gemini)
         session = svc.create_session()
         # No last_plan set
@@ -6115,7 +6129,7 @@ class TestSuggestImprovements:
         )):
             _collect_events(svc, session.session_id, "any suggestions?")
 
-        call_args = mock_gemini.suggest_improvements.call_args[0]
+        call_args = mock_gemini.suggest_improvements_stream.call_args[0]
         assert call_args[0] == {}  # empty dict when no plan
 
     def test_suggest_improvements_intent_recognized_from_keyword(self):
@@ -6181,7 +6195,9 @@ class TestPlanSuggestionsEvent:
     def test_plan_suggestions_event_emitted(self):
         """plan_suggestions event must be emitted by suggest_improvements handler."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "1. Add Tokyo Tower\n2. Try ramen"
+        _si_chunk = MagicMock()
+        _si_chunk.text = "1. Add Tokyo Tower\n2. Try ramen"
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6196,7 +6212,9 @@ class TestPlanSuggestionsEvent:
     def test_plan_suggestions_event_contains_suggestions_list(self):
         """plan_suggestions data.suggestions must be a non-empty list."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "1. Visit Asakusa\n2. Try sushi"
+        _si_chunk = MagicMock()
+        _si_chunk.text = "1. Visit Asakusa\n2. Try sushi"
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6213,7 +6231,9 @@ class TestPlanSuggestionsEvent:
         """plan_suggestions data.raw must contain the original AI text."""
         raw_text = "1. First suggestion\n2. Second suggestion"
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = raw_text
+        _si_chunk = MagicMock()
+        _si_chunk.text = raw_text
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6228,9 +6248,9 @@ class TestPlanSuggestionsEvent:
     def test_plan_suggestions_parsed_items_match_input(self):
         """Parsed suggestions list items correspond to the numbered input."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = (
-            "1. Book accommodation early\n2. Visit Nikko for a day trip\n3. Budget for transport"
-        )
+        _si_chunk = MagicMock()
+        _si_chunk.text = "1. Book accommodation early\n2. Visit Nikko for a day trip\n3. Budget for transport"
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6246,11 +6266,13 @@ class TestPlanSuggestionsEvent:
             "Budget for transport",
         ]
 
-    def test_plan_suggestions_emitted_before_handler_chat_chunk(self):
-        """plan_suggestions event must be emitted before the handler's chat_chunk
-        (excluding the fast response chunk that comes at the very start)."""
+    def test_plan_suggestions_emitted_after_streamed_chat_chunks(self):
+        """plan_suggestions event must be emitted after the streamed chat_chunks
+        (streaming sends chunks first, then plan_suggestions after full text is collected)."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.return_value = "1. suggestion"
+        _si_chunk = MagicMock()
+        _si_chunk.text = "1. suggestion"
+        mock_gemini.suggest_improvements_stream.return_value = [_si_chunk]
         svc = self._make_service(gemini=mock_gemini)
         session = svc.create_session()
 
@@ -6261,14 +6283,16 @@ class TestPlanSuggestionsEvent:
 
         types_seq = [e["type"] for e in events]
         ps_idx = types_seq.index("plan_suggestions")
-        # Find the LAST chat_chunk (handler's result), not the first (fast response)
+        # Find the LAST chat_chunk from stream (handler emits chunks during streaming)
         last_cc_idx = len(types_seq) - 1 - types_seq[::-1].index("chat_chunk")
-        assert ps_idx < last_cc_idx
+        assert ps_idx > last_cc_idx, (
+            "plan_suggestions should come after streamed chat_chunks"
+        )
 
     def test_plan_suggestions_not_emitted_on_gemini_error(self):
         """plan_suggestions must NOT be emitted when Gemini raises an exception."""
         mock_gemini = MagicMock()
-        mock_gemini.suggest_improvements.side_effect = RuntimeError("API down")
+        mock_gemini.suggest_improvements_stream.side_effect = RuntimeError("API down")
         svc = self._make_service(gemini=mock_gemini)
         session = svc.create_session()
 
