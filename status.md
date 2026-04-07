@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-07T01:00:00Z (Evolve Run #123)
-Run count: 147
+Last run: 2026-04-07T02:00:00Z (Evolve Run #124)
+Run count: 148
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 99 (#95 Frontend: message timestamp display in chat bubbles — _relativeTime() + _createBubble() + setInterval refresh + created_at in message history)
-Current focus: #96 duplicate_day intent
-Next planned: #100 E2E duplicate_day Playwright scenarios
+Tasks completed: 100 (#96 Chat: duplicate_day intent — copies places from source day to target day; in-memory + DB paths; source unchanged; day_update SSE; error handling for missing/out-of-range days)
+Current focus: #100 E2E duplicate_day Playwright scenarios
+Next planned: #101 Chat: move_place intent
 
 ## LTES Snapshot
 
 - Latency: ~50000ms (pytest run)
 - Traffic: 1 commit (this run)
-- Errors: 0 test failures (1534/1539 pass), 5 skipped, error_rate=0.0%
-- Saturation: 6 tasks ready
+- Errors: 0 test failures (1576/1588 pass), 12 skipped, error_rate=0.0%
+- Saturation: 5 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #100 E2E duplicate_day Playwright scenarios
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #124 — 2026-04-07T02:00:00Z
+- **Task**: #96 - Chat: `duplicate_day` intent — copy a day's itinerary to another day [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1576/1588 passed, 12 skipped; 8 new tests added (TestDuplicateDay class: 2 in-memory, 2 DB integration, 2 error cases, 1 intent model, 1 source-unchanged assertion)
+- **Files changed**: src/app/chat.py (+280/-0), tests/test_chat.py (+8 tests)
+- **Builder note**: duplicate_day copies all places from source day (day_number) to target day (day_number_2). Both DB path (creates new Place rows) and in-memory path (deep copy) supported. Source day never modified. Emits day_update SSE for target day + confirming chat_chunk. Error handling for missing day numbers, out-of-range days, and missing plan.
+- **LTES**: L=50000ms T=1 commit E=0 test failures S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #123 — 2026-04-07T01:00:00Z
 - **Task**: #95 - Frontend: message timestamp display in chat bubbles [improvement]
