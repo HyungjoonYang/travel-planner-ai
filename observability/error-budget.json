@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-08",
-    "total_runs": 180,
-    "successful_runs": 180,
+    "total_runs": 181,
+    "successful_runs": 181,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 0.95,
@@ -654,11 +654,11 @@
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
   "history_tail": {
-    "run_id": "2026-04-08-2130",
-    "task": "#181 - E2E: place_preview card display during create_plan",
+    "run_id": "2026-04-08-2215",
+    "task": "#182 - Chat: update_day_note intent — overwrite or clear a day's note",
     "result": "success",
-    "tests_passed": 1677,
-    "tests_total": 1677
+    "tests_passed": 1691,
+    "tests_total": 1703
   },
   "history_tail_prev_monitor": {
     "run_id": "monitor-2026-04-08-2210",

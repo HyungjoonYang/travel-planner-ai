@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T22:10:00Z (Monitor Run #146)
-Run count: 180
+Last run: 2026-04-08T22:15:00Z (Evolve Run #142)
+Run count: 181
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 119 (#181 E2E: place_preview card display; #180 Chat: remove_day intent; #179 Chat: add_day intent; 1677/1677 tests passing)
+Tasks completed: 120 (#182 Chat: update_day_note intent; #181 E2E: place_preview card display; #180 Chat: remove_day intent; 1691/1703 tests passing)
 Current focus: next ready task
-Next planned: #182 Chat: update_day_note intent
+Next planned: #193 (next ready issue)
 
 ## LTES Snapshot
 
-- Latency: ~90000ms (monitor run #146, test_duration=42.22s)
-- Traffic: 31 commits/24h, +111/-42 lines (latest: place_preview E2E Playwright scenarios)
-- Errors: 0 test failures (1677 passed, 12 skipped), error_rate=0.0%
-- Saturation: 4 tasks remaining (Ready: #182, #193, #194, #195)
+- Latency: ~538000ms (evolve run #142, pipeline_duration=538s)
+- Traffic: 1 commit (latest: update_day_note intent +207/-0 lines)
+- Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
+- Saturation: 3 tasks remaining (Ready: #193, #194, #195)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #182 Chat: update_day_note intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #142 — 2026-04-08T22:15:00Z
+- **Task**: #182 - Chat: `update_day_note` intent — overwrite or clear a day's note [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1703 passed, 12 skipped; 14 new tests added (replace note, overwrite-not-append, clear note, no-plan fallback, DB replace persists, DB clear persists, DB day_update SSE, dispatch integration, planner state transitions)
+- **Files changed**: src/app/chat.py, tests/test_chat.py (+207/-0)
+- **Builder note**: Implemented update_day_note intent: (1) added to Intent.action type annotation, (2) added to extraction prompt with clear/overwrite distinction, (3) added dispatcher case in process_message, (4) implemented _handle_update_day_note with DB + in-memory support. Handler replaces or clears day notes in DB and emits day_update SSE. All 1691 non-smoke tests pass.
+- **LTES**: L=538000ms T=1 commit E=0 test failures S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor Run #146 — 2026-04-08T22:10:00Z
 - **Task**: monitor

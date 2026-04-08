@@ -13,10 +13,9 @@ _(없음)_
 
 ## Ready
 
-- [ ] #195 - #117 - E2E: `plan_checklist` Playwright scenarios [test]
-- [ ] #194 - #116 - E2E: `swap_places` Playwright scenarios [test]
 - [ ] #193 - #115 - E2E: `add_day` Playwright scenarios [test]
-- [ ] #182 - #114 - Chat: `update_day_note` intent — overwrite or clear a day's note [feature]
+- [ ] #194 - #116 - E2E: `swap_places` Playwright scenarios [test]
+- [ ] #195 - #117 - E2E: `plan_checklist` Playwright scenarios [test]
 
 ## Blocked
 
@@ -26,6 +25,7 @@ _(없음)_
 
 ## Recently Completed (last 20)
 
+- [x] #182 - #114 - Chat: `update_day_note` intent — overwrite or clear a day's note — 2026-04-08
 - [x] #181 - #113 - E2E: `place_preview` card display during `create_plan` — 2026-04-08
 - [x] #180 - #112 - Chat: `remove_day` intent — remove a day from the trip — 2026-04-08
 - [x] #179 - #111 - Chat: `add_day` intent — extend trip by appending a new day — 2026-04-08
@@ -45,12 +45,11 @@ _(없음)_
 - [x] #140 - #102 - Chat: set_day_label intent — set a custom title/label for a day — 2026-04-07
 - [x] #139 - #101 - Chat: move_place intent — move a place between days — 2026-04-07
 - [x] #138 - #100 - E2E: duplicate_day Playwright scenarios — 2026-04-07
-- [x] #122 - #96 - Chat: duplicate_day intent — copy a day's itinerary to another day — 2026-04-07
 
 ---
 
 ## Metrics
 
-- Total open: 4
-- Ready: 4 | In Progress: 0 | Blocked: 0
+- Total open: 3
+- Ready: 3 | In Progress: 0 | Blocked: 0
 - Phase: Phase 10: Chat + Multi-Agent Dashboard
