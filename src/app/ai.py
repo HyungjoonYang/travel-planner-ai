@@ -199,6 +199,58 @@ Be specific, friendly, and concise. Respond in the same language the traveler us
             ),
         )
 
+    def generate_checklist_stream(
+        self,
+        current_plan: dict,
+        conversation_history: list[dict],
+    ):
+        """Stream a pre-trip checklist for the given travel plan.
+
+        Returns an iterator of text chunks (google-genai stream response).
+        Raises ValueError if no API key is configured.
+        """
+        if not self._api_key:
+            raise ValueError("GEMINI_API_KEY is not configured")
+
+        import json as _json
+
+        plan_summary = _json.dumps(current_plan, indent=2, default=str) if current_plan else "No plan available yet."
+
+        history_lines = []
+        for entry in conversation_history[-10:]:
+            role = entry.get("role", "user").capitalize()
+            content = entry.get("content", "")
+            history_lines.append(f"{role}: {content}")
+        history_str = "\n".join(history_lines) if history_lines else "No conversation history."
+
+        prompt = f"""You are an expert travel consultant preparing a traveler for their upcoming trip.
+
+Current Travel Plan:
+{plan_summary}
+
+Recent Conversation:
+{history_str}
+
+Generate a comprehensive pre-trip checklist tailored to this specific travel plan. Organize it into clear categories such as:
+- Documents & Travel Essentials (passport, visa, tickets, insurance)
+- Packing (clothes, toiletries, electronics)
+- Money & Payments (currency, cards, cash)
+- Health & Safety (medications, vaccinations, emergency contacts)
+- Destination-specific tips (local customs, weather, transportation)
+- Pre-departure tasks (notify bank, arrange pet care, confirm reservations)
+
+Be specific to the destination and trip details. Keep each item concise.
+Respond in the same language the traveler used (check recent conversation). Format with clear category headers and bullet points."""
+
+        client = genai.Client(api_key=self._api_key)
+        return client.models.generate_content_stream(
+            model=self.MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="medium"),
+            ),
+        )
+
     def refine_itinerary(
         self,
         destination: str,

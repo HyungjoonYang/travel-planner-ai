@@ -9676,3 +9676,297 @@ class TestSetBudgetHandler:
         assert session.last_plan["budget"] == 1000000.0
 
         assert events[-1]["type"] == "chat_done"
+
+
+# ---------------------------------------------------------------------------
+# plan_checklist intent
+# ---------------------------------------------------------------------------
+
+class TestPlanChecklistIntent:
+    """Intent model correctly holds plan_checklist action."""
+
+    def test_plan_checklist_intent_action(self):
+        """plan_checklist intent is accepted by the Intent model."""
+        intent = Intent(
+            action="plan_checklist",
+            raw_message="여행 준비 체크리스트 만들어줘",
+        )
+        assert intent.action == "plan_checklist"
+
+    def test_plan_checklist_intent_raw_message(self):
+        """raw_message is preserved in the intent."""
+        msg = "준비물 목록 알려줘"
+        intent = Intent(action="plan_checklist", raw_message=msg)
+        assert intent.raw_message == msg
+
+
+class TestPlanChecklistHandler:
+    """_handle_plan_checklist emits secretary events + checklist_update + chat_chunk."""
+
+    # ------------------------------------------------------------------
+    # Happy path: plan exists, Gemini returns a checklist
+    # ------------------------------------------------------------------
+
+    def test_plan_checklist_activates_secretary_working(self):
+        """secretary must emit working status before done."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-04",
+            "budget": 2000000.0,
+            "days": [],
+        }
+
+        mock_chunk = MagicMock()
+        mock_chunk.text = "- 여권 챙기기\n- 항공권 출력"
+
+        with patch.object(svc._gemini, "generate_checklist_stream", return_value=[mock_chunk]), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="plan_checklist",
+                 raw_message="여행 준비 체크리스트 만들어줘",
+             )):
+            events = _collect_events(svc, session.session_id, "여행 준비 체크리스트 만들어줘")
+
+        secretary_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+        ]
+        statuses = [e["data"]["status"] for e in secretary_events]
+        assert "working" in statuses
+
+    def test_plan_checklist_secretary_working_before_done(self):
+        """secretary status must follow working → done order."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {"destination": "파리", "start_date": "2026-06-01", "end_date": "2026-06-05", "days": []}
+
+        mock_chunk = MagicMock()
+        mock_chunk.text = "- 비자 확인\n- 유로 환전"
+
+        with patch.object(svc._gemini, "generate_checklist_stream", return_value=[mock_chunk]), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="plan_checklist",
+                 raw_message="체크리스트 보여줘",
+             )):
+            events = _collect_events(svc, session.session_id, "체크리스트 보여줘")
+
+        secretary_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+        ]
+        statuses = [e["data"]["status"] for e in secretary_events]
+        working_idx = statuses.index("working")
+        done_idx = statuses.index("done")
+        assert working_idx < done_idx
+
+    def test_plan_checklist_emits_chat_chunk_with_content(self):
+        """chat_chunk events must contain non-empty checklist text from Gemini."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-04",
+            "budget": 1500000.0,
+            "days": [],
+        }
+
+        mock_chunk1 = MagicMock()
+        mock_chunk1.text = "**Documents**\n- 여권 (만료일 6개월 이상 남은 것)\n"
+        mock_chunk2 = MagicMock()
+        mock_chunk2.text = "**Packing**\n- 옷 4벌\n- 충전기\n"
+
+        with patch.object(svc._gemini, "generate_checklist_stream", return_value=[mock_chunk1, mock_chunk2]), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="plan_checklist",
+                 raw_message="여행 준비물 목록 만들어줘",
+             )):
+            events = _collect_events(svc, session.session_id, "여행 준비물 목록 만들어줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = "".join(e["data"]["text"] for e in chat_chunks if e["data"].get("text"))
+        assert "여권" in combined or "Documents" in combined or "Packing" in combined
+
+        assert events[-1]["type"] == "chat_done"
+
+    def test_plan_checklist_emits_checklist_update_event(self):
+        """checklist_update event must be emitted with the full checklist text."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "방콕",
+            "start_date": "2026-07-10",
+            "end_date": "2026-07-14",
+            "days": [],
+        }
+
+        mock_chunk = MagicMock()
+        mock_chunk.text = "- 비자 확인\n- 현지 SIM 카드 구매"
+
+        with patch.object(svc._gemini, "generate_checklist_stream", return_value=[mock_chunk]), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="plan_checklist",
+                 raw_message="체크리스트 만들어줘",
+             )):
+            events = _collect_events(svc, session.session_id, "체크리스트 만들어줘")
+
+        checklist_events = [e for e in events if e["type"] == "checklist_update"]
+        assert len(checklist_events) == 1
+        assert "checklist" in checklist_events[0]["data"]
+        assert "비자" in checklist_events[0]["data"]["checklist"] or len(checklist_events[0]["data"]["checklist"]) > 0
+
+    def test_plan_checklist_calls_gemini_with_plan_context(self):
+        """generate_checklist_stream must be called with the current plan."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "오사카",
+            "start_date": "2026-08-01",
+            "end_date": "2026-08-03",
+            "budget": 1000000.0,
+            "days": [],
+        }
+
+        mock_chunk = MagicMock()
+        mock_chunk.text = "- 여권"
+
+        with patch.object(svc._gemini, "generate_checklist_stream", return_value=[mock_chunk]) as mock_gen, \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="plan_checklist",
+                 raw_message="준비 체크리스트",
+             )):
+            _collect_events(svc, session.session_id, "준비 체크리스트")
+
+        mock_gen.assert_called_once()
+        call_kwargs = mock_gen.call_args
+        # First positional arg should be the plan dict
+        plan_arg = call_kwargs[0][0]
+        assert plan_arg.get("destination") == "오사카"
+
+    # ------------------------------------------------------------------
+    # Fallback: no plan in session
+    # ------------------------------------------------------------------
+
+    def test_plan_checklist_no_plan_fallback_emits_error_status(self):
+        """plan_checklist with no plan emits secretary error status."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # No last_plan set
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="plan_checklist",
+            raw_message="여행 준비 체크리스트 만들어줘",
+        )):
+            events = _collect_events(svc, session.session_id, "여행 준비 체크리스트 만들어줘")
+
+        secretary_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+        ]
+        statuses = [e["data"]["status"] for e in secretary_events]
+        assert "error" in statuses
+        assert "done" not in statuses
+
+    def test_plan_checklist_no_plan_fallback_chat_chunk(self):
+        """plan_checklist with no plan emits a helpful chat_chunk asking for a plan first."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # No last_plan set
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="plan_checklist",
+            raw_message="체크리스트 보여줘",
+        )):
+            events = _collect_events(svc, session.session_id, "체크리스트 보여줘")
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "계획" in combined
+
+        # No checklist_update should be emitted
+        assert not any(e["type"] == "checklist_update" for e in events)
+        assert events[-1]["type"] == "chat_done"
+
+    def test_plan_checklist_no_plan_does_not_call_gemini(self):
+        """generate_checklist_stream must not be called when no plan exists."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc._gemini, "generate_checklist_stream") as mock_gen, \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="plan_checklist",
+                 raw_message="체크리스트 만들어줘",
+             )):
+            _collect_events(svc, session.session_id, "체크리스트 만들어줘")
+
+        mock_gen.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # Error path: Gemini raises an exception
+    # ------------------------------------------------------------------
+
+    def test_plan_checklist_gemini_error_emits_secretary_error(self):
+        """When Gemini fails, secretary emits error status and chat_chunk explains the error."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {"destination": "런던", "days": []}
+
+        with patch.object(
+            svc._gemini, "generate_checklist_stream", side_effect=RuntimeError("API timeout")
+        ), patch.object(svc, "extract_intent", return_value=Intent(
+            action="plan_checklist",
+            raw_message="체크리스트",
+        )):
+            events = _collect_events(svc, session.session_id, "체크리스트")
+
+        secretary_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "secretary"
+        ]
+        statuses = [e["data"]["status"] for e in secretary_events]
+        assert "error" in statuses
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "오류" in combined or "error" in combined.lower() or "API timeout" in combined
+
+        assert events[-1]["type"] == "chat_done"
+
+    # ------------------------------------------------------------------
+    # Integration: full pipeline via process_message dispatch
+    # ------------------------------------------------------------------
+
+    def test_plan_checklist_dispatched_from_process_message(self):
+        """process_message dispatches plan_checklist intent to the handler."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-04",
+            "budget": 2000000.0,
+            "days": [],
+        }
+
+        mock_chunk = MagicMock()
+        mock_chunk.text = "- 여권\n- 항공권"
+
+        # patch extract_intent to return plan_checklist AND mock Gemini
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="plan_checklist",
+            raw_message="여행 준비 체크리스트 만들어줘",
+        )), patch.object(svc._gemini, "generate_checklist_stream", return_value=[mock_chunk]):
+            events = _collect_events(svc, session.session_id, "여행 준비 체크리스트 만들어줘")
+
+        event_types = [e["type"] for e in events]
+        assert "checklist_update" in event_types
+        assert "chat_done" in event_types
+
+        # Coordinator always first
+        coordinator_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "coordinator"
+        ]
+        assert coordinator_events[0]["data"]["status"] == "thinking"
