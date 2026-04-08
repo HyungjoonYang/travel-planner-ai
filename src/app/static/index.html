@@ -6,27 +6,33 @@
 <title>Travel Planner AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #f5f3ef; --card: #fff; --border: #e4ddd4; --primary: #1a1a2e;
-    --primary-h: #16213e; --accent: #c9a96e; --accent-h: #b8943d;
-    --danger: #c0392b; --success: #27ae60;
-    --text: #2c2c2c; --muted: #8a8580; --radius: 10px;
+    --bg: #f8f9fb; --bg-subtle: #f1f3f6; --card: #ffffff; --border: #e2e5ea;
+    --border-subtle: #edf0f4;
+    --primary: #0f1d2c; --primary-h: #1a2e42;
+    --accent: #2b7a78; --accent-h: #247370; --accent-bg: rgba(43,122,120,.06);
+    --danger: #dc4a57; --success: #16a34a;
+    --text: #1a1a1a; --text-secondary: #4b5563; --muted: #9ca3af;
+    --radius: 12px;
   }
-  body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--bg); color: var(--text); min-height: 100vh; }
-  nav { background: var(--primary); color: #fff; padding: 0 1.5rem;
-    display: flex; align-items: center; justify-content: space-between; height: 52px;
-    border-bottom: 1px solid rgba(201,169,110,.15); }
-  nav h1 { font-family: 'Playfair Display', serif; font-size: 1.15rem; font-weight: 600;
-    cursor: pointer; letter-spacing: .02em; color: var(--accent); }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    font-size: 14px; line-height: 1.6; letter-spacing: -0.01em; }
+  nav { background: rgba(255,255,255,.85); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); color: var(--text); padding: 0 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; height: 56px;
+    border-bottom: 1px solid var(--border); }
+  nav h1 { font-family: 'Fraunces', Georgia, serif; font-size: 1.1rem; font-weight: 600;
+    cursor: pointer; letter-spacing: -0.02em; color: var(--text); }
   nav .nav-links { display: flex; gap: .25rem; }
-  nav a { color: rgba(255,255,255,.5); text-decoration: none; font-size: .8rem;
-    padding: .35rem .65rem; border-radius: 4px; cursor: pointer; font-weight: 400;
-    transition: all .2s; }
-  nav a:hover, nav a.active { background: rgba(201,169,110,.15); color: var(--accent); }
+  nav a { color: var(--muted); text-decoration: none; font-size: .8125rem;
+    padding: .375rem .75rem; border-radius: 9999px; cursor: pointer; font-weight: 500;
+    transition: all .15s; }
+  nav a:hover { color: var(--text); background: var(--bg-subtle); }
+  nav a.active { color: var(--accent); background: var(--accent-bg); }
   main { max-width: 1000px; margin: 0 auto; padding: 1.5rem; }
   h2 { font-size: 1.4rem; margin-bottom: 1rem; }
   h3 { font-size: 1.1rem; margin-bottom: .5rem; }
@@ -40,10 +46,10 @@
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   .meta { font-size: .85rem; color: var(--muted); margin: .35rem 0; }
   .actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
-  button, .btn { cursor: pointer; border: none; border-radius: 4px;
+  button, .btn { cursor: pointer; border: none; border-radius: var(--radius);
     padding: .45rem .9rem; font-size: .875rem; font-weight: 500;
-    transition: background .15s; }
-  .btn-primary { background: var(--accent); color: var(--primary); font-weight: 600; }
+    transition: all .15s; }
+  .btn-primary { background: var(--accent); color: #fff; font-weight: 600; }
   .btn-primary:hover { background: var(--accent-h); }
   .btn-danger { background: var(--danger); color: #fff; }
   .btn-danger:hover { background: #b02a37; }
@@ -56,7 +62,7 @@
     width: 100%; padding: .45rem .7rem; border: 1px solid var(--border);
     border-radius: 4px; font-size: .9rem; background: var(--card); color: var(--text); }
   form input:focus, form select:focus, form textarea:focus {
-    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,110,253,.15); }
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(43,122,120,.12); }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   .alert { padding: .75rem 1rem; border-radius: 4px; margin-bottom: 1rem; font-size: .875rem; }
   .alert-error { background: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
@@ -82,35 +88,36 @@
   .tab-bar { display: flex; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .tab { padding: .4rem .9rem; border-radius: 4px; cursor: pointer; font-size: .875rem;
     border: 1px solid var(--border); background: var(--card); color: var(--text); }
-  .tab.active { background: var(--primary); color: var(--accent); border-color: var(--primary); }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .search-result-card { border: 1px solid var(--border); border-radius: 4px; padding: .75rem; margin-bottom: .75rem; }
   .price-tag { font-weight: 700; color: var(--success); }
   /* ── Chat / Dashboard split-pane ────────────────────────────────────────── */
-  .chat-layout { display: flex; height: calc(100vh - 56px); overflow: hidden; }
-  .chat-col { flex: 0 0 38%; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--card); }
+  .chat-layout { display: flex; height: calc(100vh - 57px); overflow: hidden; }
+  .chat-col { flex: 0 0 420px; min-width: 360px; max-width: 480px; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--card); }
   .dashboard-col { flex: 1; min-width: 0; overflow-y: auto; padding: 1rem; background: var(--bg); }
   .chat-messages { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: .6rem; }
-  .chat-bubble { max-width: 82%; padding: .7rem 1rem; border-radius: 16px; font-size: .88rem; line-height: 1.5; word-break: break-word; }
-  .chat-ai { background: #eae6df; color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; }
-  .chat-user { background: var(--primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
-  .chat-input-bar { display: flex; gap: .5rem; padding: .75rem 1rem; border-top: 1px solid var(--border); background: var(--card); }
-  .chat-input-bar input { flex: 1; padding: .55rem .85rem; border: 1px solid var(--border); border-radius: 20px; font-size: .88rem;
-    background: var(--bg); transition: border-color .2s; }
-  .chat-input-bar input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(201,169,110,.15); }
-  .chat-input-bar button { border-radius: 20px; padding: .5rem 1.1rem; }
+  .chat-bubble { max-width: 80%; padding: .75rem 1rem; border-radius: 18px; font-size: .875rem; line-height: 1.6; word-break: break-word; }
+  .chat-ai { background: var(--bg-subtle); color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; }
+  .chat-user { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+  .chat-input-bar { display: flex; gap: .5rem; padding: .75rem 1rem 1rem; border-top: 1px solid var(--border-subtle); background: var(--card); align-items: flex-end; }
+  .chat-input-bar input { flex: 1; padding: .625rem 1rem; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: .875rem;
+    background: var(--bg-subtle); color: var(--text); transition: all .15s; }
+  .chat-input-bar input:focus { outline: none; border-color: var(--accent); background: var(--card);
+    box-shadow: 0 0 0 3px rgba(43,122,120,.1); }
+  .chat-input-bar button { border-radius: var(--radius); padding: .625rem 1.25rem; }
   /* ── Onboarding ──────────────────────────────────────────────────────────── */
   .chat-onboarding { display: flex; flex-direction: column; align-items: center; justify-content: center;
     flex: 1; padding: 2rem 1.5rem; text-align: center; gap: 1.5rem; }
   .chat-onboarding-icon { font-size: 2.5rem; opacity: .7; }
-  .chat-onboarding h2 { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 600;
-    color: var(--primary); letter-spacing: .01em; }
+  .chat-onboarding h2 { font-family: 'Fraunces', Georgia, serif; font-size: 1.5rem; font-weight: 600;
+    color: var(--text); letter-spacing: -0.02em; }
   .chat-onboarding p { font-size: .88rem; color: var(--muted); max-width: 320px; line-height: 1.55; }
   .chat-onboarding-chips { display: flex; flex-direction: column; gap: .5rem; width: 100%; max-width: 340px; }
   .chat-chip { padding: .6rem 1rem; border: 1px solid var(--border); border-radius: 12px;
     background: var(--bg); font-size: .84rem; color: var(--text); cursor: pointer;
     transition: all .2s; text-align: left; line-height: 1.4; }
-  .chat-chip:hover { border-color: var(--accent); background: rgba(201,169,110,.08);
-    transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .chat-chip:hover { border-color: var(--accent); background: var(--accent-bg);
+    transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
   .chat-chip span { font-size: .72rem; color: var(--muted); display: block; margin-top: .15rem; }
   /* ── Agent cards ─────────────────────────────────────────────────────────── */
   .agent-card { transition: all 0.3s; padding: .5rem .75rem; border-radius: 6px; display: flex; align-items: center; gap: .75rem; margin-bottom: .25rem; }
@@ -119,12 +126,12 @@
   .agent-name { font-size: .85rem; font-weight: 600; }
   .agent-message { font-size: .78rem; color: var(--muted); }
   .agent-spinner { flex-shrink: 0; font-size: 1rem; }
-  .agent-idle { opacity: 0.5; }
-  .agent-thinking { background: #fff8e1; animation: pulse 1.5s infinite; }
-  .agent-working { background: #e3f2fd; }
+  .agent-idle { opacity: 0.45; }
+  .agent-thinking { background: rgba(234,179,8,.06); border: 1px solid rgba(234,179,8,.15); animation: pulse 1.5s infinite; }
+  .agent-working { background: var(--accent-bg); border: 1px solid rgba(43,122,120,.15); }
   .agent-working .agent-spinner { display: inline-block !important; animation: spin 1s linear infinite; }
-  .agent-done { background: #e8f5e9; opacity: 1; }
-  .agent-error { background: #ffebee; opacity: 1; }
+  .agent-done { background: rgba(22,163,74,.04); border: 1px solid rgba(22,163,74,.12); opacity: 1; }
+  .agent-error { background: rgba(220,74,87,.04); border: 1px solid rgba(220,74,87,.12); opacity: 1; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
   @keyframes spin { to { transform: rotate(360deg); } }
   .agent-toggle { font-size: .85rem; cursor: pointer; color: var(--primary); margin-left: .25rem; }
@@ -176,7 +183,7 @@
   /* ── Mobile responsive: viewport ≤ 768px stacks chat above dashboard ─────── */
   @media (max-width: 768px) {
     .chat-layout { flex-direction: column; height: auto; overflow: visible; }
-    .chat-col { flex: none; height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
+    .chat-col { flex: none; height: 50vh; max-width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); }
     .dashboard-col { flex: none; }
   }
   /* ── Expense panel (dashboard below budget tracker) ──────────────────────── */
@@ -241,6 +248,32 @@
     font-size: 0.8rem; color: var(--muted); border-top: 1px solid var(--border); }
   .reasoning-entry { margin: 0.3rem 0; }
   .reasoning-time { color: var(--muted); margin-right: 0.5rem; font-size: 0.75rem; }
+  /* ── Dashboard empty state ───────────────────────────────────────────── */
+  .dashboard-empty-state { display: flex; flex-direction: column; align-items: center;
+    text-align: center; padding: 2.5rem 2rem; }
+  .empty-state-icon { width: 52px; height: 52px; border-radius: 14px; background: var(--accent-bg);
+    display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1rem; }
+  .empty-state-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.15rem; font-weight: 600;
+    color: var(--text); margin-bottom: .35rem; letter-spacing: -0.02em; }
+  .empty-state-desc { font-size: .85rem; color: var(--muted); max-width: 280px; line-height: 1.55; margin-bottom: 1.5rem; }
+  .empty-state-steps { display: flex; flex-direction: column; gap: .75rem; width: 100%; max-width: 300px; text-align: left; }
+  .empty-state-step { display: flex; gap: .75rem; align-items: flex-start; }
+  .step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent);
+    color: #fff; font-size: .75rem; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0; margin-top: .1rem; }
+  .step-title { font-size: .85rem; font-weight: 600; color: var(--text); }
+  .step-desc { font-size: .78rem; color: var(--muted); margin-top: .1rem; }
+  /* ── Skeleton loading ────────────────────────────────────────────────── */
+  .skeleton-line { height: 12px; border-radius: 6px; margin-bottom: .5rem;
+    background: linear-gradient(90deg, var(--border) 25%, var(--border-subtle) 50%, var(--border) 75%);
+    background-size: 200% 100%; animation: skeleton-shimmer 1.5s infinite; }
+  @keyframes skeleton-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  /* ── Panel update flash ──────────────────────────────────────────────── */
+  @keyframes panel-flash {
+    0% { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(43,122,120,.12); }
+    100% { border-color: var(--border); box-shadow: none; }
+  }
+  .panel-updated { animation: panel-flash 0.6s ease-out; }
 </style>
 <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -890,7 +923,34 @@ function renderChat(app) {
       </div>
       <div class="card" id="plan-panel">
         <div class="section-title">✈️ Travel Plan</div>
-        <div class="empty">아직 계획이 없습니다</div>
+        <div id="dashboard-empty-state" class="dashboard-empty-state">
+          <div class="empty-state-icon">🗺️</div>
+          <h3 class="empty-state-title">Your trip comes alive here</h3>
+          <p class="empty-state-desc">대화를 시작하면 AI 에이전트들이 실시간으로 여행 계획을 구성합니다.</p>
+          <div class="empty-state-steps">
+            <div class="empty-state-step">
+              <span class="step-num">1</span>
+              <div>
+                <div class="step-title">Tell us your trip</div>
+                <div class="step-desc">목적지, 날짜, 예산, 관심사를 자연어로</div>
+              </div>
+            </div>
+            <div class="empty-state-step">
+              <span class="step-num">2</span>
+              <div>
+                <div class="step-title">Agents research for you</div>
+                <div class="step-desc">장소, 숙소, 항공편, 날씨를 동시에 검색</div>
+              </div>
+            </div>
+            <div class="empty-state-step">
+              <span class="step-num">3</span>
+              <div>
+                <div class="step-title">Review &amp; refine</div>
+                <div class="step-desc">일정을 수정하고 저장, 캘린더 내보내기</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>`;
