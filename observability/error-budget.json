@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-08",
-    "total_runs": 174,
-    "successful_runs": 174,
+    "total_runs": 175,
+    "successful_runs": 175,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 0.95,
@@ -654,6 +654,13 @@
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
   "history_tail": {
+    "run_id": "monitor-2026-04-08-2000",
+    "task": "monitor",
+    "result": "success",
+    "tests_passed": 1652,
+    "tests_total": 1664
+  },
+  "history_tail_prev3": {
     "run_id": "2026-04-08-1900",
     "task": "#178 - E2E: find_alternatives Playwright scenarios",
     "result": "success",
