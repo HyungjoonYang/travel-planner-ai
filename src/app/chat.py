@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | set_budget | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | set_budget | plan_checklist | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -189,7 +189,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "plan_checklist", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -229,6 +229,7 @@ Return a JSON object with these fields:
 - Use action "find_alternatives" when user wants to find alternative/replacement places for a specific slot in their itinerary (e.g. "1일차 첫 번째 장소 대신 다른 곳 추천해줘", "Day 2 두 번째 장소 대체 장소 찾아줘", "센소지 대신 갈 곳 알려줘", "suggest alternatives for day 1 place 2", "1일차 두 번째 장소 바꿀 곳 추천", "대체 장소 찾아줘", "다른 곳 추천해줘"); set day_number to the referenced day (default 1), place_index to the 1-based position if mentioned, query to the place name to replace if mentioned, and place_category to the preferred category if mentioned
 - Use action "find_nearby" when user wants to find places near a specific location or near a place in the current plan (e.g. "센소지 근처 카페 찾아줘", "1일차 첫 번째 장소 근처 맛집", "시부야 근처 관광지", "find cafes near Senso-ji", "1일차 근처 맛집 추천해줘", "호텔 근처 편의점"); set day_number to the referenced day if mentioned, place_index to the 1-based position if mentioned, query to the location/place name, and place_category to the desired category if mentioned (e.g. "카페" → "cafe", "맛집" → "food", "관광지" → "sightseeing")
 - Use action "set_budget" when user wants to set or update the budget of the current travel plan directly (e.g. "예산을 150만원으로 바꿔줘", "budget을 200만원으로 설정해줘", "여행 예산 100만원으로 수정", "set budget to 1500000", "예산 변경 200만원", "budget 올려줘 250만원으로"); set budget to the new budget value as a number (e.g. "150만원" → 1500000, "200만원" → 2000000). Prefer "set_budget" over "update_plan" when the user's sole intent is to change the budget amount.
+- Use action "plan_checklist" when user wants a pre-trip preparation checklist or packing list for their travel plan (e.g. "여행 준비 체크리스트 만들어줘", "준비물 목록 알려줘", "짐 챙길 목록 만들어줘", "체크리스트 보여줘", "여행 전 준비할 것 알려줘", "packing list", "pre-trip checklist", "what should I prepare?", "여행 준비 뭐 해야 해?", "체크리스트 만들어줘")
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -446,6 +447,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "set_budget":
             async for event in self._handle_set_budget(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "plan_checklist":
+            async for event in self._handle_plan_checklist(intent, session):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -5030,6 +5034,98 @@ Return a JSON object with these fields:
             "type": "chat_chunk",
             "data": {"text": f"여행 예산을 {new_budget:,.0f}원으로 업데이트했습니다. 💰"},
         }
+
+    async def _handle_plan_checklist(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+    ) -> AsyncGenerator[dict, None]:
+        """Generate an AI-powered pre-trip checklist for the current travel plan.
+
+        Activates the Secretary agent (working → done).
+        Falls back with a helpful message when no plan exists in the session.
+        Calls Gemini with plan context and streams the checklist as chat_chunk events.
+        Emits a checklist_update event with the full checklist text on completion.
+        """
+        yield {
+            "type": "agent_status",
+            "data": {
+                "agent": "secretary",
+                "status": "working",
+                "message": "여행 준비 체크리스트 생성 중...",
+            },
+        }
+        await asyncio.sleep(0)
+
+        last_plan = session.last_plan
+        if not last_plan:
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "secretary",
+                    "status": "error",
+                    "message": "여행 계획이 없습니다",
+                },
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {
+                    "text": (
+                        "체크리스트를 만들려면 먼저 여행 계획이 필요해요. "
+                        "여행 계획을 먼저 만들어보세요! (예: '도쿄 3박4일 여행 계획 세워줘')"
+                    ),
+                },
+            }
+            return
+
+        history = list(session.message_history)
+
+        try:
+            stream = await asyncio.to_thread(
+                self._gemini.generate_checklist_stream,
+                last_plan,
+                history,
+            )
+
+            full_text = ""
+            for chunk in stream:
+                if chunk.text:
+                    full_text += chunk.text
+                    yield {"type": "chat_chunk", "data": {"text": chunk.text}}
+
+            checklist_text = full_text or "체크리스트를 생성하지 못했습니다."
+            yield {
+                "type": "checklist_update",
+                "data": {"checklist": checklist_text},
+            }
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "secretary",
+                    "status": "done",
+                    "message": "체크리스트 생성 완료",
+                },
+            }
+
+        except Exception as exc:
+            logger.error(
+                "_handle_plan_checklist: Gemini call failed — %s: %s",
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "secretary",
+                    "status": "error",
+                    "message": "체크리스트 생성 실패",
+                },
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"체크리스트 생성 중 오류가 발생했습니다: {exc}"},
+            }
 
 
 # Module-level singleton used by the chat router
