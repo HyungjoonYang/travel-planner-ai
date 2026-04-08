@@ -3733,3 +3733,299 @@ test.describe("find_nearby E2E (Task #109)", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// set_day_label E2E scenarios (Task #109 / Issue #172)
+// ---------------------------------------------------------------------------
+
+test.describe("set_day_label E2E (Task #109)", () => {
+  /**
+   * Helper: build a two-call session mock.
+   * - First call  → plan_update with 2 days (no labels)
+   * - Second call → the provided sseEvents (set_day_label response)
+   */
+  async function mockPlanThenSetLabel(
+    page: Page,
+    sessionId: string,
+    labelEvents: object[]
+  ): Promise<void> {
+    // Session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: sessionId,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(`**/chat/sessions/${sessionId}/messages`, async (route) => {
+      callCount++;
+      if (callCount === 1) {
+        // First message: create a plan with 2 days (neither has a label)
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+          body: buildSse(
+            {
+              type: "agent_status",
+              data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+            },
+            {
+              type: "plan_update",
+              data: {
+                destination: "교토",
+                start_date: "2026-06-01",
+                end_date: "2026-06-02",
+                budget: 1_000_000,
+                total_estimated_cost: 200_000,
+                days: [
+                  {
+                    day: 1,
+                    date: "2026-06-01",
+                    theme: "전통 사원",
+                    places: [
+                      {
+                        name: "킨카쿠지",
+                        category: "문화",
+                        address: "교토 키타쿠",
+                        estimated_cost: 500,
+                        ai_reason: "금각사",
+                        order: 1,
+                      },
+                    ],
+                    notes: "",
+                  },
+                  {
+                    day: 2,
+                    date: "2026-06-02",
+                    theme: "아라시야마",
+                    places: [
+                      {
+                        name: "대나무 숲",
+                        category: "자연",
+                        address: "교토 아라시야마",
+                        estimated_cost: 0,
+                        ai_reason: "유명 대나무 숲",
+                        order: 1,
+                      },
+                    ],
+                    notes: "",
+                  },
+                ],
+              },
+            },
+            { type: "chat_chunk", data: { text: "교토 2일 여행 계획을 만들었습니다." } },
+            { type: "chat_done", data: {} }
+          ),
+        });
+      } else {
+        // Second message: set_day_label response
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+          body: buildSse(...labelEvents),
+        });
+      }
+    });
+  }
+
+  /**
+   * Scenario A (happy path):
+   * 1. Create a plan with 2 days (no labels).
+   * 2. Send "1일차 이름을 '미식 투어'로 해줘" → planner working →
+   *    day_update with label "미식 투어" → planner done.
+   *
+   * Done criteria:
+   *   - coordinator done ("set_day_label 파악")
+   *   - planner transitions: working → done
+   *   - day card #day-2026-06-01 has .day-label-badge with text "미식 투어"
+   *   - chat message confirms the label was set
+   */
+  test("set_day_label: day_update with label field renders label badge on day card", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-set-day-label-happy";
+
+    await mockPlanThenSetLabel(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "set_day_label 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "working", message: "Day 1 레이블 설정 중..." },
+      },
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-06-01",
+          notes: "",
+          transport: null,
+          label: "미식 투어",
+          places: [
+            {
+              name: "킨카쿠지",
+              category: "문화",
+              address: "교토 키타쿠",
+              estimated_cost: 500,
+              ai_reason: "금각사",
+              order: 1,
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "done", message: "Day 1 레이블 '미식 투어' 설정 완료!" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1의 이름을 '미식 투어'으로 설정했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the plan ---
+    await page.fill("#chat-input", "교토 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render with 2 day cards
+    await expect(page.locator("#plan-panel")).toContainText("교토", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Neither day card should have a label badge yet
+    await expect(page.locator(".day-label-badge")).toHaveCount(0);
+
+    // Wait for input to re-enable before second message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: set Day 1 label ---
+    await page.fill("#chat-input", "1일차 이름을 '미식 투어'로 해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("설정 완료");
+
+    // Day 1 card must now have a label badge with the correct text
+    const labelBadge = page.locator("#day-2026-06-01 .day-label-badge");
+    await expect(labelBadge).toBeVisible({ timeout: 10_000 });
+    await expect(labelBadge).toContainText("미식 투어");
+
+    // Day 2 card must NOT have a label badge (only day 1 was labeled)
+    await expect(page.locator("#day-2026-06-02 .day-label-badge")).toHaveCount(0);
+
+    // Chat must confirm the label was set
+    await expect(page.locator("#chat-messages")).toContainText(
+      "미식 투어",
+      { timeout: 10_000 }
+    );
+  });
+
+  /**
+   * Scenario B (label absent):
+   * A day_update event with label null (or absent) must NOT render any
+   * .day-label-badge on the day card.
+   *
+   * Done criteria:
+   *   - plan_update creates a day card without a label
+   *   - .day-label-badge is NOT present on that day card
+   *   - sending a day_update with label: null removes any pre-existing badge
+   */
+  test("set_day_label: day card has no label badge when day.label is null", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-set-day-label-no-label";
+
+    await mockPlanThenSetLabel(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "set_day_label 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "working", message: "Day 1 레이블 설정 중..." },
+      },
+      // day_update with label explicitly null → badge must be absent / removed
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-06-01",
+          notes: "",
+          transport: null,
+          label: null,
+          places: [
+            {
+              name: "킨카쿠지",
+              category: "문화",
+              address: "교토 키타쿠",
+              estimated_cost: 500,
+              ai_reason: "금각사",
+              order: 1,
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "done", message: "Day 1 레이블 제거 완료" },
+      },
+      { type: "chat_chunk", data: { text: "Day 1의 레이블을 제거했습니다." } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the plan ---
+    await page.fill("#chat-input", "교토 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render with 2 day cards
+    await expect(page.locator("#plan-panel")).toContainText("교토", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Confirm: no label badges present after initial plan creation
+    await expect(page.locator(".day-label-badge")).toHaveCount(0);
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: day_update with null label ---
+    await page.fill("#chat-input", "1일차 레이블 제거해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Day 1 card must still have NO label badge after null label update
+    await expect(page.locator("#day-2026-06-01 .day-label-badge")).toHaveCount(0);
+
+    // Day 2 card must also have no label badge
+    await expect(page.locator("#day-2026-06-02 .day-label-badge")).toHaveCount(0);
+  });
+});
