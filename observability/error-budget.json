@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-08",
-    "total_runs": 181,
-    "successful_runs": 181,
+    "total_runs": 182,
+    "successful_runs": 182,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 0.95,
@@ -654,8 +654,8 @@
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
   "history_tail": {
-    "run_id": "2026-04-08-2215",
-    "task": "#182 - Chat: update_day_note intent — overwrite or clear a day's note",
+    "run_id": "2026-04-08-2300",
+    "task": "#193 - E2E: add_day Playwright scenarios",
     "result": "success",
     "tests_passed": 1691,
     "tests_total": 1703

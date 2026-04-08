@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T22:15:00Z (Evolve Run #142)
-Run count: 181
+Last run: 2026-04-08T23:00:00Z (Evolve Run #143)
+Run count: 182
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 120 (#182 Chat: update_day_note intent; #181 E2E: place_preview card display; #180 Chat: remove_day intent; 1691/1703 tests passing)
+Tasks completed: 121 (#193 E2E: add_day Playwright scenarios; #182 Chat: update_day_note intent; #181 E2E: place_preview card display; 1691/1703 tests passing)
 Current focus: next ready task
-Next planned: #193 (next ready issue)
+Next planned: #194 or #195 (next ready issue)
 
 ## LTES Snapshot
 
-- Latency: ~538000ms (evolve run #142, pipeline_duration=538s)
-- Traffic: 1 commit (latest: update_day_note intent +207/-0 lines)
+- Latency: ~569000ms (evolve run #143, pipeline_duration=569s)
+- Traffic: 1 commit (latest: add_day E2E scenarios +271/-0 lines)
 - Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
-- Saturation: 3 tasks remaining (Ready: #193, #194, #195)
+- Saturation: 2 tasks remaining (Ready: #194, #195)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #193 (next ready issue)
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #143 — 2026-04-08T23:00:00Z
+- **Task**: #193 - E2E: `add_day` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1703 passed, 12 skipped; 2 new Playwright E2E scenarios added (+271 lines)
+- **Files changed**: e2e/chat.spec.ts (+271/-0)
+- **Builder note**: Added 2 Playwright scenarios in 'add_day E2E (Task #115)' describe block. Scenario A (happy path): two-call session mock — first creates 2-day Tokyo plan, second emits planner thinking→working→done + day_update + plan_update; asserts .day-card count 2→3, #day-2026-05-03 visible, end_date updated in plan panel, chat confirms Day 3. Scenario B (no-plan fallback): planner agent-error, chat shows '먼저 여행 계획을 만들어주세요', .day-card count=0. Route mock for SSE in both.
+- **LTES**: L=569000ms T=1 commit E=0 test failures S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #142 — 2026-04-08T22:15:00Z
 - **Task**: #182 - Chat: `update_day_note` intent — overwrite or clear a day's note [feature]
