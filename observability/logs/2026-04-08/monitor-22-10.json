@@ -1,0 +1,33 @@
+{
+  "run_id": "monitor-2026-04-08-2210",
+  "type": "monitor",
+  "timestamp": "2026-04-08T22:10:00Z",
+  "health": "GREEN",
+  "ltes": {
+    "latency_ms": 90000,
+    "traffic_commits_24h": 31,
+    "traffic_lines_added": 111,
+    "traffic_lines_removed": 42,
+    "errors_test_failures": 0,
+    "errors_rate_pct": 0.0,
+    "saturation_tasks_remaining": 4,
+    "saturation_logs_dir_kb": 628
+  },
+  "tests": {
+    "passed": 1677,
+    "failed": 0,
+    "skipped": 12,
+    "duration_s": 42.22
+  },
+  "error_budget": {
+    "status": "HEALTHY",
+    "budget_remaining": 0.95,
+    "total_runs": 180,
+    "successful_runs": 180
+  },
+  "backlog": {
+    "ready": 4,
+    "in_progress": 0,
+    "blocked": 0
+  }
+}
