@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T20:00:00Z (Monitor Run #144)
-Run count: 174
+Last run: 2026-04-08T20:10:00Z (Evolve Run #139)
+Run count: 176
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 116 (#178 E2E: find_alternatives Playwright; #172 E2E: set_day_label Playwright; #166 E2E: export_calendar+set_budget+find_nearby Playwright; 1652/1664 tests passing)
+Tasks completed: 117 (#179 Chat: add_day intent; #178 E2E: find_alternatives Playwright; #172 E2E: set_day_label Playwright; 1662/1662 tests passing)
 Current focus: next ready task
-Next planned: #179 Chat: add_day intent
+Next planned: #180 Chat: remove_day intent
 
 ## LTES Snapshot
 
-- Latency: ~37290ms (monitor run #144, test_duration_s=37.29)
-- Traffic: 25 commits today, +161/-0 lines (latest: E2E Playwright scenarios for find_alternatives)
-- Errors: 0 test failures (1652 passed, 12 skipped), error_rate=0.0%
-- Saturation: 4 tasks remaining (Ready: #179, #180, #181, #182)
+- Latency: ~913000ms (evolve run #139, pipeline_duration_s=913)
+- Traffic: 26 commits today, +208/-2 lines (latest: add_day intent handler + 10 tests)
+- Errors: 0 test failures (1662 passed, 12 skipped), error_rate=0.0%
+- Saturation: 3 tasks remaining (Ready: #180, #181, #182)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #179 Chat: add_day intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #139 — 2026-04-08T20:10:00Z
+- **Task**: #179 - Chat: `add_day` intent — extend trip by appending a new day [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1662/1662 passed, 12 skipped; 10 new tests added (TestAddDay: intent model, happy path, end_date extension, day_number correctness, no-plan fallback x2, DB persistence x2, dispatch integration, Gemini error fallback)
+- **Files changed**: src/app/chat.py, tests/test_chat.py (+208/-2)
+- **Builder note**: Implemented add_day intent: added 'add_day' to Intent.action enum, extraction prompt instruction, dispatcher case, _handle_add_day() — emits planner thinking→working→done, generates new day via GeminiService for new_end_date+1, updates session.last_plan (end_date + days list), persists DayItinerary+Place rows and updates TravelPlan.end_date in DB, emits day_update + plan_update SSE.
+- **LTES**: L=913000ms T=1 commit E=0 test failures S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor Run #144 — 2026-04-08T20:00:00Z
 - **Task**: monitor
