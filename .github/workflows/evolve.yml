@@ -60,16 +60,20 @@ jobs:
           Read `.claude/agents/coordinator.md` for your full instructions.
           Read `CLAUDE.md` for project context.
 
-          Execute your role:
-          1. Run pytest to health check
-          2. Read status.md, backlog.md, error-budget.json
-          3. Decide if Architect is needed (Ready tasks ≤ 2)
-          4. Select a task and move it to "In Progress" in backlog.md
-          5. Write .evolve/handoff.json with your decision
-          6. If the selected task has a linked GitHub Issue (gh: #N in backlog.md),
-             post a comment on that issue and include github_issue in handoff.json
+          IMPORTANT: GitHub Issues are the source of truth for tasks, NOT backlog.md.
 
-          Do NOT write any source code. Do NOT ask for confirmation.
+          Execute your role:
+          0. Generate .evolve/backlog.json cache from GitHub Issues (gh issue list).
+             Also close any stale/duplicate evolve-needs-review PRs.
+          1. Run pytest to health check
+          2. Read status.md, error-budget.json
+          3. Decide if Architect is needed (ready issues ≤ 2)
+          4. Select a task from Issues with idempotency check.
+             Change its label from "ready" to "in-progress" via gh issue edit.
+          5. Write .evolve/handoff.json with your decision (include issue_number)
+          6. Post a comment on the selected issue
+
+          Do NOT write any source code. Do NOT modify backlog.md. Do NOT ask for confirmation.
           PROMPT
 
       - name: Verify Coordinator output
@@ -101,15 +105,17 @@ jobs:
           Read `CLAUDE.md` for project context.
           Read `.evolve/handoff.json` for the Coordinator's decision.
 
+          IMPORTANT: GitHub Issues are the source of truth. Do NOT modify backlog.md.
+
           Execute your role:
           1. Read spec docs in markdowns/
-          2. Analyze gaps between spec and current code in src/
-          3. Generate up to 5 new tasks
-          4. Add them to backlog.md "Ready" section
-          5. For each new task, create a GitHub Issue with appropriate labels and milestone
-             (use `gh issue create`). Record the issue number in backlog.md as `gh: #<number>`.
+          2. Read .evolve/backlog.json to see current tasks
+          3. Analyze gaps between spec and current code in src/
+          4. Check duplicate/capacity: skip if 10+ open issues exist
+          5. For each new task, create a GitHub Issue with labels "ready,<tag>,phase-<N>"
+             and milestone (use `gh issue create`). Include Done Criteria in the body.
 
-          Do NOT write any source code. Do NOT ask for confirmation.
+          Do NOT write any source code. Do NOT modify backlog.md. Do NOT ask for confirmation.
           PROMPT
 
       # ─── Agent 3: 🔨 Builder ─────────────────────────────────────
@@ -191,19 +197,25 @@ jobs:
 
           The QA verdict is: $QA_VERDICT
 
+          IMPORTANT: GitHub Issues are the source of truth for tasks, NOT backlog.md.
+
           Execute your role:
           1. Write LTES log to observability/logs/
           2. Update status.md with agent activity summary
-          3. Update backlog.md (move task to Done if QA passed, keep In Progress if failed)
+          3. Update GitHub Issue status:
+             - QA passed: close the issue (gh issue close), remove in-progress label
+             - QA failed: add failure comment, change label back to "ready"
           4. Update error-budget.json
-          5. Create a git branch, commit all changes, push, and create a PR
-             - If QA passed: use label "evolve" (will auto-merge)
-             - If QA failed: use label "evolve-needs-review" (manual review needed)
-             - If handoff.json has github_issue, include "Closes #<N>" in PR body (QA pass only)
-             - Use --milestone flag if a matching milestone exists
-          6. If QA failed and there's a github_issue, post a failure comment on the issue
+          5. Regenerate backlog.md as a read-only snapshot from GitHub Issues
+             (gh issue list for open/closed issues, format as markdown)
+          6. TWO-PHASE COMMIT:
+             a. FIRST: Commit state files (backlog.md, status.md, error-budget.json,
+                dashboard.json, observability/logs/) directly to main and push.
+             b. THEN: Create a git branch for code changes only, commit, push, create PR.
+                - QA passed: label "evolve" + "Closes #<issue_number>" in body
+                - QA failed: label "evolve-needs-review"
           7. Switch back to main
-          8. Remove .evolve/*.json files (do not commit them)
+          8. Remove .evolve/*.json files
 
           Do NOT modify source code (src/, tests/). Do NOT ask for confirmation.
           PROMPT

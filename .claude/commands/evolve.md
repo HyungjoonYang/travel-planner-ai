@@ -6,6 +6,10 @@
 각 에이전트는 `.claude/agents/<name>.md`에 정의되어 있고,
 `.evolve/` 디렉토리의 JSON 파일로 상태를 주고받는다.
 
+> **Source of Truth: GitHub Issues**
+> 태스크 관리는 GitHub Issues (labels: `ready`, `in-progress`, `blocked`)로 수행한다.
+> `backlog.md`는 Reporter가 매 run 끝에 생성하는 read-only 스냅샷이다.
+
 ---
 
 ## Agent Pipeline
@@ -25,20 +29,21 @@
 ### Step 0. 준비
 ```bash
 mkdir -p .evolve
-rm -f .evolve/handoff.json .evolve/build-result.json .evolve/qa-result.json
+rm -f .evolve/handoff.json .evolve/build-result.json .evolve/qa-result.json .evolve/backlog.json
 ```
 
 ### Step 1. 🧠 Coordinator
 `.claude/agents/coordinator.md`의 지침을 따른다.
 
 **수행:**
+0. GitHub Issues → `.evolve/backlog.json` 캐시 생성 + stale PR 정리
 1. 전체 테스트 실행 → 상태 판단
-2. `status.md`, `backlog.md`, `error-budget.json` 읽기
-3. Architect 필요 여부 결정 (Ready 태스크 ≤ 2개)
-4. 태스크 선택 → backlog.md에서 "In Progress"로 이동
+2. `status.md`, `error-budget.json` 읽기
+3. Architect 필요 여부 결정 (ready Issues ≤ 2개)
+4. 태스크 선택 (idempotency check) → Issue label `ready` → `in-progress`
 5. `.evolve/handoff.json` 작성
 
-**산출물:** `.evolve/handoff.json`
+**산출물:** `.evolve/backlog.json` + `.evolve/handoff.json`
 
 ### Step 2. 📐 Architect (조건부)
 **`handoff.json`의 `needs_architect`가 `true`일 때만 실행.**
@@ -49,9 +54,9 @@ rm -f .evolve/handoff.json .evolve/build-result.json .evolve/qa-result.json
 1. `markdowns/` 스펙 문서 읽기
 2. 현재 코드와 스펙의 갭 분석
 3. 1-run 크기 태스크 생성 (최대 5개)
-4. `backlog.md`의 "Ready"에 추가
+4. GitHub Issue 생성 (`ready` label 포함)
 
-**산출물:** `backlog.md` 업데이트
+**산출물:** GitHub Issues (new)
 
 ### Step 3. 🔨 Builder
 `.claude/agents/builder.md`의 지침을 따른다.
@@ -89,12 +94,15 @@ rm -f .evolve/handoff.json .evolve/build-result.json .evolve/qa-result.json
 **수행:**
 1. LTES 로그 작성
 2. `status.md` 업데이트 (에이전트별 활동 기록 포함)
-3. `backlog.md` 업데이트 (완료 or 유지)
+3. GitHub Issue 상태 업데이트 (QA pass → close, QA fail → comment + label 복원)
 4. `error-budget.json` 업데이트
-5. Branch 생성 → commit → push → PR 생성
-6. `.evolve/` cleanup
+5. `backlog.md` 스냅샷 재생성 (GitHub Issues에서)
+6. **Two-Phase Commit:**
+   - **6a.** State commit → main 직접 push (status.md, backlog.md, error-budget.json 등)
+   - **6b.** Code branch → commit → push → PR 생성 (src/, tests/ 등 코드 파일만)
+7. `.evolve/` cleanup
 
-**산출물:** Git PR + 상태 파일 업데이트
+**산출물:** State commit (main) + Code PR (branch) + Issue 업데이트
 
 ---
 
@@ -102,6 +110,7 @@ rm -f .evolve/handoff.json .evolve/build-result.json .evolve/qa-result.json
 
 ```
 .evolve/
+├── backlog.json       # Coordinator가 생성 → 모든 에이전트가 읽음
 ├── handoff.json       # Coordinator → Builder, QA, Reporter
 ├── build-result.json  # Builder → QA, Reporter
 └── qa-result.json     # QA → Reporter
@@ -114,9 +123,10 @@ rm -f .evolve/handoff.json .evolve/build-result.json .evolve/qa-result.json
 ## Constraints
 
 - 한 사이클에 **1개 태스크만**
+- **GitHub Issues가 source of truth** — `backlog.md`는 read-only 스냅샷
 - 각 에이전트는 자기 역할 범위를 벗어나지 않는다:
   - Coordinator: 판단만 (코드 수정 X)
-  - Architect: 기획만 (코드 수정 X)
+  - Architect: 기획만 (코드 수정 X, Issues 생성만)
   - Builder: 구현만 (상태 파일 수정 X)
   - QA: 검증만 (코드/상태 파일 수정 X)
   - Reporter: 기록만 (소스 코드 수정 X)
