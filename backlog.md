@@ -17,7 +17,6 @@ _(없음)_
 - [ ] #194 - #116 - E2E: `swap_places` Playwright scenarios [test]
 - [ ] #193 - #115 - E2E: `add_day` Playwright scenarios [test]
 - [ ] #182 - #114 - Chat: `update_day_note` intent — overwrite or clear a day's note [feature]
-- [ ] #181 - #113 - E2E: `place_preview` card display during `create_plan` [test]
 
 ## Blocked
 
@@ -27,6 +26,7 @@ _(없음)_
 
 ## Recently Completed (last 20)
 
+- [x] #181 - #113 - E2E: `place_preview` card display during `create_plan` — 2026-04-08
 - [x] #180 - #112 - Chat: `remove_day` intent — remove a day from the trip — 2026-04-08
 - [x] #179 - #111 - Chat: `add_day` intent — extend trip by appending a new day — 2026-04-08
 - [x] #178 - #110 - E2E: `find_alternatives` Playwright scenarios — 2026-04-08
@@ -46,12 +46,11 @@ _(없음)_
 - [x] #139 - #101 - Chat: move_place intent — move a place between days — 2026-04-07
 - [x] #138 - #100 - E2E: duplicate_day Playwright scenarios — 2026-04-07
 - [x] #122 - #96 - Chat: duplicate_day intent — copy a day's itinerary to another day — 2026-04-07
-- [x] #121 - #95 - Frontend: message timestamp display in chat bubbles — 2026-04-06
 
 ---
 
 ## Metrics
 
-- Total open: 5
-- Ready: 5 | In Progress: 0 | Blocked: 0
+- Total open: 4
+- Ready: 4 | In Progress: 0 | Blocked: 0
 - Phase: Phase 10: Chat + Multi-Agent Dashboard

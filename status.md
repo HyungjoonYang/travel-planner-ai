@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T21:00:00Z (Evolve Run #140)
-Run count: 178
+Last run: 2026-04-08T21:30:00Z (Evolve Run #141)
+Run count: 179
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 118 (#180 Chat: remove_day intent; #179 Chat: add_day intent; #178 E2E: find_alternatives Playwright; 1677/1677 tests passing)
+Tasks completed: 119 (#181 E2E: place_preview card display; #180 Chat: remove_day intent; #179 Chat: add_day intent; 1677/1677 tests passing)
 Current focus: next ready task
-Next planned: #181 E2E: place_preview card display
+Next planned: #182 Chat: update_day_note intent
 
 ## LTES Snapshot
 
-- Latency: ~928000ms (evolve run #140, pipeline_duration_s=928)
-- Traffic: 27 commits today, +225/-1 lines (latest: remove_day intent handler + 15 tests)
+- Latency: ~737000ms (evolve run #141, pipeline_duration_s=737)
+- Traffic: 28 commits today, +252/-0 lines (latest: place_preview E2E Playwright scenarios)
 - Errors: 0 test failures (1677 passed, 12 skipped), error_rate=0.0%
-- Saturation: 5 tasks remaining (Ready: #181, #182, #193, #194, #195)
+- Saturation: 4 tasks remaining (Ready: #182, #193, #194, #195)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #181 E2E: place_preview card display
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #141 — 2026-04-08T21:30:00Z
+- **Task**: #181 - E2E: `place_preview` card display during `create_plan` [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1677/1677 passed, 12 skipped; 2 new Playwright E2E scenarios added (+252 lines)
+- **Files changed**: e2e/chat.spec.ts (+252/-0)
+- **Builder note**: Added 2 Playwright scenarios in test.describe 'place_preview card display during create_plan (Task #113)'. Scenario A (line 4217): 3 place_preview events accumulate as .place-card in #plan-panel, each asserting name+category+cost (card[0] 센소지 no price-tag, card[1] 아메요코시장 ₩2,000, card[2] 스카이트리 ₩2,100). Scenario B (line 4336): photo_url set → no .place-card-photo-fallback; null → fallback present; cost 17,000 → .price-tag; cost 0/null → no .price-tag. Both scenarios mock SSE without trailing plan_update so cards persist for assertion.
+- **LTES**: L=737000ms T=1 commit E=0 test failures S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #140 — 2026-04-08T21:00:00Z
 - **Task**: #180 - Chat: `remove_day` intent — remove a day from the trip [feature]

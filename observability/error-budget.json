@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-08",
-    "total_runs": 178,
-    "successful_runs": 178,
+    "total_runs": 179,
+    "successful_runs": 179,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 0.95,
@@ -654,8 +654,8 @@
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
   "history_tail": {
-    "run_id": "2026-04-08-2100",
-    "task": "#180 - Chat: remove_day intent — remove a day from the trip",
+    "run_id": "2026-04-08-2130",
+    "task": "#181 - E2E: place_preview card display during create_plan",
     "result": "success",
     "tests_passed": 1677,
     "tests_total": 1677
@@ -668,38 +668,38 @@
     "tests_total": 1662
   },
   "history_tail_prev_evolve": {
+    "run_id": "2026-04-08-2100",
+    "task": "#180 - Chat: remove_day intent — remove a day from the trip",
+    "result": "success",
+    "tests_passed": 1677,
+    "tests_total": 1677
+  },
+  "history_tail_prev3": {
     "run_id": "2026-04-08-2010",
     "task": "#179 - Chat: add_day intent — extend trip by appending a new day",
     "result": "success",
     "tests_passed": 1662,
     "tests_total": 1662
   },
-  "history_tail_prev3": {
+  "history_tail_prev2_prev": {
     "run_id": "2026-04-08-1900",
     "task": "#178 - E2E: find_alternatives Playwright scenarios",
     "result": "success",
     "tests_passed": 1652,
     "tests_total": 1664
   },
-  "history_tail_prev2_prev": {
-    "run_id": "2026-04-07-2400",
-    "task": "#108 - Chat: find_alternatives intent — suggest replacement places for a slot",
-    "result": "success",
-    "tests_passed": 1630,
-    "tests_total": 1630
-  },
   "history_tail_prev2": {
-    "run_id": "monitor-2026-04-07-2200",
+    "run_id": "monitor-2026-04-08-2031",
     "task": "monitor",
     "result": "success",
-    "tests_passed": 1611,
-    "tests_total": 1611
+    "tests_passed": 1662,
+    "tests_total": 1662
   },
   "history_tail_prev": {
-    "run_id": "2026-04-07-1600",
-    "task": "#101 - Chat: move_place intent — move a place from one day to another",
+    "run_id": "2026-04-08-2100",
+    "task": "#180 - Chat: remove_day intent — remove a day from the trip",
     "result": "success",
-    "tests_passed": 1587,
-    "tests_total": 1587
+    "tests_passed": 1677,
+    "tests_total": 1677
   }
 }
