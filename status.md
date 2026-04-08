@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T18:00:00Z (Evolve Run #137)
-Run count: 172
+Last run: 2026-04-08T19:00:00Z (Evolve Run #138)
+Run count: 173
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 115 (#172 E2E: set_day_label Playwright; #166 E2E: export_calendar+set_budget+find_nearby Playwright; 1652/1664 tests passing)
-Current focus: #178 E2E: find_alternatives Playwright scenarios
+Tasks completed: 116 (#178 E2E: find_alternatives Playwright; #172 E2E: set_day_label Playwright; #166 E2E: export_calendar+set_budget+find_nearby Playwright; 1652/1664 tests passing)
+Current focus: next ready task
 Next planned: #179 Chat: add_day intent
 
 ## LTES Snapshot
 
-- Latency: ~513000ms (evolve run #137, pipeline_duration_s=513)
-- Traffic: 1 commit, +220/-0 lines (latest: E2E Playwright scenarios for set_day_label)
+- Latency: ~699000ms (evolve run #138, pipeline_duration_s=699)
+- Traffic: 1 commit, +128/-0 lines (latest: E2E Playwright scenarios for find_alternatives)
 - Errors: 0 test failures (1652 passed, 12 skipped), error_rate=0.0%
-- Saturation: 5 tasks remaining
+- Saturation: 4 tasks remaining
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #179 Chat: add_day intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #138 — 2026-04-08T19:00:00Z
+- **Task**: #178 - E2E: `find_alternatives` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1652/1652 passed, 12 skipped; 2 new Playwright E2E scenarios added (+128 lines)
+- **Files changed**: e2e/chat.spec.ts (+128/-0)
+- **Builder note**: Added 2 Playwright E2E scenarios for find_alternatives intent in a new describe block. Scenario A (happy path): user asks to replace Day 1 slot → coordinator done → place_scout working→done (result_count:3) → search_results (type=alternatives) event → toggle visible → chat mentions '센소지' and '3개'. Scenario B (fallback): no plan in session → place_scout done ('목적지 정보 없음') → chat shows '목적지를 알려주세요'. Pattern follows find_nearby precedent: route-mocked SSE, agent state assertions, content assertions.
+- **LTES**: L=699000ms T=1 commit E=0 test failures S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #137 — 2026-04-08T18:00:00Z
 - **Task**: #172 - E2E: `set_day_label` + day label display Playwright scenarios [test]
