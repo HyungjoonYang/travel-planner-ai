@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | set_budget | plan_checklist | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | find_nearby | set_budget | plan_checklist | add_day | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -189,7 +189,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "plan_checklist", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "plan_checklist", "add_day", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -230,6 +230,7 @@ Return a JSON object with these fields:
 - Use action "find_nearby" when user wants to find places near a specific location or near a place in the current plan (e.g. "센소지 근처 카페 찾아줘", "1일차 첫 번째 장소 근처 맛집", "시부야 근처 관광지", "find cafes near Senso-ji", "1일차 근처 맛집 추천해줘", "호텔 근처 편의점"); set day_number to the referenced day if mentioned, place_index to the 1-based position if mentioned, query to the location/place name, and place_category to the desired category if mentioned (e.g. "카페" → "cafe", "맛집" → "food", "관광지" → "sightseeing")
 - Use action "set_budget" when user wants to set or update the budget of the current travel plan directly (e.g. "예산을 150만원으로 바꿔줘", "budget을 200만원으로 설정해줘", "여행 예산 100만원으로 수정", "set budget to 1500000", "예산 변경 200만원", "budget 올려줘 250만원으로"); set budget to the new budget value as a number (e.g. "150만원" → 1500000, "200만원" → 2000000). Prefer "set_budget" over "update_plan" when the user's sole intent is to change the budget amount.
 - Use action "plan_checklist" when user wants a pre-trip preparation checklist or packing list for their travel plan (e.g. "여행 준비 체크리스트 만들어줘", "준비물 목록 알려줘", "짐 챙길 목록 만들어줘", "체크리스트 보여줘", "여행 전 준비할 것 알려줘", "packing list", "pre-trip checklist", "what should I prepare?", "여행 준비 뭐 해야 해?", "체크리스트 만들어줘")
+- Use action "add_day" when user wants to extend their travel plan by adding one more day to the end of the trip (e.g. "하루 더 추가해줘", "여행 하루 늘려줘", "1일 연장해줘", "Day 추가", "add one more day", "extend the trip by a day", "일정 하루 더 만들어줘", "마지막 날 다음에 하루 더 넣어줘")
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -450,6 +451,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "plan_checklist":
             async for event in self._handle_plan_checklist(intent, session):
+                yield _track_and_collect(event)
+        elif intent.action == "add_day":
+            async for event in self._handle_add_day(intent, session, db):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -5125,6 +5129,158 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": f"체크리스트 생성 중 오류가 발생했습니다: {exc}"},
+            }
+
+    async def _handle_add_day(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Extend the current travel plan by appending one new day at the end.
+
+        - Computes new_day_date = current end_date + 1 day
+        - Generates itinerary for that single new day via GeminiService
+        - Updates session.last_plan: extends end_date and appends the new day
+        - Persists new DayItinerary + Place records to DB and updates TravelPlan.end_date
+        - Emits: planner thinking→working→done, day_update, plan_update, chat_chunk
+        - Fallback: helpful message when no plan exists in session
+        """
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "thinking", "message": "하루 추가 준비 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if not session.last_plan:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "여행 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "하루를 추가하려면 먼저 여행 계획을 만들어주세요."},
+            }
+            return
+
+        plan = session.last_plan
+        dest = plan.get("destination") or intent.destination or "목적지"
+        budget = plan.get("budget") or intent.budget or 0
+        interests = plan.get("interests") or intent.interests or ""
+        end_str = plan.get("end_date")
+
+        try:
+            current_end = date.fromisoformat(end_str) if end_str else date.today()
+        except ValueError:
+            current_end = date.today()
+
+        new_day_date = current_end + timedelta(days=1)
+
+        yield {
+            "type": "agent_status",
+            "data": {
+                "agent": "planner",
+                "status": "working",
+                "message": f"{new_day_date.isoformat()} 새 일정 생성 중...",
+            },
+        }
+
+        try:
+            user_lang = self._detect_language(intent.raw_message or "")
+            result = await asyncio.to_thread(
+                self._gemini.generate_itinerary,
+                dest, new_day_date, new_day_date, budget, interests, user_lang,
+            )
+
+            if not result.days:
+                raise ValueError("Gemini returned no days for add_day")
+
+            new_ai_day = result.days[0]
+
+            # Update session plan: extend end_date and append new day
+            existing_days = list(plan.get("days", []))
+            new_day_number = len(existing_days) + 1
+            new_day_dict = new_ai_day.model_dump()
+            new_day_dict["day_number"] = new_day_number
+
+            updated_plan = dict(plan)
+            updated_plan["end_date"] = new_day_date.isoformat()
+            updated_plan["days"] = existing_days + [new_day_dict]
+            session.last_plan = updated_plan
+
+            # DB persistence
+            plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+            if db is not None and plan_id is not None:
+                try:
+                    from app.models import (
+                        DayItinerary as DayItineraryModel,
+                        Place as PlaceModel,
+                        TravelPlan as TravelPlanModel,
+                    )
+
+                    plan_record = db.get(TravelPlanModel, plan_id)
+                    if plan_record is not None:
+                        plan_record.end_date = new_day_date
+                        db.flush()
+
+                        day_record = DayItineraryModel(
+                            travel_plan_id=plan_id,
+                            date=new_day_date,
+                            notes=new_ai_day.notes,
+                            transport=new_ai_day.transport,
+                        )
+                        db.add(day_record)
+                        db.flush()
+
+                        for order, place in enumerate(new_ai_day.places):
+                            db.add(PlaceModel(
+                                day_itinerary_id=day_record.id,
+                                name=place.name,
+                                category=place.category,
+                                address=place.address,
+                                estimated_cost=place.estimated_cost,
+                                ai_reason=place.ai_reason,
+                                order=order,
+                            ))
+                        db.commit()
+                    else:
+                        logger.error("_handle_add_day: plan #%s not found in DB", plan_id)
+                except Exception as exc:
+                    logger.error(
+                        "_handle_add_day: DB persistence failed — %s: %s",
+                        type(exc).__name__,
+                        exc,
+                        exc_info=True,
+                    )
+
+            yield {"type": "day_update", "data": new_day_dict}
+            yield {"type": "plan_update", "data": session.last_plan}
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "planner",
+                    "status": "done",
+                    "message": f"Day {new_day_number} 추가 완료!",
+                },
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {
+                    "text": f"{dest} 여행에 Day {new_day_number}을 추가했습니다. ({new_day_date.isoformat()})",
+                },
+            }
+
+        except Exception as exc:
+            logger.error(
+                "_handle_add_day: failed — %s: %s", type(exc).__name__, exc, exc_info=True
+            )
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "일정 추가 실패"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": f"일정 추가 중 오류가 발생했습니다: {exc}"},
             }
 
 
