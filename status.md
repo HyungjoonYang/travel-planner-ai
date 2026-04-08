@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T17:30:00Z (Evolve Run #136)
-Run count: 171
+Last run: 2026-04-08T18:00:00Z (Evolve Run #137)
+Run count: 172
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 114 (#166 E2E: export_calendar+set_budget+find_nearby Playwright; #165 Chat: plan_checklist; 1652/1664 tests passing)
-Current focus: #109 E2E: set_day_label + day label display Playwright scenarios
-Next planned: #110 E2E: find_alternatives Playwright scenarios
+Tasks completed: 115 (#172 E2E: set_day_label Playwright; #166 E2E: export_calendar+set_budget+find_nearby Playwright; 1652/1664 tests passing)
+Current focus: #178 E2E: find_alternatives Playwright scenarios
+Next planned: #179 Chat: add_day intent
 
 ## LTES Snapshot
 
-- Latency: ~679000ms (evolve run #136, pipeline_duration_s=679)
-- Traffic: 1 commit, +480/-0 lines (latest: E2E Playwright scenarios for export_calendar/set_budget/find_nearby)
+- Latency: ~513000ms (evolve run #137, pipeline_duration_s=513)
+- Traffic: 1 commit, +220/-0 lines (latest: E2E Playwright scenarios for set_day_label)
 - Errors: 0 test failures (1652 passed, 12 skipped), error_rate=0.0%
-- Saturation: 6 tasks remaining
+- Saturation: 5 tasks remaining
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #110 E2E: find_alternatives Playwright scenarios
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #137 — 2026-04-08T18:00:00Z
+- **Task**: #172 - E2E: `set_day_label` + day label display Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1652/1652 passed, 12 skipped; 2 new Playwright E2E scenarios added (+220 lines)
+- **Files changed**: e2e/chat.spec.ts (+220/-0)
+- **Builder note**: Added 2 Playwright E2E scenarios under 'set_day_label E2E (Task #109)' describe block. Scenario A: two-call mock (plan_update → set_day_label); day_update SSE with label='미식 투어' renders .day-label-badge on #day-2026-06-01, badge absent on day 2. Scenario B: day_update with label:null → no .day-label-badge on either day card. Frontend already supports both paths (chat.js:969, 1001-1014). Uses page.route() SSE mocking, no live Gemini API.
+- **LTES**: L=513000ms T=1 commit E=0 test failures S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #136 — 2026-04-08T17:30:00Z
 - **Task**: #166 - E2E: `export_calendar` + `set_budget` + `find_nearby` Playwright scenarios [test]
