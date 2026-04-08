@@ -13,16 +13,15 @@ _(none)_
 
 ## Ready
 
-- [ ] #163 - Chat: find_nearby intent — search places near a plan location [feature]
-- [ ] #164 - Chat: set_budget intent — update plan budget directly via chat [feature]
-- [ ] #165 - Chat: plan_checklist intent — AI-generated pre-trip checklist [feature]
-- [ ] #166 - E2E: export_calendar + set_budget + find_nearby Playwright scenarios [test]
-- [ ] #172 - E2E: set_day_label + day label display Playwright scenarios [test]
-- [ ] #178 - E2E: find_alternatives Playwright scenarios [test]
-- [ ] #179 - Chat: add_day intent — extend trip by appending a new day [feature]
-- [ ] #180 - Chat: remove_day intent — remove a day from the trip [feature]
-- [ ] #181 - E2E: place_preview card display during create_plan [test]
-- [ ] #182 - Chat: update_day_note intent — overwrite or clear a day's note [feature]
+- [ ] #182 - #114 - Chat: `update_day_note` intent — overwrite or clear a day's note [feature]
+- [ ] #181 - #113 - E2E: `place_preview` card display during `create_plan` [test]
+- [ ] #180 - #112 - Chat: `remove_day` intent — remove a day from the trip [feature]
+- [ ] #179 - #111 - Chat: `add_day` intent — extend trip by appending a new day [feature]
+- [ ] #178 - #110 - E2E: `find_alternatives` Playwright scenarios [test]
+- [ ] #172 - #109 - E2E: set_day_label + day label display Playwright scenarios [test]
+- [ ] #166 - #109 - E2E: export_calendar + set_budget + find_nearby Playwright scenarios [test]
+- [ ] #165 - #108 - Chat: plan_checklist intent — AI-generated pre-trip checklist [feature]
+- [ ] #164 - #107 - Chat: set_budget intent — update plan budget directly via chat [feature]
 
 ## Blocked
 
@@ -32,31 +31,31 @@ _(none)_
 
 ## Recently Completed (last 20)
 
-- [x] #171 - Chat: find_alternatives intent — suggest replacement places — 2026-04-07
-- [x] #170 - Chat: swap_places intent — swap places between two days — 2026-04-07
-- [x] #169 - E2E: quick_summary Playwright scenarios — 2026-04-07
-- [x] #168 - Frontend: day label badge on day cards — 2026-04-07
-- [x] #142 - Chat: quick_summary intent — concise plan overview in chat — 2026-04-07
-- [x] #141 - E2E: message timestamp Playwright scenarios — 2026-04-07
-- [x] #140 - Chat: set_day_label intent — set a custom title/label — 2026-04-07
-- [x] #139 - Chat: move_place intent — move a place between days — 2026-04-07
-- [x] #138 - E2E: duplicate_day Playwright scenarios — 2026-04-07
-- [x] #122 - Chat: duplicate_day intent — copy a day's itinerary — 2026-04-07
-- [x] #121 - Frontend: message timestamp display in chat bubbles — 2026-04-06
-- [x] #120 - Chat: clear_day intent — remove all places from a day — 2026-04-06
-- [x] #119 - Chat: reorder_days intent — swap/reorder days — 2026-04-06
-- [x] #118 - E2E: share_plan Playwright scenarios — 2026-04-06
-- [x] #112 - Chat: share_plan intent — shareable plan link — 2026-04-06
-- [x] #111 - E2E: suggest_improvements + budget auto-refresh — 2026-04-05
-- [x] #110 - Chat: add_place intent — append a custom place — 2026-04-05
-- [x] #109 - Chat: remove_place intent — remove a place — 2026-04-05
-- [x] #108 - Chat frontend: plan_suggestions SSE handler — 2026-04-05
-- [x] #107 - Chat: suggest_improvements intent — AI improvement suggestions — 2026-04-05
+- [x] #171 - #108 - Chat: find_alternatives intent — suggest replacement places for a slot — 2026-04-07
+- [x] #170 - #107 - Chat: swap_places intent — swap places between two days — 2026-04-07
+- [x] #169 - #106 - E2E: quick_summary Playwright scenarios — 2026-04-07
+- [x] #168 - #105 - Frontend: day label badge on day cards — 2026-04-07
+- [x] #163 - #106 - Chat: find_nearby intent — search places near a plan location — 2026-04-08
+- [x] #162 - #105 - fix: export_calendar missing from intent extraction prompt — 2026-04-08
+- [x] #142 - #104 - Chat: quick_summary intent — concise plan overview in chat — 2026-04-07
+- [x] #141 - #103 - E2E: message timestamp Playwright scenarios — 2026-04-07
+- [x] #140 - #102 - Chat: set_day_label intent — set a custom title/label for a day — 2026-04-07
+- [x] #139 - #101 - Chat: move_place intent — move a place between days — 2026-04-07
+- [x] #138 - #100 - E2E: duplicate_day Playwright scenarios — 2026-04-07
+- [x] #122 - #96 - Chat: duplicate_day intent — copy a day's itinerary to another day — 2026-04-07
+- [x] #121 - #95 - Frontend: message timestamp display in chat bubbles — 2026-04-06
+- [x] #120 - #94 - Chat: clear_day intent — remove all places from a day via chat — 2026-04-06
+- [x] #119 - #93 - Chat: reorder_days intent — swap/reorder days via chat — 2026-04-06
+- [x] #118 - #92 - E2E: share_plan Playwright scenarios — 2026-04-06
+- [x] #112 - #91 - Chat: share_plan intent — generate shareable plan link via chat — 2026-04-06
+- [x] #111 - #90 - E2E: suggest_improvements + budget auto-refresh Playwright scenarios — 2026-04-05
+- [x] #110 - #89 - Chat: add_place intent — append a custom place to a specific day via chat — 2026-04-05
+- [x] #109 - #88 - Chat: remove_place intent — remove a place from a day's itinerary via chat — 2026-04-05
 
 ---
 
 ## Metrics
 
-- Total open: 10 (ready: 10, in-progress: 0, blocked: 0)
+- Total open: 9 (ready: 9, in-progress: 0, blocked: 0)
 - Phase: 10 (Chat + Multi-Agent Dashboard)
 - Snapshot generated: 2026-04-08

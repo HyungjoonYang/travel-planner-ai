@@ -1,0 +1,22 @@
+{
+  "trace": {
+    "run_id": "2026-04-08-local",
+    "timestamp": "2026-04-08T13:00:00Z",
+    "phase": "Phase 10",
+    "health": "GREEN",
+    "task": "#163 Chat: find_nearby intent",
+    "agents": {
+      "coordinator": "completed",
+      "architect": "skipped",
+      "builder": "completed",
+      "qa": "pass",
+      "reporter": "completed"
+    }
+  },
+  "ltes": {
+    "latency": {"total_duration_ms": 0},
+    "traffic": {"commits": 1, "lines_added": 260, "lines_removed": 2, "files_changed": 2},
+    "errors": {"test_failures": 0, "fix_attempts": 0},
+    "saturation": {"issues_open": 9}
+  }
+}
