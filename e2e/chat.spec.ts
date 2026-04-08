@@ -4190,3 +4190,256 @@ test.describe("find_alternatives E2E (Task #110)", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// place_preview card display during create_plan (Task #113 / Issue #181)
+// ---------------------------------------------------------------------------
+
+test.describe("place_preview card display during create_plan (Task #113)", () => {
+  /**
+   * Scenario A: place_preview events render and accumulate .place-card elements
+   * in #plan-panel during the create_plan flow.
+   *
+   * Three place_preview events arrive after place_scout marks itself done.
+   * Each card must show the place name (.place-card-name) and category
+   * (.place-card-meta). The second and third cards also carry a non-zero
+   * estimated_cost, which must appear as a formatted .price-tag string inside
+   * .place-card-meta.
+   *
+   * Done criteria:
+   *   - coordinator done ("create_plan 파악")
+   *   - place_scout transitions working → done
+   *   - 3 .place-card elements present in #plan-panel after all events are processed
+   *   - card[0]: name="센소지", meta contains "문화"
+   *   - card[1]: name="아메요코 시장", meta contains "맛집" + "2,000"
+   *   - card[2]: name="스카이트리", meta contains "관광" + "2,100"
+   */
+  test("place_preview events render and accumulate .place-card elements in plan panel", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "working", message: "도쿄 장소 검색 중..." },
+      },
+      // place_scout done fires BEFORE place_preview events (matches backend flow)
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "done", message: "3개 장소 찾음", result_count: 3 },
+      },
+      // Three place_preview events — must each produce a .place-card
+      {
+        type: "place_preview",
+        data: {
+          name: "센소지",
+          category: "문화",
+          address: "도쿄 아사쿠사",
+          estimated_cost: 0,
+          ai_reason: "도쿄의 가장 유명한 사원",
+          day: "2026-05-01",
+          photo_url: null,
+          fallback_icon: "⛩️",
+          google_maps_url: null,
+        },
+      },
+      {
+        type: "place_preview",
+        data: {
+          name: "아메요코 시장",
+          category: "맛집",
+          address: "도쿄 다이토구",
+          estimated_cost: 2000,
+          ai_reason: "활기찬 시장과 다양한 음식",
+          day: "2026-05-01",
+          photo_url: null,
+          fallback_icon: "🍜",
+          google_maps_url: null,
+        },
+      },
+      {
+        type: "place_preview",
+        data: {
+          name: "스카이트리",
+          category: "관광",
+          address: "도쿄 스미다구",
+          estimated_cost: 2100,
+          ai_reason: "도쿄 전망대",
+          day: "2026-05-02",
+          photo_url: null,
+          fallback_icon: "🗼",
+          google_maps_url: null,
+        },
+      },
+      { type: "chat_chunk", data: { text: "도쿄 여행 계획을 생성하고 있습니다." } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "도쿄 2박3일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // All 3 place_preview cards must accumulate in #plan-panel
+    await expect(page.locator("#plan-panel .place-card")).toHaveCount(3, {
+      timeout: 10_000,
+    });
+
+    // card[0]: 센소지 — name and category visible; no cost (0 is falsy → no price-tag)
+    const firstCard = page.locator("#plan-panel .place-card").nth(0);
+    await expect(firstCard.locator(".place-card-name")).toContainText("센소지");
+    await expect(firstCard.locator(".place-card-meta")).toContainText("문화");
+    await expect(firstCard.locator(".price-tag")).toHaveCount(0);
+
+    // card[1]: 아메요코 시장 — name, category, and formatted cost
+    const secondCard = page.locator("#plan-panel .place-card").nth(1);
+    await expect(secondCard.locator(".place-card-name")).toContainText("아메요코 시장");
+    await expect(secondCard.locator(".place-card-meta")).toContainText("맛집");
+    await expect(secondCard.locator(".place-card-meta")).toContainText("2,000");
+
+    // card[2]: 스카이트리 — name, category, and formatted cost
+    const thirdCard = page.locator("#plan-panel .place-card").nth(2);
+    await expect(thirdCard.locator(".place-card-name")).toContainText("스카이트리");
+    await expect(thirdCard.locator(".place-card-meta")).toContainText("관광");
+    await expect(thirdCard.locator(".place-card-meta")).toContainText("2,100");
+  });
+
+  /**
+   * Scenario B: each .place-card correctly renders optional photo and cost fields.
+   *
+   * Three cards with different photo/cost combinations:
+   *   - Card 1 (에펠탑): photo_url set → .place-card-photo rendered WITHOUT
+   *     .place-card-photo-fallback class; estimated_cost null → no .price-tag.
+   *   - Card 2 (루브르): photo_url null → .place-card-photo-fallback present;
+   *     estimated_cost 17000 → .price-tag shows "17,000".
+   *   - Card 3 (몽마르트르): photo_url null → fallback; estimated_cost 0
+   *     (falsy) → no .price-tag.
+   *
+   * Done criteria:
+   *   - .place-cards-grid container visible in #plan-panel
+   *   - card[0]: .place-card-photo visible, NOT .place-card-photo-fallback, no .price-tag
+   *   - card[1]: .place-card-photo-fallback visible, .price-tag shows "17,000"
+   *   - card[2]: .place-card-photo-fallback visible, no .price-tag
+   */
+  test("place_preview cards show optional photo and cost fields correctly", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "working", message: "파리 장소 검색 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "done", message: "3개 장소 찾음", result_count: 3 },
+      },
+      // Card 1: photo_url set, no cost (null)
+      {
+        type: "place_preview",
+        data: {
+          name: "에펠탑",
+          category: "관광",
+          address: "파리 7구",
+          estimated_cost: null,
+          ai_reason: "파리의 상징",
+          day: "2026-06-01",
+          photo_url: "https://example.com/eiffel.jpg",
+          fallback_icon: "🗼",
+          google_maps_url: null,
+        },
+      },
+      // Card 2: no photo_url, estimated_cost = 17000 → price-tag
+      {
+        type: "place_preview",
+        data: {
+          name: "루브르 박물관",
+          category: "문화",
+          address: "파리 1구",
+          estimated_cost: 17000,
+          ai_reason: "세계 최대 미술관",
+          day: "2026-06-01",
+          photo_url: null,
+          fallback_icon: "🏛️",
+          google_maps_url: null,
+        },
+      },
+      // Card 3: no photo_url, estimated_cost = 0 (falsy → no price-tag)
+      {
+        type: "place_preview",
+        data: {
+          name: "몽마르트르",
+          category: "문화",
+          address: "파리 18구",
+          estimated_cost: 0,
+          ai_reason: "예술가의 언덕",
+          day: "2026-06-01",
+          photo_url: null,
+          fallback_icon: "⛪",
+          google_maps_url: null,
+        },
+      },
+      { type: "chat_chunk", data: { text: "파리 여행 계획을 생성하고 있습니다." } },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "파리 2박3일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // .place-cards-grid container must appear in #plan-panel
+    await expect(page.locator("#plan-panel .place-cards-grid")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // All 3 cards must be present
+    await expect(page.locator("#plan-panel .place-card")).toHaveCount(3, {
+      timeout: 10_000,
+    });
+
+    // --- Card 1 (에펠탑): photo_url set → no fallback class; no cost → no price-tag ---
+    const eiffelCard = page.locator("#plan-panel .place-card").nth(0);
+    await expect(eiffelCard.locator(".place-card-name")).toContainText("에펠탑");
+    await expect(eiffelCard.locator(".place-card-meta")).toContainText("관광");
+    // photo_url is set: the div carries only "place-card-photo" class (not fallback)
+    const eiffelPhoto = eiffelCard.locator(".place-card-photo");
+    await expect(eiffelPhoto).toBeVisible();
+    await expect(eiffelPhoto).not.toHaveClass(/place-card-photo-fallback/);
+    // no cost → no .price-tag
+    await expect(eiffelCard.locator(".price-tag")).toHaveCount(0);
+
+    // --- Card 2 (루브르): no photo_url → fallback; cost 17,000 → price-tag ---
+    const louvreCard = page.locator("#plan-panel .place-card").nth(1);
+    await expect(louvreCard.locator(".place-card-name")).toContainText("루브르 박물관");
+    await expect(louvreCard.locator(".place-card-meta")).toContainText("문화");
+    // no photo_url: .place-card-photo-fallback must be present
+    await expect(louvreCard.locator(".place-card-photo-fallback")).toBeVisible();
+    // cost 17,000 → .price-tag with formatted number
+    await expect(louvreCard.locator(".price-tag")).toBeVisible();
+    await expect(louvreCard.locator(".place-card-meta")).toContainText("17,000");
+
+    // --- Card 3 (몽마르트르): no photo, cost=0 → fallback; no price-tag ---
+    const montmartreCard = page.locator("#plan-panel .place-card").nth(2);
+    await expect(montmartreCard.locator(".place-card-name")).toContainText("몽마르트르");
+    await expect(montmartreCard.locator(".place-card-meta")).toContainText("문화");
+    // no photo_url → fallback
+    await expect(montmartreCard.locator(".place-card-photo-fallback")).toBeVisible();
+    // cost=0 is falsy → no .price-tag
+    await expect(montmartreCard.locator(".price-tag")).toHaveCount(0);
+  });
+});
