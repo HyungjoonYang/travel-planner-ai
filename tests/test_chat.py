@@ -9279,3 +9279,178 @@ class TestFindAlternativesHandler:
         agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "place_scout"]
         assert any(e["data"]["status"] == "error" for e in agent_events)
         assert events[-1]["type"] == "chat_done"
+
+
+# ---------------------------------------------------------------------------
+# find_nearby intent handler (Issue #163)
+# ---------------------------------------------------------------------------
+
+
+class TestFindNearbyHandler:
+    """_handle_find_nearby: search for places near a location or plan place."""
+
+    # ------------------------------------------------------------------
+    # Intent model acceptance
+    # ------------------------------------------------------------------
+
+    def test_find_nearby_intent_accepted_by_model(self):
+        """Intent model must accept find_nearby action."""
+        intent = Intent(
+            action="find_nearby",
+            query="센소지",
+            place_category="cafe",
+            day_number=1,
+            place_index=1,
+            raw_message="센소지 근처 카페 찾아줘",
+        )
+        assert intent.action == "find_nearby"
+        assert intent.query == "센소지"
+        assert intent.place_category == "cafe"
+
+    # ------------------------------------------------------------------
+    # Happy path: session has a plan, search by location name
+    # ------------------------------------------------------------------
+
+    def test_find_nearby_happy_path_emits_search_results(self):
+        """find_nearby with a plan emits place_scout working/done + search_results(type=nearby)."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "days": [
+                {
+                    "day_number": 1,
+                    "date": "2026-05-01",
+                    "places": [
+                        {"name": "센소지", "category": "sightseeing"},
+                        {"name": "아키하바라", "category": "shopping"},
+                    ],
+                },
+            ],
+        }
+
+        mock_result = DestinationSearchResult(
+            destination="도쿄",
+            query="센소지 근처 cafe",
+            places=[
+                PlaceSearchResult(name="카미나리몬 카페", category="cafe", description="전통 카페"),
+                PlaceSearchResult(name="아사쿠사 로스터리", category="cafe", description="스페셜티 커피"),
+            ],
+            summary="센소지 근처 카페",
+        )
+
+        with patch.object(svc._web_search, "search_places", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="find_nearby",
+                 query="센소지",
+                 place_category="cafe",
+                 raw_message="센소지 근처 카페 찾아줘",
+             )):
+            events = _collect_events(svc, session.session_id, "센소지 근처 카페 찾아줘")
+
+        # place_scout must go working → done
+        agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "place_scout"]
+        statuses = [e["data"]["status"] for e in agent_events]
+        assert "working" in statuses
+        assert "done" in statuses
+
+        # done event must include result_count
+        done_event = next(e for e in agent_events if e["data"]["status"] == "done")
+        assert done_event["data"].get("result_count") == 2
+
+        # search_results event must be emitted with type=nearby
+        search_events = [e for e in events if e["type"] == "search_results"]
+        assert len(search_events) == 1
+        sr = search_events[0]
+        assert sr["data"]["type"] == "nearby"
+        assert len(sr["data"]["results"]["places"]) == 2
+
+        # results must carry context field
+        results_data = sr["data"]["results"]
+        assert results_data["near_place"] == "센소지"
+
+        # chat_chunk must mention the location
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "센소지" in combined
+        assert "2" in combined  # place count
+
+        assert events[-1]["type"] == "chat_done"
+
+    # ------------------------------------------------------------------
+    # No plan / no destination fallback
+    # ------------------------------------------------------------------
+
+    def test_find_nearby_no_plan_fallback(self):
+        """find_nearby with no plan and no query emits fallback message."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # No plan, no query, no destination
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+                action="find_nearby",
+                raw_message="근처 맛집 추천해줘",
+             )):
+            events = _collect_events(svc, session.session_id, "근처 맛집 추천해줘")
+
+        # Should get a fallback chat message
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "여행 계획" in combined or "위치" in combined
+
+        # place_scout should end in done (not error)
+        agent_events = [e for e in events if e["type"] == "agent_status" and e["data"]["agent"] == "place_scout"]
+        assert any(e["data"]["status"] == "done" for e in agent_events)
+
+        assert events[-1]["type"] == "chat_done"
+
+    # ------------------------------------------------------------------
+    # Day/place reference resolution from plan
+    # ------------------------------------------------------------------
+
+    def test_find_nearby_resolves_place_from_plan_day(self):
+        """find_nearby with day_number resolves the place name from plan."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "days": [
+                {
+                    "day_number": 1,
+                    "date": "2026-06-01",
+                    "places": [
+                        {"name": "에펠탑", "category": "landmark"},
+                        {"name": "루브르 박물관", "category": "museum"},
+                    ],
+                },
+            ],
+        }
+
+        mock_result = DestinationSearchResult(
+            destination="파리",
+            query="루브르 박물관 근처 추천 장소",
+            places=[
+                PlaceSearchResult(name="튈르리 정원", category="park", description="공원"),
+            ],
+            summary="루브르 근처",
+        )
+
+        with patch.object(svc._web_search, "search_places", return_value=mock_result) as mock_search, \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="find_nearby",
+                 day_number=1,
+                 place_index=2,
+                 raw_message="1일차 두 번째 장소 근처 맛집",
+             )):
+            events = _collect_events(svc, session.session_id, "1일차 두 번째 장소 근처 맛집")
+
+        # search_places should have been called with 루브르 박물관 context
+        mock_search.assert_called_once()
+        call_args = mock_search.call_args
+        # interests arg should reference 루브르 박물관
+        assert "루브르 박물관" in call_args[0][1]
+
+        # search_results near_place should be resolved
+        search_events = [e for e in events if e["type"] == "search_results"]
+        assert len(search_events) == 1
+        assert search_events[0]["data"]["results"]["near_place"] == "루브르 박물관"
