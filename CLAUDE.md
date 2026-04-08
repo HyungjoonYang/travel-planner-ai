@@ -14,11 +14,14 @@
 | 파일 | 내용 | 변경 주기 |
 |------|------|-----------|
 | `status.md` | 현재 Phase, health, 최근 변경, LTES 스냅샷 | 매 evolve run |
-| `backlog.md` | 태스크 보드 (Ready / In Progress / Done) | 매 evolve run |
+| `backlog.md` | 태스크 스냅샷 (GitHub Issues에서 자동 생성, **read-only**) | 매 evolve run |
 | `tech-decisions.md` | 기술 결정 로그 (모든 결정의 이유) | 새 결정 시 |
 | `markdowns/*.md` | 기능 스펙 문서 (Architect가 참조) | 새 기능 기획 시 |
 | `observability/error-budget.json` | Error Budget 상태 | 매 evolve run |
+| **GitHub Issues** | **태스크 Source of Truth** (labels: ready/in-progress/blocked) | 매 evolve run |
 
+> **Source of Truth**: 태스크 관리는 **GitHub Issues**가 유일한 source of truth다.
+> `backlog.md`는 Reporter가 매 run 끝에 Issues에서 재생성하는 read-only 스냅샷이다.
 > **CLAUDE.md는 불변 원칙만 담는다.** 자주 바뀌는 상태는 위 파일들에서 확인한다.
 
 ---
@@ -87,13 +90,13 @@
 
 | Agent | 역할 | 산출물 |
 |-------|------|--------|
-| 🧠 Coordinator | 상태 파악, 태스크 배정 | `.evolve/handoff.json` |
-| 📐 Architect | 스펙→태스크 기획 (Ready ≤ 2일 때만) | `backlog.md` 업데이트 |
+| 🧠 Coordinator | Issues 캐시 생성, 태스크 배정 | `.evolve/backlog.json` + `.evolve/handoff.json` |
+| 📐 Architect | 스펙→태스크 기획 (ready ≤ 2일 때만) | GitHub Issues (new, `ready` label) |
 | 🔨 Builder | 코드 구현 + 테스트 | 코드 + `.evolve/build-result.json` |
 | 🧪 QA | 전체 검증 (tests, lint, 기준 충족) | `.evolve/qa-result.json` |
-| 📝 Reporter | 기록, 상태 업데이트, PR 생성 | `status.md` + `tech-decisions.md` + PR |
+| 📝 Reporter | Issue 상태 업데이트, 기록, PR 생성 | Issue close/comment + `status.md` + `backlog.md` 스냅샷 + PR |
 
-에이전트 간 통신은 `.evolve/*.json` 파일로 핸드오프한다.
+에이전트 간 통신은 `.evolve/*.json` 파일로 핸드오프하고, 태스크 상태는 GitHub Issues labels로 관리한다.
 
 ---
 
