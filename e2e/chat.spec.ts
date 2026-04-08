@@ -4029,3 +4029,164 @@ test.describe("set_day_label E2E (Task #109)", () => {
     await expect(page.locator("#day-2026-06-02 .day-label-badge")).toHaveCount(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// find_alternatives E2E scenarios (Task #110 / Issue #178)
+// ---------------------------------------------------------------------------
+
+test.describe("find_alternatives E2E (Task #110)", () => {
+  /**
+   * Scenario A (happy path):
+   * "1일차 센소지 대신 다른 곳 추천해줘" → coordinator done → place_scout working
+   * → place_scout done with result_count → search_results (type=alternatives)
+   * → chat message mentions alternatives.
+   *
+   * Done criteria:
+   *   - coordinator done ("find_alternatives 파악")
+   *   - place_scout transitions: working → done (with result_count)
+   *   - place_scout expand toggle (▾) is visible
+   *   - place_scout done message contains result count
+   *   - chat message mentions the replaced place and number of alternatives
+   */
+  test("find_alternatives: place_scout done + expand toggle + alternatives message rendered", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "find_alternatives 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "working", message: "도쿄 대체 장소 검색 중..." },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "place_scout",
+          status: "done",
+          message: "3개 대체 장소 찾음",
+          result_count: 3,
+        },
+      },
+      {
+        type: "search_results",
+        data: {
+          type: "alternatives",
+          results: {
+            for_place: "센소지",
+            day_number: 1,
+            place_index: 1,
+            places: [
+              { name: "우에노 공원", category: "문화", address: "도쿄 다이토구", estimated_cost: 0 },
+              { name: "야나카 긴자", category: "쇼핑", address: "도쿄 다이토구", estimated_cost: 1500 },
+              { name: "아메요코 시장", category: "쇼핑", address: "도쿄 다이토구", estimated_cost: 2000 },
+            ],
+          },
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1의 '센소지' 대신 방문할 수 있는 도쿄 장소 3개를 찾았습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "1일차 센소지 대신 다른 곳 추천해줘");
+    await page.click('button:has-text("전송")');
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Place scout must reach done state
+    await expect(page.locator('[data-agent="place_scout"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Place scout done message must contain result count
+    await expect(
+      page.locator('[data-agent="place_scout"] .agent-message')
+    ).toContainText("3개 대체 장소 찾음");
+
+    // Place scout expand toggle (▾) must be visible (result_count > 0)
+    await expect(
+      page.locator('[data-agent="place_scout"] .agent-toggle')
+    ).toBeVisible();
+
+    // Chat message must confirm the replaced place and alternatives count
+    await expect(page.locator("#chat-messages")).toContainText(
+      "센소지",
+      { timeout: 10_000 }
+    );
+    await expect(page.locator("#chat-messages")).toContainText("3개");
+  });
+
+  /**
+   * Scenario B (fallback — no plan / no destination in session):
+   * "다른 장소 추천해줘" when no travel plan is active → place_scout done with
+   * "목적지 정보 없음" message → chat shows guidance to create a plan.
+   *
+   * Done criteria:
+   *   - coordinator done ("find_alternatives 파악")
+   *   - place_scout reaches done state (graceful fallback, not error)
+   *   - place_scout message contains "목적지 정보 없음"
+   *   - chat contains guidance about creating a plan or specifying a destination
+   */
+  test("find_alternatives fallback: no plan → place_scout done with guidance message", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "find_alternatives 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "working", message: "목적지 대체 장소 검색 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "done", message: "목적지 정보 없음" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "대체 장소를 찾으려면 여행 계획을 먼저 만들거나 목적지를 알려주세요." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "다른 장소 추천해줘");
+    await page.click('button:has-text("전송")');
+
+    // Place scout must reach done state (graceful fallback, not error)
+    await expect(page.locator('[data-agent="place_scout"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Place scout card message must indicate no destination
+    await expect(
+      page.locator('[data-agent="place_scout"] .agent-message')
+    ).toContainText("목적지 정보 없음");
+
+    // Chat must show the plan-creation guidance
+    await expect(page.locator("#chat-messages")).toContainText(
+      "목적지를 알려주세요",
+      { timeout: 10_000 }
+    );
+  });
+});
