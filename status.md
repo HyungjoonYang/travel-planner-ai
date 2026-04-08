@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T17:00:00Z (Evolve Run #135)
-Run count: 170
+Last run: 2026-04-08T17:30:00Z (Evolve Run #136)
+Run count: 171
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 113 (#165 Chat: plan_checklist intent; #164 Chat: set_budget intent; 1652/1652 tests passing)
+Tasks completed: 114 (#166 E2E: export_calendar+set_budget+find_nearby Playwright; #165 Chat: plan_checklist; 1652/1664 tests passing)
 Current focus: #109 E2E: set_day_label + day label display Playwright scenarios
 Next planned: #110 E2E: find_alternatives Playwright scenarios
 
 ## LTES Snapshot
 
-- Latency: ~639000ms (evolve run #135, pipeline_duration_s=639)
-- Traffic: 1 commit, +215/-2 lines (latest: plan_checklist feature)
+- Latency: ~679000ms (evolve run #136, pipeline_duration_s=679)
+- Traffic: 1 commit, +480/-0 lines (latest: E2E Playwright scenarios for export_calendar/set_budget/find_nearby)
 - Errors: 0 test failures (1652 passed, 12 skipped), error_rate=0.0%
-- Saturation: 7 tasks remaining
+- Saturation: 6 tasks remaining
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #110 E2E: find_alternatives Playwright scenarios
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #136 — 2026-04-08T17:30:00Z
+- **Task**: #166 - E2E: `export_calendar` + `set_budget` + `find_nearby` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1652/1652 passed, 12 skipped; 6 new Playwright E2E tests added (2 per intent across 3 describe blocks)
+- **Files changed**: e2e/chat.spec.ts (+480/-0)
+- **Builder note**: Added 6 Playwright E2E tests covering export_calendar (happy path: secretary working→done with result_count + calendar_exported bubble; error: no saved plan → agent-error + guidance), set_budget (happy path: budget_analyst working→done + plan_update triggers 40% budget bar + 1,500,000원 in plan panel; error: no plan → guidance), find_nearby (happy path: place_scout working→done with result_count=4, expand toggle, '4개의 장소'; fallback: no destination → '위치 정보 없음' + guidance). All use route-mocked SSE via mockChatSession.
+- **LTES**: L=679000ms T=1 commit E=0 test failures S=6 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #135 — 2026-04-08T17:00:00Z
 - **Task**: #165 - Chat: `plan_checklist` intent — AI-generated pre-trip checklist [feature]
