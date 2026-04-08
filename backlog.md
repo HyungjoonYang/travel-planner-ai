@@ -20,7 +20,6 @@ _(없음)_
 - [ ] #178 - #110 - E2E: `find_alternatives` Playwright scenarios [test]
 - [ ] #172 - #109 - E2E: set_day_label + day label display Playwright scenarios [test]
 - [ ] #166 - #109 - E2E: export_calendar + set_budget + find_nearby Playwright scenarios [test]
-- [ ] #165 - #108 - Chat: plan_checklist intent — AI-generated pre-trip checklist [feature]
 
 ## Blocked
 
@@ -34,6 +33,7 @@ _(없음)_
 - [x] #170 - #107 - Chat: swap_places intent — swap places between two days — 2026-04-07
 - [x] #169 - #106 - E2E: quick_summary Playwright scenarios — 2026-04-07
 - [x] #168 - #105 - Frontend: day label badge on day cards — 2026-04-07
+- [x] #165 - #108 - Chat: plan_checklist intent — AI-generated pre-trip checklist — 2026-04-08
 - [x] #164 - #107 - Chat: set_budget intent — update plan budget directly via chat — 2026-04-08
 - [x] #163 - #106 - Chat: find_nearby intent — search places near a plan location — 2026-04-08
 - [x] #162 - #105 - fix: export_calendar missing from intent extraction prompt — 2026-04-08
@@ -49,12 +49,11 @@ _(없음)_
 - [x] #118 - #92 - E2E: share_plan Playwright scenarios — 2026-04-06
 - [x] #112 - #91 - Chat: share_plan intent — generate shareable plan link via chat — 2026-04-06
 - [x] #111 - #90 - E2E: suggest_improvements + budget auto-refresh Playwright scenarios — 2026-04-05
-- [x] #110 - #89 - Chat: add_place intent — append a custom place to a specific day via chat — 2026-04-05
 
 ---
 
 ## Metrics
 
-- Total open: 8
-- Ready: 8 | In Progress: 0 | Blocked: 0
+- Total open: 7
+- Ready: 7 | In Progress: 0 | Blocked: 0
 - Phase: Phase 10: Chat + Multi-Agent Dashboard
