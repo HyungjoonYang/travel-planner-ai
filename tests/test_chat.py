@@ -10364,3 +10364,471 @@ class TestAddDay:
         assert "오류" in combined or "API timeout" in combined
 
         assert events[-1]["type"] == "chat_done"
+
+
+# ---------------------------------------------------------------------------
+# remove_day
+# ---------------------------------------------------------------------------
+
+class TestRemoveDay:
+    """Tests for _handle_remove_day: remove a specific day from the trip."""
+
+    # ------------------------------------------------------------------
+    # Unit: Intent model accepts remove_day
+    # ------------------------------------------------------------------
+
+    def test_remove_day_intent_accepted_by_model(self):
+        """Intent model must accept remove_day action with day_number."""
+        from app.chat import Intent
+        intent = Intent(action="remove_day", day_number=2, raw_message="2일차 삭제해줘")
+        assert intent.action == "remove_day"
+        assert intent.day_number == 2
+
+    # ------------------------------------------------------------------
+    # Happy path: day removed, remaining days renumbered
+    # ------------------------------------------------------------------
+
+    def test_remove_day_happy_path_emits_plan_update(self):
+        """remove_day with an existing plan emits plan_update and chat_done."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "day_number": 1, "places": []},
+                {"date": "2026-05-02", "day_number": 2, "places": []},
+                {"date": "2026-05-03", "day_number": 3, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=2, raw_message="2일차 삭제해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "2일차 삭제해줘")
+
+        event_types = [e["type"] for e in events]
+        assert "plan_update" in event_types
+        assert "chat_done" in event_types
+        assert events[-1]["type"] == "chat_done"
+
+    def test_remove_day_happy_path_renumbers_shifted_days(self):
+        """After removing day 2 from a 3-day trip, the former day 3 emits day_update with day_number=2."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-03",
+            "budget": 3000000.0,
+            "days": [
+                {"date": "2026-06-01", "day_number": 1, "places": []},
+                {"date": "2026-06-02", "day_number": 2, "places": []},
+                {"date": "2026-06-03", "day_number": 3, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=2, raw_message="2일차 제거해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "2일차 제거해줘")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        # Former day 3 should have been shifted to day_number=2
+        assert len(day_updates) >= 1
+        shifted = day_updates[0]["data"]
+        assert shifted["day_number"] == 2
+        assert shifted["date"] == "2026-06-03"
+
+    def test_remove_day_session_plan_shrinks_by_one(self):
+        """After remove_day, session.last_plan has one fewer day."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "day_number": 1, "places": []},
+                {"date": "2026-05-02", "day_number": 2, "places": []},
+                {"date": "2026-05-03", "day_number": 3, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=1, raw_message="1일차 삭제해줘"
+        )):
+            _collect_events(svc, session.session_id, "1일차 삭제해줘")
+
+        assert len(session.last_plan["days"]) == 2
+
+    def test_remove_day_updates_session_plan_end_date(self):
+        """After remove_day, session.last_plan end_date is shrunk by one day."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "day_number": 1, "places": []},
+                {"date": "2026-05-02", "day_number": 2, "places": []},
+                {"date": "2026-05-03", "day_number": 3, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=3, raw_message="마지막 날 삭제해줘"
+        )):
+            _collect_events(svc, session.session_id, "마지막 날 삭제해줘")
+
+        assert session.last_plan["end_date"] == "2026-05-02"
+
+    def test_remove_last_day_no_shifted_day_updates(self):
+        """Removing the last day emits no day_update (no days shifted)."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "day_number": 1, "places": []},
+                {"date": "2026-05-02", "day_number": 2, "places": []},
+                {"date": "2026-05-03", "day_number": 3, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=3, raw_message="마지막 날 삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "마지막 날 삭제")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+
+    # ------------------------------------------------------------------
+    # Fallback: no plan in session
+    # ------------------------------------------------------------------
+
+    def test_remove_day_no_plan_emits_helpful_fallback(self):
+        """remove_day without a plan emits planner error and helpful chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # no last_plan
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=1, raw_message="1일차 삭제해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 삭제해줘")
+
+        planner_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert any(e["data"]["status"] == "error" for e in planner_events)
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "계획" in combined or "plan" in combined.lower()
+
+        assert events[-1]["type"] == "chat_done"
+
+    def test_remove_day_no_plan_does_not_emit_day_update(self):
+        """When no plan exists, remove_day must not emit day_update or plan_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=2, raw_message="2일차 빼줘"
+        )):
+            events = _collect_events(svc, session.session_id, "2일차 빼줘")
+
+        assert not any(e["type"] in ("day_update", "plan_update") for e in events)
+
+    # ------------------------------------------------------------------
+    # Out-of-range day number
+    # ------------------------------------------------------------------
+
+    def test_remove_day_out_of_range_emits_error(self):
+        """remove_day with out-of-range day_number emits planner error and chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-02",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "day_number": 1, "places": []},
+                {"date": "2026-05-02", "day_number": 2, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=5, raw_message="5일차 삭제해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "5일차 삭제해줘")
+
+        planner_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert any(e["data"]["status"] == "error" for e in planner_events)
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        assert len(chat_chunks) >= 1
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        # Should mention the invalid day or the valid range
+        assert "5" in combined or "유효" in combined or "범위" in combined
+
+        assert events[-1]["type"] == "chat_done"
+
+    def test_remove_day_zero_day_number_emits_error(self):
+        """day_number=0 is out-of-range and should emit planner error."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "바르셀로나",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-03",
+            "budget": 5000000.0,
+            "days": [
+                {"date": "2026-07-01", "day_number": 1, "places": []},
+                {"date": "2026-07-02", "day_number": 2, "places": []},
+                {"date": "2026-07-03", "day_number": 3, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=0, raw_message="0일차 삭제"
+        )):
+            events = _collect_events(svc, session.session_id, "0일차 삭제")
+
+        planner_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert any(e["data"]["status"] == "error" for e in planner_events)
+        assert events[-1]["type"] == "chat_done"
+
+    def test_remove_day_out_of_range_does_not_modify_plan(self):
+        """Out-of-range remove_day must not modify session.last_plan."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        original_days = [
+            {"date": "2026-05-01", "day_number": 1, "places": []},
+            {"date": "2026-05-02", "day_number": 2, "places": []},
+        ]
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-02",
+            "budget": 2000000.0,
+            "days": original_days[:],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=99, raw_message="99일차 삭제해줘"
+        )):
+            _collect_events(svc, session.session_id, "99일차 삭제해줘")
+
+        assert len(session.last_plan["days"]) == 2
+        assert session.last_plan["end_date"] == "2026-05-02"
+
+    # ------------------------------------------------------------------
+    # DB persistence
+    # ------------------------------------------------------------------
+
+    def test_remove_day_db_deletes_day_itinerary(self):
+        """remove_day with a saved plan deletes the DayItinerary row from DB."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel, DayItinerary as DayItineraryModel
+        import datetime as dt
+
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(engine)
+        SessionLocal = sessionmaker(bind=engine)
+        db = SessionLocal()
+
+        plan_record = TravelPlanModel(
+            destination="도쿄",
+            start_date=dt.date(2026, 5, 1),
+            end_date=dt.date(2026, 5, 3),
+            budget=2000000.0,
+            interests="맛집",
+        )
+        db.add(plan_record)
+        db.commit()
+        db.refresh(plan_record)
+
+        # Add DayItinerary rows
+        for d in [dt.date(2026, 5, 1), dt.date(2026, 5, 2), dt.date(2026, 5, 3)]:
+            db.add(DayItineraryModel(travel_plan_id=plan_record.id, date=d))
+        db.commit()
+
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "day_number": 1, "places": []},
+                {"date": "2026-05-02", "day_number": 2, "places": []},
+                {"date": "2026-05-03", "day_number": 3, "places": []},
+            ],
+        }
+        session.last_saved_plan_id = plan_record.id
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=2, raw_message="2일차 삭제해줘"
+        )):
+            _collect_events_with_db(svc, session.session_id, "2일차 삭제해줘", db)
+
+        remaining = (
+            db.query(DayItineraryModel)
+            .filter(DayItineraryModel.travel_plan_id == plan_record.id)
+            .all()
+        )
+        assert len(remaining) == 2
+        remaining_dates = {str(r.date) for r in remaining}
+        assert "2026-05-02" not in remaining_dates
+
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+    def test_remove_day_db_updates_travel_plan_end_date(self):
+        """remove_day updates TravelPlan.end_date in the DB."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel, DayItinerary as DayItineraryModel
+        import datetime as dt
+
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(engine)
+        SessionLocal = sessionmaker(bind=engine)
+        db = SessionLocal()
+
+        plan_record = TravelPlanModel(
+            destination="파리",
+            start_date=dt.date(2026, 6, 1),
+            end_date=dt.date(2026, 6, 3),
+            budget=3000000.0,
+            interests="",
+        )
+        db.add(plan_record)
+        db.commit()
+        db.refresh(plan_record)
+
+        for d in [dt.date(2026, 6, 1), dt.date(2026, 6, 2), dt.date(2026, 6, 3)]:
+            db.add(DayItineraryModel(travel_plan_id=plan_record.id, date=d))
+        db.commit()
+
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-03",
+            "budget": 3000000.0,
+            "days": [
+                {"date": "2026-06-01", "day_number": 1, "places": []},
+                {"date": "2026-06-02", "day_number": 2, "places": []},
+                {"date": "2026-06-03", "day_number": 3, "places": []},
+            ],
+        }
+        session.last_saved_plan_id = plan_record.id
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=3, raw_message="마지막 날 삭제해줘"
+        )):
+            _collect_events_with_db(svc, session.session_id, "마지막 날 삭제해줘", db)
+
+        db.refresh(plan_record)
+        assert str(plan_record.end_date) == "2026-06-02"
+
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+    # ------------------------------------------------------------------
+    # Integration: dispatch via process_message
+    # ------------------------------------------------------------------
+
+    def test_remove_day_dispatched_from_process_message(self):
+        """process_message dispatches remove_day intent to the handler."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "day_number": 1, "places": []},
+                {"date": "2026-05-02", "day_number": 2, "places": []},
+                {"date": "2026-05-03", "day_number": 3, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=2, raw_message="2일차 삭제해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "2일차 삭제해줘")
+
+        event_types = [e["type"] for e in events]
+        assert "plan_update" in event_types
+        assert "chat_done" in event_types
+
+        # Coordinator must come first
+        coordinator_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "coordinator"
+        ]
+        assert coordinator_events[0]["data"]["status"] == "thinking"
+
+        # Planner must appear
+        planner_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert any(e["data"]["status"] == "done" for e in planner_events)
+
+    def test_remove_day_planner_thinking_then_working_then_done(self):
+        """Planner must transition thinking → working → done for remove_day."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-02",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "day_number": 1, "places": []},
+                {"date": "2026-05-02", "day_number": 2, "places": []},
+            ],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="remove_day", day_number=1, raw_message="1일차 삭제해줘"
+        )):
+            events = _collect_events(svc, session.session_id, "1일차 삭제해줘")
+
+        planner_statuses = [
+            e["data"]["status"]
+            for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert "thinking" in planner_statuses
+        assert "working" in planner_statuses
+        assert "done" in planner_statuses

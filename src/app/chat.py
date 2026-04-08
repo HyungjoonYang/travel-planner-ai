@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | find_nearby | set_budget | plan_checklist | add_day | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | find_nearby | set_budget | plan_checklist | add_day | remove_day | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -189,7 +189,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "plan_checklist", "add_day", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "plan_checklist", "add_day", "remove_day", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -231,6 +231,7 @@ Return a JSON object with these fields:
 - Use action "set_budget" when user wants to set or update the budget of the current travel plan directly (e.g. "예산을 150만원으로 바꿔줘", "budget을 200만원으로 설정해줘", "여행 예산 100만원으로 수정", "set budget to 1500000", "예산 변경 200만원", "budget 올려줘 250만원으로"); set budget to the new budget value as a number (e.g. "150만원" → 1500000, "200만원" → 2000000). Prefer "set_budget" over "update_plan" when the user's sole intent is to change the budget amount.
 - Use action "plan_checklist" when user wants a pre-trip preparation checklist or packing list for their travel plan (e.g. "여행 준비 체크리스트 만들어줘", "준비물 목록 알려줘", "짐 챙길 목록 만들어줘", "체크리스트 보여줘", "여행 전 준비할 것 알려줘", "packing list", "pre-trip checklist", "what should I prepare?", "여행 준비 뭐 해야 해?", "체크리스트 만들어줘")
 - Use action "add_day" when user wants to extend their travel plan by adding one more day to the end of the trip (e.g. "하루 더 추가해줘", "여행 하루 늘려줘", "1일 연장해줘", "Day 추가", "add one more day", "extend the trip by a day", "일정 하루 더 만들어줘", "마지막 날 다음에 하루 더 넣어줘")
+- Use action "remove_day" when user wants to remove/delete a specific day from the trip (e.g. "3일차 삭제해줘", "Day 2 제거해줘", "2일차 빼줘", "remove day 3", "delete day 2 from the trip", "3번째 날 없애줘", "여행 하루 줄여줘 3일차 삭제"); set day_number to the day number to remove
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -454,6 +455,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "add_day":
             async for event in self._handle_add_day(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "remove_day":
+            async for event in self._handle_remove_day(intent, session, db):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -5282,6 +5286,173 @@ Return a JSON object with these fields:
                 "type": "chat_chunk",
                 "data": {"text": f"일정 추가 중 오류가 발생했습니다: {exc}"},
             }
+
+    async def _handle_remove_day(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Remove a specific day from the current travel plan.
+
+        - Validates plan exists and day_number is in range
+        - Deletes the day from session.last_plan["days"]
+        - Renumbers remaining days that came after the removed day (day_number decremented by 1)
+        - Updates session.last_plan end_date (shrinks by 1 day)
+        - Persists changes to DB: deletes DayItinerary row, updates TravelPlan.end_date
+        - Emits: planner thinking→working→done, day_update for each shifted day, plan_update, chat_chunk
+        - Fallback: helpful message when no plan exists or day_number is out of range
+        """
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "thinking", "message": "일정 삭제 준비 중..."},
+        }
+        await asyncio.sleep(0)
+
+        if not session.last_plan:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "error", "message": "여행 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "일정을 삭제하려면 먼저 여행 계획을 만들어주세요."},
+            }
+            return
+
+        plan = session.last_plan
+        days = list(plan.get("days", []))
+        day_number = intent.day_number
+
+        if day_number is None or day_number < 1 or day_number > len(days):
+            total = len(days)
+            yield {
+                "type": "agent_status",
+                "data": {
+                    "agent": "planner",
+                    "status": "error",
+                    "message": f"Day {day_number}은(는) 범위를 벗어났습니다",
+                },
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {
+                    "text": (
+                        f"Day {day_number}은(는) 유효하지 않습니다. "
+                        f"현재 여행은 {total}일 일정입니다 (Day 1 ~ Day {total})."
+                    ),
+                },
+            }
+            return
+
+        yield {
+            "type": "agent_status",
+            "data": {
+                "agent": "planner",
+                "status": "working",
+                "message": f"Day {day_number} 삭제 중...",
+            },
+        }
+        await asyncio.sleep(0)
+
+        removed_day = days[day_number - 1]
+        removed_date_str = removed_day.get("date") if isinstance(removed_day, dict) else None
+
+        # Build remaining days list and renumber shifted days
+        remaining = days[:day_number - 1] + days[day_number:]
+        shifted_day_updates = []
+        for i, d in enumerate(remaining):
+            day_dict = dict(d) if isinstance(d, dict) else d
+            if i >= day_number - 1:
+                # This day was after the removed day — decrement day_number
+                if "day_number" in day_dict:
+                    day_dict["day_number"] = day_dict["day_number"] - 1
+                shifted_day_updates.append(day_dict)
+            remaining[i] = day_dict
+
+        # Update end_date: shrink by 1 day
+        end_str = plan.get("end_date")
+        try:
+            current_end = date.fromisoformat(end_str) if end_str else date.today()
+        except ValueError:
+            current_end = date.today()
+        new_end = current_end - timedelta(days=1)
+
+        # Update session plan
+        updated_plan = dict(plan)
+        updated_plan["end_date"] = new_end.isoformat()
+        updated_plan["days"] = remaining
+        session.last_plan = updated_plan
+
+        # DB persistence
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+        if db is not None and plan_id is not None and removed_date_str is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    TravelPlan as TravelPlanModel,
+                )
+                from datetime import date as date_type
+
+                removed_date = date_type.fromisoformat(removed_date_str)
+                day_row = (
+                    db.query(DayItineraryModel)
+                    .filter(
+                        DayItineraryModel.travel_plan_id == plan_id,
+                        DayItineraryModel.date == removed_date,
+                    )
+                    .first()
+                )
+                if day_row is not None:
+                    db.delete(day_row)
+                    db.flush()
+                else:
+                    logger.error(
+                        "_handle_remove_day: DayItinerary for plan #%s date %s not found",
+                        plan_id,
+                        removed_date_str,
+                    )
+
+                plan_record = db.get(TravelPlanModel, plan_id)
+                if plan_record is not None:
+                    plan_record.end_date = new_end
+                    db.flush()
+                else:
+                    logger.error("_handle_remove_day: plan #%s not found in DB", plan_id)
+
+                db.commit()
+            except Exception as exc:
+                logger.error(
+                    "_handle_remove_day: DB persistence failed — %s: %s",
+                    type(exc).__name__,
+                    exc,
+                    exc_info=True,
+                )
+
+        # Emit day_update for each shifted day
+        for shifted in shifted_day_updates:
+            yield {"type": "day_update", "data": shifted}
+
+        yield {"type": "plan_update", "data": session.last_plan}
+        yield {
+            "type": "agent_status",
+            "data": {
+                "agent": "planner",
+                "status": "done",
+                "message": f"Day {day_number} 삭제 완료!",
+            },
+        }
+        dest = plan.get("destination") or "여행"
+        yield {
+            "type": "chat_chunk",
+            "data": {
+                "text": (
+                    f"{dest} 여행에서 Day {day_number}을 삭제했습니다. "
+                    f"남은 일정: {len(remaining)}일 "
+                    f"(~ {new_end.isoformat()})"
+                ),
+            },
+        }
 
 
 # Module-level singleton used by the chat router
