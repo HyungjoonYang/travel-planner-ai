@@ -80,16 +80,47 @@ kill $SERVER_PID
 - E2E 실패 시 `e2e_integration` fail
 - E2E 테스트가 route mock 없이 실제 서버를 검증하는지 확인
 
+### 2-3. Visual Verification (OpenChrome MCP)
+E2E 서버가 실행 중일 때 OpenChrome MCP를 사용하여 시각적 검증을 수행한다.
+OpenChrome은 DOM을 ~12K 토큰으로 압축하여 Playwright 대비 15배 효율적이다.
+
+**로컬 개발 환경 (MCP 사용 가능 시):**
+OpenChrome MCP 도구를 사용하여 페이지를 검증한다:
+1. `navigate`로 `http://localhost:8000/` 및 `/chat` 페이지 방문
+2. `screenshot`으로 스크린샷 캡처 → `observability/screenshots/`에 저장
+3. DOM Mode로 페이지 구조 검증 (핵심 UI 요소 존재 여부)
+
+**CI 환경 (MCP 미지원 시 fallback):**
+```bash
+mkdir -p observability/screenshots
+npx playwright screenshot --viewport-size="1280,720" http://localhost:8000/ observability/screenshots/main.png 2>/dev/null || true
+npx playwright screenshot --viewport-size="1280,720" http://localhost:8000/chat observability/screenshots/chat.png 2>/dev/null || true
+```
+
+- 스크린샷이 완전히 비어있거나(0 bytes) 렌더링 오류가 보이면 `issues`에 기록
+- 이 검사는 advisory(권고)이며, 스크린샷 실패 자체로 verdict를 fail하지는 않는다
+- 캡처된 스크린샷은 `observability/screenshots/`에 저장되어 다음 run과 비교 가능
+
 ### 3. 린트
 ```bash
 ruff check src/ tests/ 2>&1
 ```
 - 문제 있으면 `lint_clean` fail
 
-### 4. 완료 기준 검증
+### 4. 완료 기준 검증 (Executable Assertions)
 - `.evolve/handoff.json`의 `done_criteria`를 읽는다
-- 코드를 검토하여 기준이 충족되었는지 판단
-- 예: "ChatService가 intent를 반환" → `src/app/chat.py`에 해당 로직이 있는지 확인
+- **주관적 판단이 아닌 실행 가능한 검증을 수행한다:**
+  1. done_criteria에서 핵심 키워드(함수명, 클래스명, 파일명 등)를 추출
+  2. `grep`으로 해당 키워드가 코드에 존재하는지 확인
+  3. 테스트에서 해당 기능이 실제로 호출되고 검증되는지 확인
+- 예:
+  - "ChatService가 find_alternatives intent를 반환" →
+    `grep -c "find_alternatives" src/app/chat.py` ≥ 1 AND
+    `grep -c "find_alternatives" tests/` ≥ 1
+  - "Playwright 시나리오 2개 이상" →
+    `grep -c "test(" e2e/chat.spec.ts` ≥ 2 (해당 기능 관련)
+- **의심스러우면 fail**: 코드가 존재하지만 테스트에서 검증하지 않으면 fail
+- grep 결과를 `done_criteria_met.detail`에 구체적으로 기록 (예: "grep find_alternatives: src 3 hits, tests 5 hits")
 
 ### 5. 회귀 테스트
 - Builder 이전의 테스트 수와 현재 테스트 수 비교 (handoff.json의 tests_total)

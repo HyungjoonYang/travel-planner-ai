@@ -652,6 +652,7 @@
     }
   ],
   "consecutive_qa_failures": 0,
+  "issue_failure_history": {},
   "history_tail": {
     "run_id": "2026-04-07-2400",
     "task": "#108 - Chat: find_alternatives intent — suggest replacement places for a slot",

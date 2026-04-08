@@ -22,6 +22,7 @@
   "homepage": "https://github.com/HyungjoonYang/travel-planner-ai#readme",
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "openchrome-mcp": "^1.9.6",
     "typescript": "^5.9.3"
   }
 }

@@ -17,7 +17,7 @@ permissions:
 jobs:
   evolve:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -36,9 +36,16 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Cache npm global
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-global-claude-code-${{ runner.os }}
+
       - name: Install dependencies
         run: |
           npm install -g @anthropic-ai/claude-code
+          npm ci || npm install
           pip install -r requirements.txt 2>/dev/null || true
 
       - name: Configure git
@@ -47,10 +54,14 @@ jobs:
           git config user.email "travel-planner-ai[bot]@users.noreply.github.com"
 
       - name: Prepare workspace
-        run: mkdir -p .evolve
+        run: |
+          mkdir -p .evolve
+          echo '{}' > .evolve/timing.json
+          echo "PIPELINE_START=$(date +%s)" >> "$GITHUB_ENV"
 
       # ─── Agent 1: 🧠 Coordinator ─────────────────────────────────
       - name: "🧠 Coordinator"
+        timeout-minutes: 5
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -94,6 +105,7 @@ jobs:
           echo "Architect needed: $NEEDS"
 
       - name: "📐 Architect"
+        timeout-minutes: 5
         if: steps.check_architect.outputs.needed == 'True' || steps.check_architect.outputs.needed == 'true'
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -120,6 +132,7 @@ jobs:
 
       # ─── Agent 3: 🔨 Builder ─────────────────────────────────────
       - name: "🔨 Builder"
+        timeout-minutes: 10
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -151,6 +164,7 @@ jobs:
 
       # ─── Agent 4: 🧪 QA ──────────────────────────────────────────
       - name: "🧪 QA"
+        timeout-minutes: 5
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
@@ -182,18 +196,99 @@ jobs:
           echo "QA verdict: $VERDICT"
           cat .evolve/qa-result.json | python3 -m json.tool
 
+      # ─── Retry Loop: QA fail → Builder retry (1회) ────────────────
+      - name: "🔨 Builder (retry)"
+        timeout-minutes: 10
+        if: steps.qa_check.outputs.verdict == 'fail'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          echo "🔁 QA failed — retrying Builder with QA feedback"
+          cat <<'PROMPT' | claude -p --allowedTools "Bash,Read,Write,Glob,Grep,Edit"
+          You are the 🔨 Builder Agent (RETRY attempt).
+          Read `.claude/agents/builder.md` for your full instructions.
+          Read `CLAUDE.md` for project context.
+          Read `.evolve/handoff.json` for your assigned task.
+          Read `.evolve/qa-result.json` for QA feedback — fix the issues listed there.
+
+          This is a RETRY after QA failure. Focus on fixing the specific issues QA reported.
+
+          Execute your role:
+          1. Read qa-result.json to understand what failed
+          2. Fix the issues
+          3. Run pytest + ruff to verify
+          4. Overwrite .evolve/build-result.json with updated results
+
+          Do NOT modify status.md or backlog.md. Do NOT ask for confirmation.
+          PROMPT
+
+      - name: Verify Builder retry output
+        if: steps.qa_check.outputs.verdict == 'fail'
+        run: |
+          if [ ! -f .evolve/build-result.json ]; then
+            echo '{"task_number": 0, "status": "failed", "notes": "No build-result.json produced (retry)"}' > .evolve/build-result.json
+          fi
+          echo "Builder retry result:"
+          cat .evolve/build-result.json | python3 -m json.tool
+
+      - name: "🧪 QA (retry)"
+        timeout-minutes: 5
+        if: steps.qa_check.outputs.verdict == 'fail'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          cat <<'PROMPT' | claude -p --allowedTools "Bash,Read,Write,Glob,Grep"
+          You are the 🧪 QA Agent (RETRY verification).
+          Read `.claude/agents/qa.md` for your full instructions.
+          Read `.evolve/handoff.json` for task requirements.
+          Read `.evolve/build-result.json` for what the Builder did.
+
+          Execute your role:
+          1. Run all tests (pytest tests/ -v --tb=short)
+          2. Check new tests exist for new features
+          3. Run lint (ruff check src/ tests/)
+          4. Verify done criteria from handoff.json
+          5. Check for regressions and leaked secrets
+          6. Write .evolve/qa-result.json with your verdict
+
+          Do NOT modify any source code. Do NOT ask for confirmation.
+          PROMPT
+
+      - name: Verify QA retry output
+        id: qa_retry_check
+        if: steps.qa_check.outputs.verdict == 'fail'
+        run: |
+          if [ ! -f .evolve/qa-result.json ]; then
+            echo '{"task_number": 0, "verdict": "fail", "checks": {}, "issues": ["QA agent did not produce qa-result.json (retry)"]}' > .evolve/qa-result.json
+          fi
+          VERDICT=$(python3 -c "import json; print(json.load(open('.evolve/qa-result.json'))['verdict'])" 2>/dev/null || echo "fail")
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          echo "QA retry verdict: $VERDICT"
+          cat .evolve/qa-result.json | python3 -m json.tool
+
+      # ─── Capture pipeline duration ─────────────────────────────────
+      - name: Capture pipeline timing
+        if: always()
+        run: |
+          ELAPSED=$(( $(date +%s) - PIPELINE_START ))
+          echo "{\"pipeline_duration_s\": ${ELAPSED}}" > .evolve/timing.json
+          echo "Pipeline duration: ${ELAPSED}s"
+
       # ─── Agent 5: 📝 Reporter ────────────────────────────────────
       - name: "📝 Reporter"
+        timeout-minutes: 5
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          QA_VERDICT="${{ steps.qa_check.outputs.verdict }}"
+          # Use retry verdict if retry ran, otherwise use first QA verdict
+          QA_VERDICT="${{ steps.qa_retry_check.outputs.verdict || steps.qa_check.outputs.verdict }}"
           cat <<PROMPT | claude -p --allowedTools "Bash,Read,Write,Glob,Grep,Edit"
           You are the 📝 Reporter Agent.
           Read \`.claude/agents/reporter.md\` for your full instructions.
           Read \`CLAUDE.md\` for project context.
-          Read all files in \`.evolve/\` (handoff.json, build-result.json, qa-result.json).
+          Read all files in \`.evolve/\` (handoff.json, build-result.json, qa-result.json, timing.json).
 
           The QA verdict is: $QA_VERDICT
 
@@ -228,8 +323,8 @@ jobs:
           echo "health=$(grep -oP 'Health: \K\w+' status.md 2>/dev/null || echo 'UNKNOWN')" >> "$GITHUB_OUTPUT"
           echo "task=$(grep -oP 'Current focus: \K.*' status.md 2>/dev/null || echo 'unknown')" >> "$GITHUB_OUTPUT"
 
-          # Use qa_check step output (file may be deleted by Reporter)
-          VERDICT="${{ steps.qa_check.outputs.verdict }}"
+          # Use retry verdict if available, otherwise first QA verdict
+          VERDICT="${{ steps.qa_retry_check.outputs.verdict || steps.qa_check.outputs.verdict }}"
           if [ -z "$VERDICT" ]; then VERDICT="unknown"; fi
           echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
 

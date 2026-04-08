@@ -50,7 +50,7 @@
   },
   "spans": [...],
   "ltes": {
-    "latency": {"total_duration_ms": 0},
+    "latency": {"total_duration_s": "<from .evolve/timing.json pipeline_duration_s>"},
     "traffic": {"commits": 0, "lines_added": 0, "lines_removed": 0, "files_changed": 0},
     "errors": {"test_failures": 0, "fix_attempts": 0},
     "saturation": {"issues_open": 0}
@@ -120,6 +120,22 @@ gh issue comment "$ISSUE_NUMBER" --body "🧪 **QA Failed** (Run #<N>)
 
 - **QA pass** → `consecutive_qa_failures`를 **0으로 reset**
 - **QA fail** → `consecutive_qa_failures`를 **+1 증가**
+
+#### 이슈별 실패 이력 업데이트 (Per-Issue Failure History)
+`observability/error-budget.json`의 `issue_failure_history` 필드를 업데이트한다.
+이슈 번호를 key로 사용하고, 실패 횟수와 마지막 에러를 기록한다.
+
+- **QA pass** → 해당 이슈를 `issue_failure_history`에서 **삭제**
+- **QA fail** → 해당 이슈의 `attempts`를 **+1**, `last_error`에 QA 실패 사유 기록, `last_run`에 run_id 기록
+
+```json
+"issue_failure_history": {
+  "172": {"attempts": 2, "last_error": "integration test missing", "last_run": "2026-04-08-1400"},
+  "175": {"attempts": 1, "last_error": "lint failure", "last_run": "2026-04-08-1430"}
+}
+```
+
+Coordinator는 `attempts >= 3`인 이슈를 자동으로 blocked 처리한다.
 
 #### Bug Issue 생성 조건 (≥3 연속 실패)
 `consecutive_qa_failures >= 3`이면 Bug Issue 생성을 시도한다.
