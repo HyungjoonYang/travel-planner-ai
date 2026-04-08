@@ -3253,3 +3253,483 @@ test.describe("quick_summary intent (Task #106)", () => {
     await expect(page.locator("#chat-messages")).toContainText("여행 계획");
   });
 });
+
+// ---------------------------------------------------------------------------
+// export_calendar E2E scenarios (Task #109 / Issue #166)
+// ---------------------------------------------------------------------------
+
+test.describe("export_calendar E2E (Task #109)", () => {
+  /**
+   * Scenario A (happy path):
+   * "Google Calendar로 내보내줘" → secretary thinking→working→done with result_count
+   * → calendar_exported SSE fires → confirmation bubble in #chat-messages.
+   *
+   * Done criteria:
+   *   - secretary card transitions: thinking → working → done
+   *   - secretary expand toggle (▾) is visible (result_count > 0)
+   *   - #chat-messages contains "✅ Google Calendar 내보내기 완료"
+   *   - #chat-messages mentions destination and event count
+   */
+  test("export_calendar: secretary done + calendar confirmation bubble rendered", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "export_calendar 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "thinking", message: "캘린더 내보내기 준비 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "working", message: "Google Calendar에 내보내는 중..." },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "done",
+          message: "3개 이벤트 추가됨",
+          result_count: 3,
+        },
+      },
+      {
+        type: "calendar_exported",
+        data: {
+          plan_id: 7,
+          destination: "도쿄",
+          events_created: 3,
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Google Calendar에 3개 일정이 추가되었습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "Google Calendar로 내보내줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Secretary message reflects the result
+    await expect(
+      page.locator('[data-agent="secretary"] .agent-message')
+    ).toContainText("3개 이벤트 추가됨");
+
+    // Secretary must show expand toggle (▾) because result_count > 0
+    await expect(
+      page.locator('[data-agent="secretary"] .agent-toggle')
+    ).toBeVisible();
+
+    // Confirmation AI bubble must appear in chat
+    await expect(page.locator("#chat-messages")).toContainText(
+      "✅ Google Calendar 내보내기 완료",
+      { timeout: 10_000 }
+    );
+
+    // Bubble must mention the destination
+    await expect(page.locator("#chat-messages")).toContainText("도쿄");
+
+    // Bubble must mention the event count
+    await expect(page.locator("#chat-messages")).toContainText("3개 이벤트 추가됨");
+  });
+
+  /**
+   * Scenario B (error — no plan loaded):
+   * "캘린더로 내보내줘" when no plan is saved → secretary transitions to error
+   * → guidance message appears in chat.
+   *
+   * Done criteria:
+   *   - secretary card carries agent-error class
+   *   - secretary message contains "저장된 계획이 없습니다"
+   *   - chat shows "저장해주세요" guidance
+   */
+  test("export_calendar error: no saved plan → secretary error + guidance message", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "export_calendar 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "thinking", message: "캘린더 내보내기 준비 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "secretary", status: "error", message: "저장된 계획이 없습니다" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "캘린더로 내보내려면 먼저 여행 계획을 저장해주세요." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "캘린더로 내보내줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach error state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Secretary card message must reflect the error
+    await expect(
+      page.locator('[data-agent="secretary"] .agent-message')
+    ).toContainText("저장된 계획이 없습니다");
+
+    // Chat must show the guidance message
+    await expect(page.locator("#chat-messages")).toContainText(
+      "저장해주세요",
+      { timeout: 10_000 }
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// set_budget E2E scenarios (Task #109 / Issue #166)
+// ---------------------------------------------------------------------------
+
+test.describe("set_budget E2E (Task #109)", () => {
+  /**
+   * Scenario A (happy path):
+   * "예산을 150만원으로 바꿔줘" → budget_analyst working → plan_update with new budget
+   * → budget_analyst done → plan panel shows updated budget bar.
+   *
+   * Done criteria:
+   *   - budget_analyst card transitions: working → done
+   *   - done message reflects new budget value
+   *   - plan panel shows updated budget amount (1,500,000원)
+   *   - .progress-bar-bg is visible in the plan panel
+   */
+  test("set_budget: budget_analyst done + plan panel budget bar updated", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "set_budget 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "budget_analyst", status: "working", message: "예산 업데이트 중..." },
+      },
+      {
+        type: "plan_update",
+        data: {
+          destination: "도쿄",
+          start_date: "2026-05-01",
+          end_date: "2026-05-04",
+          budget: 1_500_000,
+          total_estimated_cost: 600_000,
+          days: [
+            {
+              day: 1,
+              date: "2026-05-01",
+              theme: "아사쿠사",
+              places: [
+                {
+                  name: "센소지",
+                  category: "문화",
+                  address: "도쿄 아사쿠사",
+                  estimated_cost: 0,
+                  ai_reason: "유명 사원",
+                  order: 1,
+                },
+              ],
+              notes: "",
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "budget_analyst",
+          status: "done",
+          message: "예산 1,500,000원으로 업데이트 완료",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "예산이 1,500,000원으로 업데이트되었습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "예산을 150만원으로 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Budget analyst must reach done state
+    await expect(page.locator('[data-agent="budget_analyst"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Done message must mention the new budget
+    await expect(
+      page.locator('[data-agent="budget_analyst"] .agent-message')
+    ).toContainText("1,500,000원");
+
+    // Plan panel must show the updated budget in the budget bar
+    await expect(page.locator("#plan-panel")).toContainText("1,500,000원", {
+      timeout: 10_000,
+    });
+
+    // Budget progress bar must be visible
+    await expect(page.locator(".progress-bar-bg")).toBeVisible();
+
+    // Budget percentage text must reflect 40% (600,000 / 1,500,000)
+    await expect(page.locator("#plan-panel")).toContainText("40.0% 사용");
+
+    // Chat must confirm the budget change
+    await expect(page.locator("#chat-messages")).toContainText(
+      "1,500,000원",
+      { timeout: 10_000 }
+    );
+  });
+
+  /**
+   * Scenario B (error — no plan):
+   * "예산을 200만원으로 바꿔줘" when no plan exists → budget_analyst error
+   * → guidance message in chat.
+   *
+   * Done criteria:
+   *   - budget_analyst card carries agent-error class
+   *   - budget_analyst message contains "여행 계획이 없습니다"
+   *   - chat shows "먼저 여행 계획을 만들어주세요" guidance
+   */
+  test("set_budget error: no plan loaded → budget_analyst error + guidance", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "set_budget 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "budget_analyst", status: "working", message: "예산 업데이트 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "budget_analyst", status: "error", message: "여행 계획이 없습니다" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "예산을 설정하려면 먼저 여행 계획을 만들어주세요." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "예산을 200만원으로 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Budget analyst must reach error state
+    await expect(page.locator('[data-agent="budget_analyst"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Error message must be reflected in card
+    await expect(
+      page.locator('[data-agent="budget_analyst"] .agent-message')
+    ).toContainText("여행 계획이 없습니다");
+
+    // Chat must show the guidance message
+    await expect(page.locator("#chat-messages")).toContainText(
+      "먼저 여행 계획을 만들어주세요",
+      { timeout: 10_000 }
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// find_nearby E2E scenarios (Task #109 / Issue #166)
+// ---------------------------------------------------------------------------
+
+test.describe("find_nearby E2E (Task #109)", () => {
+  /**
+   * Scenario A (happy path):
+   * "센소지 근처 맛집 알려줘" → place_scout working → search_results (type=nearby)
+   * → place_scout done with result_count → expand toggle appears + chat message.
+   *
+   * Done criteria:
+   *   - coordinator done ("find_nearby 파악")
+   *   - place_scout transitions: working → done (with result_count)
+   *   - place_scout expand toggle (▾) visible
+   *   - place_scout done message contains result count
+   *   - chat message mentions nearby places found
+   */
+  test("find_nearby: place_scout done + expand toggle + nearby message rendered", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "find_nearby 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "working", message: "센소지 근처 검색 중..." },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "place_scout",
+          status: "done",
+          message: "4개 근처 장소 찾음",
+          result_count: 4,
+        },
+      },
+      {
+        type: "search_results",
+        data: {
+          type: "nearby",
+          results: {
+            near_place: "센소지",
+            day_number: 1,
+            places: [
+              { name: "나카미세 도리", category: "쇼핑", address: "도쿄 아사쿠사", estimated_cost: 0 },
+              { name: "아사쿠사 라멘", category: "식당", address: "도쿄 아사쿠사", estimated_cost: 1200 },
+              { name: "호즈몬 게이트", category: "문화", address: "도쿄 아사쿠사", estimated_cost: 0 },
+              { name: "아사쿠사 카페", category: "카페", address: "도쿄 아사쿠사", estimated_cost: 800 },
+            ],
+          },
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "'센소지' 근처에서 4개의 장소를 찾았습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "센소지 근처 맛집 알려줘");
+    await page.click('button:has-text("전송")');
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Place scout must reach done state
+    await expect(page.locator('[data-agent="place_scout"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Place scout done message must contain result count
+    await expect(
+      page.locator('[data-agent="place_scout"] .agent-message')
+    ).toContainText("4개 근처 장소 찾음");
+
+    // Place scout expand toggle (▾) must be visible (result_count > 0)
+    await expect(
+      page.locator('[data-agent="place_scout"] .agent-toggle')
+    ).toBeVisible();
+
+    // Chat message must confirm nearby places were found
+    await expect(page.locator("#chat-messages")).toContainText(
+      "센소지",
+      { timeout: 10_000 }
+    );
+    await expect(page.locator("#chat-messages")).toContainText("4개의 장소");
+  });
+
+  /**
+   * Scenario B (fallback — no destination):
+   * "근처 카페 알려줘" when no plan/location exists → place_scout done with
+   * "위치 정보 없음" message → guidance appears in chat.
+   *
+   * Done criteria:
+   *   - place_scout reaches done state (not error — it falls through gracefully)
+   *   - place_scout message contains "위치 정보 없음"
+   *   - chat contains location guidance
+   */
+  test("find_nearby fallback: no location → place_scout done with guidance message", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "find_nearby 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "working", message: "장소 근처 검색 중..." },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "place_scout", status: "done", message: "위치 정보 없음" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "근처 장소를 찾으려면 여행 계획을 먼저 만들거나 위치를 알려주세요." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "근처 카페 알려줘");
+    await page.click('button:has-text("전송")');
+
+    // Place scout must reach done state (graceful fallback, not error)
+    await expect(page.locator('[data-agent="place_scout"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Place scout card message must indicate no location
+    await expect(
+      page.locator('[data-agent="place_scout"] .agent-message')
+    ).toContainText("위치 정보 없음");
+
+    // Chat must show the location guidance
+    await expect(page.locator("#chat-messages")).toContainText(
+      "위치를 알려주세요",
+      { timeout: 10_000 }
+    );
+  });
+});
