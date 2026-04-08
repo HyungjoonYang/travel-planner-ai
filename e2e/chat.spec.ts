@@ -4443,3 +4443,407 @@ test.describe("place_preview card display during create_plan (Task #113)", () =>
     await expect(montmartreCard.locator(".price-tag")).toHaveCount(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// add_day E2E scenarios (Task #115 / Issue #193)
+// ---------------------------------------------------------------------------
+
+test.describe("add_day E2E (Task #115)", () => {
+  /**
+   * Helper: build a two-call session mock.
+   * - First call  → plan_update with 2 days
+   * - Second call → the provided sseEvents (add_day response)
+   */
+  async function mockPlanThenAddDay(
+    page: Page,
+    sessionId: string,
+    addDayEvents: object[]
+  ): Promise<void> {
+    // Session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: sessionId,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(
+      `**/chat/sessions/${sessionId}/messages`,
+      async (route) => {
+        callCount++;
+        if (callCount === 1) {
+          // First message: create a 2-day plan
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "create_plan 파악",
+                },
+              },
+              {
+                type: "plan_update",
+                data: {
+                  destination: "도쿄",
+                  start_date: "2026-05-01",
+                  end_date: "2026-05-02",
+                  budget: 1_500_000,
+                  total_estimated_cost: 300_000,
+                  days: [
+                    {
+                      day: 1,
+                      date: "2026-05-01",
+                      theme: "아사쿠사",
+                      places: [
+                        {
+                          name: "센소지",
+                          category: "문화",
+                          address: "도쿄 아사쿠사",
+                          estimated_cost: 0,
+                          ai_reason: "유명 사원",
+                          order: 1,
+                        },
+                      ],
+                      notes: "",
+                    },
+                    {
+                      day: 2,
+                      date: "2026-05-02",
+                      theme: "시부야",
+                      places: [
+                        {
+                          name: "스크램블 교차로",
+                          category: "관광",
+                          address: "도쿄 시부야",
+                          estimated_cost: 0,
+                          ai_reason: "유명 교차로",
+                          order: 1,
+                        },
+                      ],
+                      notes: "",
+                    },
+                  ],
+                },
+              },
+              {
+                type: "chat_chunk",
+                data: { text: "도쿄 2일 여행 계획을 생성했습니다." },
+              },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        } else {
+          // Second message: add_day response
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(...addDayEvents),
+          });
+        }
+      }
+    );
+  }
+
+  /**
+   * Scenario A (happy path):
+   * 1. Create a 2-day plan (2026-05-01 ~ 2026-05-02) via plan_update.
+   * 2. Send "하루 더 추가해줘".
+   * 3. SSE emits:
+   *    - planner: thinking → working → done ("Day 3 추가 완료!")
+   *    - day_update for new Day 3 (2026-05-03, 신주쿠 테마)
+   *    - plan_update with updated end_date=2026-05-03 and 3 days
+   *    - chat_chunk confirming the addition
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - planner message contains "Day 3 추가 완료"
+   *   - #plan-panel shows updated end_date "2026-05-03"
+   *   - .day-card count increases from 2 to 3
+   *   - #day-2026-05-03 day card is visible with the new day's place
+   *   - chat confirms the day was added
+   */
+  test("add_day: new day-card appears and plan_update reflects updated end_date", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-add-day-happy";
+
+    await mockPlanThenAddDay(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "add_day 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "thinking",
+          message: "하루 추가 준비 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "working",
+          message: "2026-05-03 새 일정 생성 중...",
+        },
+      },
+      // New day data for Day 3
+      {
+        type: "day_update",
+        data: {
+          day_number: 3,
+          date: "2026-05-03",
+          theme: "신주쿠",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "신주쿠 쇼핑",
+              category: "쇼핑",
+              address: "도쿄 신주쿠",
+              estimated_cost: 50_000,
+              ai_reason: "쇼핑 명소",
+              order: 1,
+            },
+          ],
+        },
+      },
+      // Full plan_update with updated end_date and 3 days
+      {
+        type: "plan_update",
+        data: {
+          destination: "도쿄",
+          start_date: "2026-05-01",
+          end_date: "2026-05-03",
+          budget: 1_500_000,
+          total_estimated_cost: 350_000,
+          days: [
+            {
+              day: 1,
+              date: "2026-05-01",
+              theme: "아사쿠사",
+              places: [
+                {
+                  name: "센소지",
+                  category: "문화",
+                  address: "도쿄 아사쿠사",
+                  estimated_cost: 0,
+                  ai_reason: "유명 사원",
+                  order: 1,
+                },
+              ],
+              notes: "",
+            },
+            {
+              day: 2,
+              date: "2026-05-02",
+              theme: "시부야",
+              places: [
+                {
+                  name: "스크램블 교차로",
+                  category: "관광",
+                  address: "도쿄 시부야",
+                  estimated_cost: 0,
+                  ai_reason: "유명 교차로",
+                  order: 1,
+                },
+              ],
+              notes: "",
+            },
+            {
+              day: 3,
+              date: "2026-05-03",
+              theme: "신주쿠",
+              places: [
+                {
+                  name: "신주쿠 쇼핑",
+                  category: "쇼핑",
+                  address: "도쿄 신주쿠",
+                  estimated_cost: 50_000,
+                  ai_reason: "쇼핑 명소",
+                  order: 1,
+                },
+              ],
+              notes: "",
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "done",
+          message: "Day 3 추가 완료!",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "도쿄 여행에 Day 3을 추가했습니다. (2026-05-03)" },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render with exactly 2 day cards
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Original end_date must show 2026-05-02 before add_day
+    await expect(page.locator("#plan-panel")).toContainText("2026-05-02");
+
+    // Wait for input to re-enable before second message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: add one more day ---
+    await page.fill("#chat-input", "하루 더 추가해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Planner done message must mention "Day 3 추가 완료"
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("Day 3 추가 완료");
+
+    // Day card count must increase from 2 to 3
+    await expect(page.locator(".day-card")).toHaveCount(3);
+
+    // The new Day 3 card must be visible with the correct date
+    await expect(page.locator("#day-2026-05-03")).toBeVisible({ timeout: 10_000 });
+
+    // New day card must show the new place
+    await expect(page.locator("#day-2026-05-03 .day-places")).toContainText(
+      "신주쿠 쇼핑"
+    );
+
+    // Plan overview must reflect the updated end_date
+    await expect(page.locator("#plan-panel")).toContainText("2026-05-03");
+
+    // Chat must confirm the day was added
+    await expect(page.locator("#chat-messages")).toContainText(
+      "Day 3",
+      { timeout: 10_000 }
+    );
+  });
+
+  /**
+   * Scenario B (no-plan fallback):
+   * "하루 더 추가해줘" when no travel plan is active in the session
+   * → planner transitions: thinking → error
+   * → helpful fallback message appears in chat
+   * → no new .day-card rendered
+   *
+   * Done criteria:
+   *   - coordinator done ("add_day 파악")
+   *   - planner card carries agent-error class
+   *   - planner message contains "여행 계획이 없습니다"
+   *   - chat contains "먼저 여행 계획을 만들어주세요"
+   *   - no .day-card elements rendered (count stays 0)
+   */
+  test("add_day no-plan fallback: planner error + guidance message, no day card", async ({
+    page,
+  }) => {
+    await mockChatSession(page, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "thinking",
+          message: "요청 분석 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "add_day 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "thinking",
+          message: "하루 추가 준비 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "error",
+          message: "여행 계획이 없습니다",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "하루를 추가하려면 먼저 여행 계획을 만들어주세요." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+    await page.fill("#chat-input", "하루 더 추가해줘");
+    await page.click('button:has-text("전송")');
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Planner must reach error state (no plan in session)
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Planner card message must indicate no plan
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("여행 계획이 없습니다");
+
+    // Chat must show the helpful guidance message
+    await expect(page.locator("#chat-messages")).toContainText(
+      "먼저 여행 계획을 만들어주세요",
+      { timeout: 10_000 }
+    );
+
+    // No day cards must appear (no plan_update or day_update was fired)
+    await expect(page.locator(".day-card")).toHaveCount(0);
+  });
+});
