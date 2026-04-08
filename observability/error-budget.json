@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-08",
-    "total_runs": 176,
-    "successful_runs": 176,
+    "total_runs": 177,
+    "successful_runs": 177,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 0.95,
@@ -654,6 +654,13 @@
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
   "history_tail": {
+    "run_id": "monitor-2026-04-08-2031",
+    "task": "monitor",
+    "result": "success",
+    "tests_passed": 1662,
+    "tests_total": 1662
+  },
+  "history_tail_prev_evolve": {
     "run_id": "2026-04-08-2010",
     "task": "#179 - Chat: add_day intent — extend trip by appending a new day",
     "result": "success",
