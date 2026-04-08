@@ -1,319 +1,129 @@
 # Travel Planner AI
 
-> A self-evolving AI travel planner — built entirely by autonomous AI agents.
+> A human wrote one file. AI agents built everything else.
 
-## What is this?
+`CLAUDE.md` — a single markdown file — defines the mission, constraints, and architecture direction. From that, autonomous AI agents have written every line of code, every test, every deployment config, every bug fix. No human code contributions. 203 commits and counting.
 
-This repository is an experiment in **AI-native software development**. A human wrote only the initial configuration (`CLAUDE.md`, workflows, backlog). Everything else — code, tests, bug fixes, deployment — is done autonomously by an AI agent running on a cron schedule.
+## The Experiment
 
-**Zero human code contributions.** Check the git log.
+**Question**: What happens if you give an AI agent a product spec, a set of engineering constraints, and a cron schedule — then step back?
 
----
+**Answer**: It builds a production web app from scratch, evolves it through 10 phases, writes 1,642 tests, resolves its own incidents, and makes its own technical decisions.
 
-## How the Agent Works
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  GitHub Actions Cron                  │
-│              KST 22:00~06:00, every 30min             │
-└────────────────────────┬────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────┐
-│                   Claude Code CLI                     │
-│                                                       │
-│  1. Health Check (run all tests)                      │
-│  2. Read status.md + error-budget.json                │
-│  3. Pick next task from backlog.md                    │
-│  4. Implement code + write tests                      │
-│  5. Record LTES metrics                               │
-│  6. Update status.md, backlog.md, dashboards          │
-│  7. Commit & push to main                             │
-└─────────────────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────┐
-│                  Render Auto-Deploy                    │
-│              Push to main → live in ~60s              │
-└─────────────────────────────────────────────────────┘
-```
-
-The agent follows an **Evolve Loop**: health-check → plan → build → test → record → commit. Every decision is logged with LTES metrics (Latency, Traffic, Errors, Saturation — Google SRE's Four Golden Signals).
+This repo is the result. The travel planner app is real and works — but the interesting part is *how it got built*.
 
 ---
 
-## Application Features
+## How the AI Builds Itself
 
-| Feature | Description |
-|---------|-------------|
-| Travel Plan CRUD | Create, read, update, delete travel plans with destination, dates, budget, interests |
-| AI Itinerary Generation | Gemini AI generates day-by-day plans with real places, costs, and reasoning |
-| Place Search | AI-powered destination research via Gemini Google Search grounding |
-| Hotel Search | AI-powered hotel recommendations with dates, budget, and guest count filters |
-| Flight Search | AI-powered flight search between any two cities |
-| Expense Tracking | Per-plan expense CRUD with budget vs. spend summary by category |
-| Google Calendar Export | Push confirmed itinerary days to Google Calendar via OAuth 2.0 |
-| Frontend UI | Vanilla JS SPA served from FastAPI — no build step required |
-| Search Caching | 5-minute TTL in-memory cache on all search endpoints |
-| Observability | Request IDs, structured logging, global error handlers |
+A **5-agent pipeline** runs autonomously on a cron schedule (GitHub Actions, every 30 min overnight):
+
+```
+Coordinator  -->  Architect  -->  Builder  -->  QA  -->  Reporter
+(what to do)   (how to do it)  (write code)  (verify)  (ship it)
+```
+
+Each run, the system:
+
+1. **Coordinator** reads GitHub Issues, checks health, picks the highest-priority task
+2. **Architect** designs the implementation (only activates when backlog runs low)
+3. **Builder** writes code + tests in a feature branch
+4. **QA** runs the full test suite (1,642 tests), lint, integration checks
+5. **Reporter** creates a PR, CI runs, auto-merges on green, updates docs
+
+Agents communicate via file-based handoff (`.evolve/*.json`). Task state lives in GitHub Issues. Every technical decision is logged with reasoning in `tech-decisions.md`.
+
+### Self-Healing
+
+When tests fail, the system follows an 8-step incident response playbook:
+
+- Retry up to 3 times with different approaches
+- If stuck: mark task as `blocked`, set health to RED, write a postmortem
+- Error Budget tracks success rate — when exhausted, **feature development freezes** until stability is restored
+
+### Constraints the Agent Cannot Break
+
+These rules are hardcoded in `CLAUDE.md` and the agent is not allowed to modify them:
+
+- 1 task per run (no multi-tasking)
+- No code without tests
+- Broken tests = fix first, new features wait
+- No hardcoded secrets
+- Error budget exhausted = feature freeze
+
+The agent *can* add new constraints — learned from its own postmortems. So far it has added 6 rules, including "integration tests must hit real flows, not mocks" and "silent exception handling is forbidden."
 
 ---
 
-## Architecture
+## Evolution Timeline
 
-### Stack
+| Phase | What Happened | Tasks |
+|-------|--------------|-------|
+| 1-3 | Basic CRUD API — travel plans, expenses, health endpoint | ~15 |
+| 4-5 | AI integration — Gemini itinerary generation, web search grounding | ~15 |
+| 6-7 | Search features — hotels, flights, caching, calendar export | ~20 |
+| 8-9 | Chat engine — intent extraction, SSE streaming, expense/weather/plan commands | ~35 |
+| 10 | Multi-agent dashboard — 7 real-time agents, UI redesign, Playwright E2E | ~24 |
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Backend | FastAPI + Uvicorn | Async, fast, auto-docs via OpenAPI |
-| Database | SQLite + SQLAlchemy 2.0 | Zero-config, file-based, type-safe ORM |
-| Validation | Pydantic v2 | Native FastAPI integration, strict typing |
-| AI | Google Gemini API (`google-genai`) | Structured JSON output + Google Search grounding in one API |
-| Frontend | Vanilla JS SPA | No build toolchain, served directly from FastAPI |
-| Deployment | Render (render.yaml) | Auto-deploy on push, free tier |
-| CI/CD | GitHub Actions (cron) | Autonomous agent runs every 30 min overnight |
-
-### Component Map
-
-```
-src/app/
-├── main.py                  # FastAPI app, middleware, global error handlers, cache admin
-├── config.py                # Settings from environment variables
-├── database.py              # SQLAlchemy engine, session factory, Base
-├── models.py                # ORM models (TravelPlan, DayItinerary, Place, Expense)
-├── schemas.py               # Pydantic request/response schemas
-├── ai.py                    # GeminiService — structured itinerary generation
-├── web_search.py            # WebSearchService — place search via Gemini grounding
-├── hotel_search.py          # HotelSearchService — hotel search via Gemini grounding
-├── flight_search.py         # FlightSearchService — flight search via Gemini grounding
-├── calendar_service.py      # CalendarService — Google Calendar export via REST
-├── cache.py                 # TTLCache — thread-safe in-memory cache with expiry
-├── seed.py                  # Demo seed data for development
-├── static/index.html        # Single-page frontend app
-└── routers/
-    ├── travel_plans.py      # CRUD /travel-plans
-    ├── expenses.py          # CRUD /plans/{id}/expenses + /summary
-    ├── ai_plans.py          # POST /ai/generate, POST /ai/preview
-    ├── search.py            # GET /search/places, /hotels, /flights
-    └── calendar.py          # POST /plans/{id}/calendar/export
-```
-
-### Data Model
-
-```
-TravelPlan
-├── id, destination, start_date, end_date
-├── budget (float), interests (comma-separated), status (draft|confirmed)
-├── created_at, updated_at
-├── itineraries → [DayItinerary]
-│   ├── date, notes, transport
-│   └── places → [Place]
-│       ├── name, category, address
-│       ├── estimated_cost, ai_reason, order
-└── expenses → [Expense]
-    ├── name, amount, category
-    └── date, notes
-```
-
-### AI Pipeline
-
-```
-User Request (destination, dates, budget, interests)
-         │
-         ▼
-GeminiService.generate_itinerary()
-         │  ── system prompt with few-shot examples
-         │  ── response_schema → AIItineraryResult (Pydantic)
-         ▼
-Structured JSON: { days: [ { date, places: [...], notes, transport } ] }
-         │
-         ▼
-Persist to DB as TravelPlan + DayItinerary + Place rows
-```
-
-For search endpoints (places/hotels/flights), Gemini is called with the `google_search` grounding tool — it fetches live results from the web and returns structured data without any separate search API key.
-
-### Caching
-
-All three search endpoints (`/search/places`, `/search/hotels`, `/search/flights`) share a **TTLCache** instance (5-minute TTL):
-
-- Cache key = lowercase(destination + filter params)
-- Cache hit → returns stored result immediately, skips Gemini API call
-- Errors are never cached
-- Admin endpoints: `GET /cache/stats`, `DELETE /cache`
-
-### Error Handling
-
-| Scenario | HTTP Status | Handler |
-|----------|-------------|---------|
-| DB constraint violation | 409 | `IntegrityError` handler in `main.py` |
-| DB unreachable | 503 | `OperationalError` handler |
-| Any other DB error | 500 | `SQLAlchemyError` handler |
-| Gemini API unavailable | 503 | Router-level `ValueError` catch |
-| Gemini API call fails | 502 | Router-level `Exception` catch |
-| Resource not found | 404 | Explicit `HTTPException` in each router |
-| Invalid request body | 422 | Pydantic automatic validation |
-
-Every response includes an `X-Request-ID` header (auto-generated UUID or echoed from request).
+**109 tasks completed. 164 autonomous runs. 10 phases. 1 human-written file.**
 
 ---
 
-## API Reference
+## What It Built
 
-### Travel Plans
+A chat-driven travel planner where you describe your trip in natural language, and a team of AI agents researches and builds your itinerary in real time.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/travel-plans` | Create a travel plan |
-| `GET` | `/travel-plans` | List all plans (summary) |
-| `GET` | `/travel-plans/{id}` | Get plan with full itinerary |
-| `PATCH` | `/travel-plans/{id}` | Partial update |
-| `DELETE` | `/travel-plans/{id}` | Delete plan and all children |
+- **Chat-first**: no forms — AI extracts destination, dates, budget, interests from conversation
+- **7 specialized agents** (Coordinator, Planner, Place Scout, Hotel Finder, Flight Finder, Budget Analyst, Secretary) work simultaneously with live status in the dashboard
+- **20+ chat intents**: create plans, add/remove/swap/move places, set day labels, track expenses, get weather, share plans — all via natural language
+- **Live on Render**: auto-deploys on every merge to main
 
-### AI Generation
+### Tech Stack
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/ai/generate` | Generate + persist AI itinerary |
-| `POST` | `/ai/preview` | Generate AI itinerary without saving |
-
-### Search
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/search/places?destination=…` | Search places (AI + web grounding) |
-| `GET` | `/search/hotels?destination=…` | Search hotels (AI + web grounding) |
-| `GET` | `/search/flights?departure_city=…&arrival_city=…` | Search flights (AI + web grounding) |
-
-### Expenses
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/plans/{id}/expenses` | Add expense to plan |
-| `GET` | `/plans/{id}/expenses` | List expenses |
-| `GET` | `/plans/{id}/expenses/summary` | Budget vs. spend by category |
-| `GET` | `/plans/{id}/expenses/{eid}` | Get single expense |
-| `PATCH` | `/plans/{id}/expenses/{eid}` | Update expense |
-| `DELETE` | `/plans/{id}/expenses/{eid}` | Delete expense |
-
-### Calendar
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/plans/{id}/calendar/export` | Export itinerary to Google Calendar |
-
-### Admin / Health
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Render health check |
-| `GET` | `/cache/stats` | Cache hit/miss statistics |
-| `DELETE` | `/cache` | Clear all cached search results |
-| `GET` | `/docs` | Interactive OpenAPI docs (Swagger UI) |
+FastAPI + SQLite + Gemini 3.0 Flash + Vanilla JS SPA. No build step, no Node.js, no framework overhead. The agent chose this stack itself (reasoning in `tech-decisions.md`).
 
 ---
 
-## Local Setup
+## By the Numbers
+
+| Metric | Value |
+|--------|-------|
+| Human-written code | 0 lines |
+| Total commits | 203 |
+| Autonomous runs | 164 |
+| Tasks completed | 109 |
+| Tests | 1,642 (pytest) + Playwright E2E |
+| Phases evolved | 10 |
+| Agent-added constraints | 6 |
+| Postmortems written | by the agent, for the agent |
+
+---
+
+## Try It Locally
 
 ```bash
-# Clone
 git clone https://github.com/HyungjoonYang/travel-planner-ai.git
 cd travel-planner-ai
 
-# Environment
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-# Configure
-cp .env.example .env
-# Edit .env — set GEMINI_API_KEY (required for AI/search features)
+cp .env.example .env  # Set GEMINI_API_KEY
 
-# Run
 cd src && uvicorn app.main:app --reload --port 8000
-
-# Open browser
-open http://localhost:8000          # Frontend SPA
-open http://localhost:8000/docs     # Swagger UI
-
-# Test
-pytest tests/ -v                   # 572 tests
 ```
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes (for AI features) | Google AI Studio API key |
-| `DATABASE_URL` | No | SQLite path (default: `./travel_planner.db`) |
 
 ---
 
-## Observability
+## Key Files
 
-```
-observability/
-├── logs/YYYY-MM-DD/run-HH-MM.json   # Per-run LTES trace
-├── dashboard.json                    # Daily trends
-├── error-budget.json                 # SLO budget tracking
-└── postmortems/                      # Incident reviews
-```
-
-### LTES Metrics
-
-| Signal | What it measures |
-|--------|-----------------|
-| **Latency** | Total run duration, pytest duration |
-| **Traffic** | Commits/day, lines added/removed, files changed |
-| **Errors** | Test failures, fix attempts, build errors |
-| **Saturation** | Token usage estimate, backlog size |
-
-### Error Budget
-
-- SLO: 95% test pass rate, 90% run success rate
-- `HEALTHY` (≥5% remaining) → new features allowed
-- `WARNING` (1–5% remaining) → low-risk tasks only
-- `EXHAUSTED` (<1% remaining) → feature freeze
-
----
-
-## Project Files
-
-| File | Purpose |
-|------|---------|
-| `CLAUDE.md` | Agent's brain — mission, constraints, workflow, tech decisions |
-| `backlog.md` | Self-managed task board (Ready / In Progress / Done / Blocked) |
-| `status.md` | Current health, LTES snapshot, recent run history |
-| `render.yaml` | Render deployment configuration |
-| `.env.example` | Environment variable template |
-| `.claude/commands/evolve.md` | Main evolve loop command |
-| `.claude/commands/monitor.md` | Health check command |
-| `.claude/commands/fix.md` | Incident response command |
-
----
-
-## Tests
-
-572 tests across 18 test files:
-
-| Test File | Coverage |
-|-----------|----------|
-| `test_travel_plans.py` | CRUD endpoints |
-| `test_schemas.py` | Pydantic schema validation |
-| `test_models.py` | ORM models |
-| `test_ai.py` / `test_ai_plans.py` | Gemini service + AI endpoints |
-| `test_structured_output.py` | Structured itinerary generation |
-| `test_web_search.py` | Place search service + endpoint |
-| `test_hotel_search.py` | Hotel search service + endpoint |
-| `test_flight_search.py` | Flight search service + endpoint |
-| `test_expenses.py` | Expense CRUD + budget summary |
-| `test_calendar.py` | Google Calendar export |
-| `test_cache.py` | TTLCache unit + integration |
-| `test_error_handling.py` | Error handlers + request ID middleware |
-| `test_integration.py` | Full plan lifecycle, multi-plan isolation |
-| `test_frontend.py` | Static file serving |
-| `test_deployment.py` | Dockerfile, render.yaml |
-| `test_seed.py` | Seed data |
-| `test_health.py` | Health endpoint |
+| File | What It Does |
+|------|-------------|
+| `CLAUDE.md` | The only human-written file. Mission, constraints, architecture direction. |
+| `status.md` | Current phase, health, LTES metrics — updated every run |
+| `tech-decisions.md` | Every technical decision with reasoning — written by the agent |
+| `observability/error-budget.json` | SLO tracking — controls whether new features are allowed |
+| `.claude/agents/` | Role definitions for the 5 evolve agents |
 
 ---
 
