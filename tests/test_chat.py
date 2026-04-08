@@ -9970,3 +9970,397 @@ class TestPlanChecklistHandler:
             if e["type"] == "agent_status" and e["data"]["agent"] == "coordinator"
         ]
         assert coordinator_events[0]["data"]["status"] == "thinking"
+
+
+# ---------------------------------------------------------------------------
+# add_day
+# ---------------------------------------------------------------------------
+
+class TestAddDay:
+    """Tests for _handle_add_day: extend trip by appending one new day."""
+
+    # ------------------------------------------------------------------
+    # Unit: Intent model accepts add_day
+    # ------------------------------------------------------------------
+
+    def test_add_day_intent_accepted_by_model(self):
+        """Intent model must accept add_day action."""
+        from app.chat import Intent
+        intent = Intent(
+            action="add_day",
+            raw_message="하루 더 추가해줘",
+        )
+        assert intent.action == "add_day"
+
+    # ------------------------------------------------------------------
+    # Happy path: session has a plan, new day is generated
+    # ------------------------------------------------------------------
+
+    def test_add_day_happy_path_emits_day_update(self):
+        """add_day with an existing plan emits planner working→done and day_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "places": [{"name": "센소지"}]},
+                {"date": "2026-05-02", "places": [{"name": "시부야"}]},
+                {"date": "2026-05-03", "places": [{"name": "아키하바라"}]},
+            ],
+        }
+
+        new_day = AIDayItinerary(
+            date="2026-05-04",
+            notes="추가된 날",
+            transport="지하철",
+            places=[
+                AIPlace(name="우에노 공원", category="park", estimated_cost=0.0),
+                AIPlace(name="아메요코", category="food", estimated_cost=5000.0),
+            ],
+        )
+        mock_result = AIItineraryResult(days=[new_day], total_estimated_cost=5000.0)
+
+        with patch.object(svc._gemini, "generate_itinerary", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="add_day",
+                 raw_message="하루 더 추가해줘",
+             )):
+            events = _collect_events(svc, session.session_id, "하루 더 추가해줘")
+
+        # planner must go thinking → working → done
+        planner_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        statuses = [e["data"]["status"] for e in planner_events]
+        assert "thinking" in statuses
+        assert "working" in statuses
+        assert "done" in statuses
+
+        # done message mentions Day 4
+        done_evt = next(e for e in planner_events if e["data"]["status"] == "done")
+        assert "4" in done_evt["data"]["message"]
+
+        # day_update must be emitted with the new day date
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) >= 1
+        new_day_data = day_updates[-1]["data"]
+        assert new_day_data["date"] == "2026-05-04"
+
+        # plan_update must be emitted with updated end_date
+        plan_updates = [e for e in events if e["type"] == "plan_update"]
+        assert len(plan_updates) >= 1
+        assert plan_updates[-1]["data"]["end_date"] == "2026-05-04"
+
+        # chat_chunk must mention Day 4 and destination
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "4" in combined
+        assert "도쿄" in combined
+
+        # must end with chat_done
+        assert events[-1]["type"] == "chat_done"
+
+    def test_add_day_extends_session_plan_end_date(self):
+        """After add_day, session.last_plan end_date is extended by one day."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-03",
+            "budget": 3000000.0,
+            "days": [
+                {"date": "2026-06-01", "places": []},
+                {"date": "2026-06-02", "places": []},
+                {"date": "2026-06-03", "places": []},
+            ],
+        }
+
+        new_day = AIDayItinerary(date="2026-06-04", places=[])
+        mock_result = AIItineraryResult(days=[new_day], total_estimated_cost=0.0)
+
+        with patch.object(svc._gemini, "generate_itinerary", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="add_day",
+                 raw_message="하루 더 추가해줘",
+             )):
+            _collect_events(svc, session.session_id, "하루 더 추가해줘")
+
+        assert session.last_plan["end_date"] == "2026-06-04"
+        assert len(session.last_plan["days"]) == 4
+
+    def test_add_day_appends_new_day_with_correct_day_number(self):
+        """Appended day gets day_number = len(existing_days) + 1."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "오사카",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-02",
+            "budget": 1500000.0,
+            "days": [
+                {"date": "2026-07-01", "places": []},
+                {"date": "2026-07-02", "places": []},
+            ],
+        }
+
+        new_day = AIDayItinerary(date="2026-07-03", places=[AIPlace(name="도톤보리", category="food")])
+        mock_result = AIItineraryResult(days=[new_day], total_estimated_cost=0.0)
+
+        with patch.object(svc._gemini, "generate_itinerary", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="add_day",
+                 raw_message="하루 더 추가",
+             )):
+            events = _collect_events(svc, session.session_id, "하루 더 추가")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        new_day_data = day_updates[-1]["data"]
+        assert new_day_data.get("day_number") == 3
+
+    # ------------------------------------------------------------------
+    # Fallback: no plan in session
+    # ------------------------------------------------------------------
+
+    def test_add_day_no_plan_emits_helpful_fallback(self):
+        """add_day without a plan emits planner error and helpful chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # no last_plan
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_day",
+            raw_message="하루 더 추가해줘",
+        )):
+            events = _collect_events(svc, session.session_id, "하루 더 추가해줘")
+
+        planner_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert any(e["data"]["status"] == "error" for e in planner_events)
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "계획" in combined or "plan" in combined.lower()
+
+        assert events[-1]["type"] == "chat_done"
+
+    def test_add_day_no_plan_does_not_emit_day_update(self):
+        """When no plan exists, add_day must not emit day_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="add_day",
+            raw_message="하루 더",
+        )):
+            events = _collect_events(svc, session.session_id, "하루 더")
+
+        day_updates = [e for e in events if e["type"] == "day_update"]
+        assert len(day_updates) == 0
+
+    # ------------------------------------------------------------------
+    # DB persistence
+    # ------------------------------------------------------------------
+
+    def test_add_day_db_persists_new_day_itinerary(self):
+        """add_day with a saved plan persists a new DayItinerary row to DB."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel, DayItinerary as DayItineraryModel
+
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(engine)
+        SessionLocal = sessionmaker(bind=engine)
+        db = SessionLocal()
+
+        # Create a saved plan
+        plan_record = TravelPlanModel(
+            destination="도쿄",
+            start_date=__import__("datetime").date(2026, 5, 1),
+            end_date=__import__("datetime").date(2026, 5, 3),
+            budget=2000000.0,
+            interests="맛집",
+        )
+        db.add(plan_record)
+        db.commit()
+        db.refresh(plan_record)
+
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "interests": "맛집",
+            "days": [
+                {"date": "2026-05-01", "places": []},
+                {"date": "2026-05-02", "places": []},
+                {"date": "2026-05-03", "places": []},
+            ],
+        }
+        session.last_saved_plan_id = plan_record.id
+
+        new_day = AIDayItinerary(
+            date="2026-05-04",
+            notes="추가 일정",
+            transport="지하철",
+            places=[AIPlace(name="우에노 공원", category="park")],
+        )
+        mock_result = AIItineraryResult(days=[new_day], total_estimated_cost=0.0)
+
+        with patch.object(svc._gemini, "generate_itinerary", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="add_day",
+                 raw_message="하루 더 추가해줘",
+             )):
+            _collect_events_with_db(svc, session.session_id, "하루 더 추가해줘", db)
+
+        days = (
+            db.query(DayItineraryModel)
+            .filter(DayItineraryModel.travel_plan_id == plan_record.id)
+            .order_by(DayItineraryModel.date)
+            .all()
+        )
+        assert len(days) == 1
+        assert str(days[0].date) == "2026-05-04"
+        assert len(days[0].places) == 1
+        assert days[0].places[0].name == "우에노 공원"
+
+        db.close()
+
+    def test_add_day_db_updates_travel_plan_end_date(self):
+        """add_day updates TravelPlan.end_date in the DB."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(engine)
+        SessionLocal = sessionmaker(bind=engine)
+        db = SessionLocal()
+
+        plan_record = TravelPlanModel(
+            destination="파리",
+            start_date=__import__("datetime").date(2026, 6, 1),
+            end_date=__import__("datetime").date(2026, 6, 3),
+            budget=3000000.0,
+            interests="",
+        )
+        db.add(plan_record)
+        db.commit()
+        db.refresh(plan_record)
+
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "파리",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-03",
+            "budget": 3000000.0,
+            "days": [
+                {"date": "2026-06-01", "places": []},
+                {"date": "2026-06-02", "places": []},
+                {"date": "2026-06-03", "places": []},
+            ],
+        }
+        session.last_saved_plan_id = plan_record.id
+
+        new_day = AIDayItinerary(date="2026-06-04", places=[])
+        mock_result = AIItineraryResult(days=[new_day], total_estimated_cost=0.0)
+
+        with patch.object(svc._gemini, "generate_itinerary", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="add_day",
+                 raw_message="하루 더 추가",
+             )):
+            _collect_events_with_db(svc, session.session_id, "하루 더 추가", db)
+
+        db.refresh(plan_record)
+        assert str(plan_record.end_date) == "2026-06-04"
+
+        db.close()
+
+    # ------------------------------------------------------------------
+    # Integration: dispatch via process_message
+    # ------------------------------------------------------------------
+
+    def test_add_day_dispatched_from_process_message(self):
+        """process_message dispatches add_day intent to the handler."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "budget": 2000000.0,
+            "days": [
+                {"date": "2026-05-01", "places": []},
+                {"date": "2026-05-02", "places": []},
+                {"date": "2026-05-03", "places": []},
+            ],
+        }
+
+        new_day = AIDayItinerary(
+            date="2026-05-04",
+            places=[AIPlace(name="신주쿠", category="sightseeing")],
+        )
+        mock_result = AIItineraryResult(days=[new_day], total_estimated_cost=0.0)
+
+        with patch.object(svc._gemini, "generate_itinerary", return_value=mock_result), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="add_day",
+                 raw_message="하루 더 추가해줘",
+             )):
+            events = _collect_events(svc, session.session_id, "하루 더 추가해줘")
+
+        event_types = [e["type"] for e in events]
+        assert "day_update" in event_types
+        assert "plan_update" in event_types
+        assert "chat_done" in event_types
+
+        # Coordinator must come first
+        coordinator_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "coordinator"
+        ]
+        assert coordinator_events[0]["data"]["status"] == "thinking"
+
+    def test_add_day_gemini_error_emits_planner_error(self):
+        """When Gemini fails, add_day emits planner error status and chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-02",
+            "budget": 1000000.0,
+            "days": [{"date": "2026-05-01", "places": []}, {"date": "2026-05-02", "places": []}],
+        }
+
+        with patch.object(svc._gemini, "generate_itinerary", side_effect=Exception("API timeout")), \
+             patch.object(svc, "extract_intent", return_value=Intent(
+                 action="add_day",
+                 raw_message="하루 더 추가해줘",
+             )):
+            events = _collect_events(svc, session.session_id, "하루 더 추가해줘")
+
+        planner_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "planner"
+        ]
+        assert any(e["data"]["status"] == "error" for e in planner_events)
+
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "오류" in combined or "API timeout" in combined
+
+        assert events[-1]["type"] == "chat_done"
