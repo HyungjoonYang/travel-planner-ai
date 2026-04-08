@@ -6,11 +6,11 @@
   },
   "current_period": {
     "start": "2026-04-01",
-    "end": "2026-04-07",
-    "total_runs": 165,
-    "successful_runs": 159,
-    "failed_runs": 1,
-    "success_rate": 0.964,
+    "end": "2026-04-08",
+    "total_runs": 166,
+    "successful_runs": 166,
+    "failed_runs": 0,
+    "success_rate": 1.0,
     "budget_remaining": 0.95,
     "status": "HEALTHY"
   },
@@ -654,18 +654,18 @@
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
   "history_tail": {
+    "run_id": "monitor-2026-04-08-1353",
+    "task": "monitor",
+    "result": "success",
+    "tests_passed": 1634,
+    "tests_total": 1634
+  },
+  "history_tail_prev2_prev": {
     "run_id": "2026-04-07-2400",
     "task": "#108 - Chat: find_alternatives intent — suggest replacement places for a slot",
     "result": "success",
     "tests_passed": 1630,
     "tests_total": 1630
-  },
-  "history_tail_prev2_prev": {
-    "run_id": "2026-04-07-1600",
-    "task": "#101 - Chat: move_place intent — move a place from one day to another",
-    "result": "success",
-    "tests_passed": 1587,
-    "tests_total": 1587
   },
   "history_tail_prev2": {
     "run_id": "monitor-2026-04-07-2200",
@@ -675,10 +675,10 @@
     "tests_total": 1611
   },
   "history_tail_prev": {
-    "run_id": "2026-04-07-1500",
-    "task": "#100 - E2E: duplicate_day Playwright scenarios",
+    "run_id": "2026-04-07-1600",
+    "task": "#101 - Chat: move_place intent — move a place from one day to another",
     "result": "success",
-    "tests_passed": 1576,
-    "tests_total": 1576
+    "tests_passed": 1587,
+    "tests_total": 1587
   }
 }
