@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T15:48:07Z (Monitor Run #142)
-Run count: 167
+Last run: 2026-04-08T16:00:00Z (Evolve Run #134)
+Run count: 168
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 111 (#163 Chat: find_nearby intent; #162 fix: export_calendar missing from intent extraction prompt; 1634/1634 tests passing)
+Tasks completed: 112 (#164 Chat: set_budget intent; #163 Chat: find_nearby intent; 1640/1640 tests passing)
 Current focus: #109 E2E: set_day_label + day label display Playwright scenarios
 Next planned: #110 E2E: find_alternatives Playwright scenarios
 
 ## LTES Snapshot
 
-- Latency: ~89000ms (monitor run)
-- Traffic: 21 commits/24h
-- Errors: 0 test failures (1634 passed, 12 skipped), error_rate=0.0%
-- Saturation: 9 tasks ready
+- Latency: ~815000ms (evolve run #134)
+- Traffic: 1 commit (this run), 21+ commits/24h
+- Errors: 0 test failures (1640 passed, 12 skipped), error_rate=0.0%
+- Saturation: 8 tasks ready
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #110 E2E: find_alternatives Playwright scenarios
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #134 — 2026-04-08T16:00:00Z
+- **Task**: #164 - Chat: `set_budget` intent — update plan budget directly via chat [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1640/1640 passed, 12 skipped; 6 new tests added (TestSetBudgetIntent: intent fields unit test + TestSetBudgetHandler: happy-path in-memory, happy-path DB, working→done ordering, no-plan fallback, no-value fallback)
+- **Files changed**: src/app/chat.py, tests/test_chat.py (+168/-2)
+- **Builder note**: Implemented set_budget intent: added action to Intent model annotation, added to Gemini intent extraction prompt, implemented _handle_set_budget() handler (emits budget_analyst working→done + plan_update + chat_chunk, updates DB TravelPlan.budget if saved, updates session.last_plan, fallback for no-plan/no-value cases with logger.error on DB exceptions). Wired into intent dispatcher.
+- **LTES**: L=815000ms T=1 commit E=0 test failures S=8 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor Run #142 — 2026-04-08T15:48:07Z
 - **Task**: monitor

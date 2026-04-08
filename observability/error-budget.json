@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-08",
-    "total_runs": 168,
-    "successful_runs": 168,
+    "total_runs": 169,
+    "successful_runs": 169,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 0.95,
@@ -654,11 +654,11 @@
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
   "history_tail": {
-    "run_id": "monitor-2026-04-08-1548",
-    "task": "monitor",
+    "run_id": "2026-04-08-1600",
+    "task": "#164 - Chat: set_budget intent — update plan budget directly via chat",
     "result": "success",
-    "tests_passed": 1634,
-    "tests_total": 1634
+    "tests_passed": 1640,
+    "tests_total": 1640
   },
   "history_tail_prev2_prev": {
     "run_id": "2026-04-07-2400",
