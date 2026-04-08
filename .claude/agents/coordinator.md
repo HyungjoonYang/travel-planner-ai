@@ -127,11 +127,19 @@ pytest tests/ -v --tb=short 2>&1 || true
 - `.evolve/backlog.json`의 `ready_count`가 **2개 이하**이면 → `needs_architect: true`
 - 충분하면 → `needs_architect: false`
 
-### 4. 태스크 선택 (with idempotency check)
+### 4. 태스크 선택 (with idempotency check + failure history)
 `.evolve/backlog.json`에서 태스크를 선택한다:
 
 1. `in_progress`가 있으면 → 그 태스크 (이전 run에서 이어서)
 2. 없으면 → `ready` 목록에서 우선순위 최상위 (번호가 낮은 것)
+
+**Per-issue failure check**: 선택 전 `error-budget.json`의 `issue_failure_history`를 확인한다.
+해당 이슈의 `attempts >= 3`이면 → 자동 blocked 처리하고 다음 ready 태스크로 skip:
+```bash
+gh issue edit <number> --remove-label "ready" --add-label "blocked"
+gh issue comment <number> --body "🚫 **Auto-blocked**: 이 태스크는 3회 연속 QA 실패로 자동 차단되었습니다. 수동 검토가 필요합니다."
+```
+
 3. **Idempotency check**: 선택한 태스크의 done criteria 핵심 키워드를 현재 코드에서 확인:
    - 태스크 body의 Files 섹션에 나열된 파일에서 관련 함수/기능을 grep
    - 이미 구현돼 있으면 → 이슈를 close하고 다음 ready 태스크로 skip:
