@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-08T20:31:00Z (Monitor Run #145)
-Run count: 177
+Last run: 2026-04-08T21:00:00Z (Evolve Run #140)
+Run count: 178
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 117 (#179 Chat: add_day intent; #178 E2E: find_alternatives Playwright; #172 E2E: set_day_label Playwright; 1662/1662 tests passing)
+Tasks completed: 118 (#180 Chat: remove_day intent; #179 Chat: add_day intent; #178 E2E: find_alternatives Playwright; 1677/1677 tests passing)
 Current focus: next ready task
-Next planned: #180 Chat: remove_day intent
+Next planned: #181 E2E: place_preview card display
 
 ## LTES Snapshot
 
-- Latency: ~52316ms (monitor run, test_duration=37.43s)
-- Traffic: 26 commits/day, +552/-2 lines (latest: add_day intent handler + tests)
-- Errors: 0 test failures (1662 passed, 12 skipped), error_rate=0.0%
-- Saturation: 3 tasks remaining (Ready: #180, #181, #182)
+- Latency: ~928000ms (evolve run #140, pipeline_duration_s=928)
+- Traffic: 27 commits today, +225/-1 lines (latest: remove_day intent handler + 15 tests)
+- Errors: 0 test failures (1677 passed, 12 skipped), error_rate=0.0%
+- Saturation: 5 tasks remaining (Ready: #181, #182, #193, #194, #195)
 
 ## Phase Transition
 
@@ -29,6 +29,22 @@ Next planned: #180 Chat: remove_day intent
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #140 — 2026-04-08T21:00:00Z
+- **Task**: #180 - Chat: `remove_day` intent — remove a day from the trip [feature]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1677/1677 passed, 12 skipped; 15 new tests added (TestRemoveDay: intent model, happy path plan_update+renumbering+session shrink+end_date, last-day removal, no-plan fallback x2, out-of-range x3, DB persistence x2, dispatch, planner state transitions)
+- **Files changed**: src/app/chat.py, tests/test_chat.py (+225/-1)
+- **Builder note**: Implemented remove_day intent: added 'remove_day' to Intent.action enum + extraction prompt + dispatcher elif + _handle_remove_day(). Handler validates plan+day_number range, deletes DayItinerary from session.last_plan, renumbers shifted days (day_number -= 1 for days after removed), updates end_date (-1 day), persists DB deletion via DayItinerary date lookup + TravelPlan.end_date update, emits day_update per shifted day + plan_update + planner thinking→working→done + chat_chunk.
+- **LTES**: L=928000ms T=1 commit E=0 test failures S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ✓ → builder ✓ → qa ✓ → reporter ✓
+
+### Monitor Run #145 — 2026-04-08T20:31:00Z
+- **Task**: monitor
+- **Result**: GREEN ✓
+- **Tests**: 1662 passed, 12 skipped, 0 failed (37.43s)
+- **LTES**: L=52316ms T=26 commits/day E=0 failures (0.0%) S=3 tasks remaining
+- **Error Budget**: HEALTHY (budget_remaining=0.95)
 
 ### Evolve Run #139 — 2026-04-08T20:10:00Z
 - **Task**: #179 - Chat: `add_day` intent — extend trip by appending a new day [feature]
