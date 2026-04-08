@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | set_budget | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -189,7 +189,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -228,6 +228,7 @@ Return a JSON object with these fields:
 - Use action "swap_places" when user wants to swap/exchange a specific place from one day with a specific place from another day (e.g. "1일차 첫 번째 장소와 2일차 두 번째 장소 바꿔줘", "Day 1 두 번째와 Day 3 첫 번째 장소 교환해줘", "swap day 1 place 1 with day 2 place 2", "1일차 센소지를 2일차 시부야와 바꿔줘"); set day_number to the first day, day_number_2 to the second day, place_index to the 1-based index of the place in the first day (default 1), and place_index_2 to the 1-based index of the place in the second day (default 1)
 - Use action "find_alternatives" when user wants to find alternative/replacement places for a specific slot in their itinerary (e.g. "1일차 첫 번째 장소 대신 다른 곳 추천해줘", "Day 2 두 번째 장소 대체 장소 찾아줘", "센소지 대신 갈 곳 알려줘", "suggest alternatives for day 1 place 2", "1일차 두 번째 장소 바꿀 곳 추천", "대체 장소 찾아줘", "다른 곳 추천해줘"); set day_number to the referenced day (default 1), place_index to the 1-based position if mentioned, query to the place name to replace if mentioned, and place_category to the preferred category if mentioned
 - Use action "find_nearby" when user wants to find places near a specific location or near a place in the current plan (e.g. "센소지 근처 카페 찾아줘", "1일차 첫 번째 장소 근처 맛집", "시부야 근처 관광지", "find cafes near Senso-ji", "1일차 근처 맛집 추천해줘", "호텔 근처 편의점"); set day_number to the referenced day if mentioned, place_index to the 1-based position if mentioned, query to the location/place name, and place_category to the desired category if mentioned (e.g. "카페" → "cafe", "맛집" → "food", "관광지" → "sightseeing")
+- Use action "set_budget" when user wants to set or update the budget of the current travel plan directly (e.g. "예산을 150만원으로 바꿔줘", "budget을 200만원으로 설정해줘", "여행 예산 100만원으로 수정", "set budget to 1500000", "예산 변경 200만원", "budget 올려줘 250만원으로"); set budget to the new budget value as a number (e.g. "150만원" → 1500000, "200만원" → 2000000). Prefer "set_budget" over "update_plan" when the user's sole intent is to change the budget amount.
 - raw_message: the exact original message"""
 
             client = genai.Client(api_key=self._api_key)
@@ -442,6 +443,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "find_nearby":
             async for event in self._handle_find_nearby(intent, session):
+                yield _track_and_collect(event)
+        elif intent.action == "set_budget":
+            async for event in self._handle_set_budget(intent, session, db):
                 yield _track_and_collect(event)
         else:  # general
             async for event in self._handle_general(intent, session):
@@ -4920,6 +4924,111 @@ Return a JSON object with these fields:
         yield {
             "type": "chat_chunk",
             "data": {"text": summary_text},
+        }
+
+
+    async def _handle_set_budget(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Update the budget of the current travel plan.
+
+        Attempts to update the DB record first (if plan is saved), then updates
+        session.last_plan so the dashboard reflects the change immediately.
+
+        Emits: budget_analyst working→done + plan_update + chat_chunk.
+        Fallback: chat_chunk when no plan exists or budget value is missing.
+        """
+        yield {
+            "type": "agent_status",
+            "data": {
+                "agent": "budget_analyst",
+                "status": "working",
+                "message": "예산 업데이트 중...",
+            },
+        }
+        await asyncio.sleep(0)
+
+        new_budget = intent.budget
+
+        # Must have a budget value to proceed
+        if new_budget is None:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "budget_analyst", "status": "error", "message": "예산 값을 찾을 수 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "변경할 예산 금액을 알려주세요. (예: '예산을 150만원으로 바꿔줘')"},
+            }
+            return
+
+        # Must have a plan in session or DB
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+        has_plan = session.last_plan is not None or plan_id is not None
+
+        if not has_plan:
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "budget_analyst", "status": "error", "message": "여행 계획이 없습니다"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "예산을 설정하려면 먼저 여행 계획을 만들어주세요."},
+            }
+            return
+
+        # Update DB record if available
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import TravelPlan as TravelPlanModel
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is not None:
+                    plan.budget = float(new_budget)
+                    db.commit()
+                    db.refresh(plan)
+                    # Rebuild plan_data from DB record
+                    plan_data = {
+                        "id": plan.id,
+                        "destination": plan.destination,
+                        "start_date": plan.start_date.isoformat() if plan.start_date else None,
+                        "end_date": plan.end_date.isoformat() if plan.end_date else None,
+                        "budget": plan.budget,
+                        "interests": plan.interests,
+                        "status": plan.status,
+                        "days": session.last_plan.get("days", []) if session.last_plan else [],
+                    }
+                    session.last_plan = plan_data
+                    session.last_saved_plan_id = plan.id
+                else:
+                    logger.error("_handle_set_budget: plan #%s not found in DB", plan_id)
+            except Exception as exc:
+                logger.error(
+                    "_handle_set_budget: DB update failed — %s: %s", type(exc).__name__, exc, exc_info=True
+                )
+
+        # Always update the in-memory session plan (even if no DB record)
+        if session.last_plan is not None:
+            session.last_plan["budget"] = float(new_budget)
+
+        # Build plan_update payload from session state
+        plan_data = session.last_plan or {}
+
+        yield {"type": "plan_update", "data": plan_data}
+        yield {
+            "type": "agent_status",
+            "data": {
+                "agent": "budget_analyst",
+                "status": "done",
+                "message": f"예산 {new_budget:,.0f}원으로 업데이트 완료",
+            },
+        }
+        yield {
+            "type": "chat_chunk",
+            "data": {"text": f"여행 예산을 {new_budget:,.0f}원으로 업데이트했습니다. 💰"},
         }
 
 

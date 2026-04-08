@@ -9454,3 +9454,225 @@ class TestFindNearbyHandler:
         search_events = [e for e in events if e["type"] == "search_results"]
         assert len(search_events) == 1
         assert search_events[0]["data"]["results"]["near_place"] == "루브르 박물관"
+
+
+# ---------------------------------------------------------------------------
+# set_budget intent
+# ---------------------------------------------------------------------------
+
+class TestSetBudgetIntent:
+    """Intent extraction correctly identifies set_budget action."""
+
+    def test_set_budget_intent_fields(self):
+        """set_budget intent carries the new budget value."""
+        intent = Intent(
+            action="set_budget",
+            budget=1500000.0,
+            raw_message="예산을 150만원으로 바꿔줘",
+        )
+        assert intent.action == "set_budget"
+        assert intent.budget == 1500000.0
+
+
+class TestSetBudgetHandler:
+    """_handle_set_budget emits budget_analyst events + plan_update + chat_chunk."""
+
+    # ------------------------------------------------------------------
+    # Happy path: in-memory plan (no DB)
+    # ------------------------------------------------------------------
+
+    def test_set_budget_updates_session_last_plan(self):
+        """set_budget updates session.last_plan['budget'] and emits plan_update."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {
+            "destination": "도쿄",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-04",
+            "budget": 1000000.0,
+            "days": [],
+        }
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_budget",
+            budget=2000000.0,
+            raw_message="예산을 200만원으로 바꿔줘",
+        )):
+            events = _collect_events(svc, session.session_id, "예산을 200만원으로 바꿔줘")
+
+        # budget_analyst must go working → done
+        agent_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+        ]
+        statuses = [e["data"]["status"] for e in agent_events]
+        assert "working" in statuses
+        assert "done" in statuses
+
+        # plan_update event must carry the new budget
+        plan_updates = [e for e in events if e["type"] == "plan_update"]
+        assert len(plan_updates) == 1
+        assert plan_updates[0]["data"]["budget"] == 2000000.0
+
+        # session.last_plan must be updated
+        assert session.last_plan["budget"] == 2000000.0
+
+        # chat_chunk must mention the new budget amount
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "2,000,000" in combined or "2000000" in combined
+
+        assert events[-1]["type"] == "chat_done"
+
+    def test_set_budget_emits_agent_status_working_before_done(self):
+        """budget_analyst status must follow working → done order."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {"destination": "파리", "budget": 500000.0, "days": []}
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_budget",
+            budget=1500000.0,
+            raw_message="예산 150만원으로 설정",
+        )):
+            events = _collect_events(svc, session.session_id, "예산 150만원으로 설정")
+
+        agent_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+        ]
+        statuses = [e["data"]["status"] for e in agent_events]
+        working_idx = statuses.index("working")
+        done_idx = statuses.index("done")
+        assert working_idx < done_idx
+
+    # ------------------------------------------------------------------
+    # Happy path: DB-backed plan
+    # ------------------------------------------------------------------
+
+    def test_set_budget_updates_db_record(self):
+        """set_budget persists the new budget to the DB TravelPlan row."""
+        from app.database import Base
+        from app.models import TravelPlan as TravelPlanModel
+
+        engine, TestingSession = _make_test_db()
+        db = TestingSession()
+        try:
+            # Pre-insert a plan
+            plan_record = TravelPlanModel(
+                destination="도쿄",
+                start_date=__import__("datetime").date(2026, 5, 1),
+                end_date=__import__("datetime").date(2026, 5, 4),
+                budget=1000000.0,
+                interests="food",
+            )
+            db.add(plan_record)
+            db.commit()
+            db.refresh(plan_record)
+            plan_id = plan_record.id
+
+            svc = _make_service_no_api()
+            session = svc.create_session()
+            session.last_saved_plan_id = plan_id
+            session.last_plan = {
+                "destination": "도쿄",
+                "budget": 1000000.0,
+                "days": [],
+            }
+
+            with patch.object(svc, "extract_intent", return_value=Intent(
+                action="set_budget",
+                budget=2500000.0,
+                raw_message="예산을 250만원으로 올려줘",
+            )):
+                events = _collect_events_with_db(svc, session.session_id, "예산을 250만원으로 올려줘", db)
+
+            # DB record must be updated
+            db.refresh(plan_record)
+            assert plan_record.budget == 2500000.0
+
+            # plan_update event must carry updated budget
+            plan_updates = [e for e in events if e["type"] == "plan_update"]
+            assert len(plan_updates) == 1
+            assert plan_updates[0]["data"]["budget"] == 2500000.0
+
+            # budget_analyst done
+            agent_events = [
+                e for e in events
+                if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+            ]
+            assert any(e["data"]["status"] == "done" for e in agent_events)
+        finally:
+            db.close()
+            Base.metadata.drop_all(bind=engine)
+
+    # ------------------------------------------------------------------
+    # Fallback: no plan in session or DB
+    # ------------------------------------------------------------------
+
+    def test_set_budget_no_plan_fallback(self):
+        """set_budget with no plan emits error agent_status and fallback chat_chunk."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        # No last_plan, no last_saved_plan_id
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_budget",
+            budget=1500000.0,
+            raw_message="예산을 150만원으로 바꿔줘",
+        )):
+            events = _collect_events(svc, session.session_id, "예산을 150만원으로 바꿔줘")
+
+        # budget_analyst must emit error status (not done)
+        agent_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+        ]
+        statuses = [e["data"]["status"] for e in agent_events]
+        assert "error" in statuses
+        assert "done" not in statuses
+
+        # chat_chunk must mention making a plan first
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "계획" in combined
+
+        # No plan_update should be emitted
+        assert not any(e["type"] == "plan_update" for e in events)
+
+        assert events[-1]["type"] == "chat_done"
+
+    # ------------------------------------------------------------------
+    # Fallback: no budget value provided
+    # ------------------------------------------------------------------
+
+    def test_set_budget_no_value_fallback(self):
+        """set_budget with budget=None emits error and asks for the value."""
+        svc = _make_service_no_api()
+        session = svc.create_session()
+        session.last_plan = {"destination": "도쿄", "budget": 1000000.0, "days": []}
+
+        with patch.object(svc, "extract_intent", return_value=Intent(
+            action="set_budget",
+            budget=None,
+            raw_message="예산 바꿔줘",
+        )):
+            events = _collect_events(svc, session.session_id, "예산 바꿔줘")
+
+        # budget_analyst must emit error
+        agent_events = [
+            e for e in events
+            if e["type"] == "agent_status" and e["data"]["agent"] == "budget_analyst"
+        ]
+        statuses = [e["data"]["status"] for e in agent_events]
+        assert "error" in statuses
+
+        # chat_chunk should prompt the user for an amount
+        chat_chunks = [e for e in events if e["type"] == "chat_chunk"]
+        combined = " ".join(e["data"]["text"] for e in chat_chunks)
+        assert "예산" in combined
+
+        # session.last_plan should not be changed
+        assert session.last_plan["budget"] == 1000000.0
+
+        assert events[-1]["type"] == "chat_done"
