@@ -35,7 +35,7 @@ _DEFAULT_DEPARTURE = "서울(ICN)"  # default origin for flight search
 
 
 class Intent(BaseModel):
-    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | find_nearby | set_budget | plan_checklist | add_day | remove_day | general
+    action: str  # create_plan | confirm_plan | modify_day | refine_plan | search_places | search_hotels | search_flights | save_plan | export_calendar | list_plans | delete_plan | view_plan | add_expense | update_expense | update_plan | get_expense_summary | delete_expense | list_expenses | copy_plan | get_weather | reset_conversation | add_day_note | update_day_note | suggest_improvements | remove_place | add_place | share_plan | reorder_days | clear_day | duplicate_day | move_place | set_day_label | quick_summary | swap_places | find_alternatives | find_nearby | set_budget | plan_checklist | add_day | remove_day | general
     destination: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -189,7 +189,7 @@ The user is based in South Korea. Budget values should be in KRW (Korean Won). D
 User message: "{message}"
 
 Return a JSON object with these fields:
-- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "plan_checklist", "add_day", "remove_day", "general"
+- action: one of "create_plan", "confirm_plan", "modify_day", "refine_plan", "search_places", "search_hotels", "search_flights", "save_plan", "list_plans", "delete_plan", "view_plan", "add_expense", "update_expense", "update_plan", "get_expense_summary", "delete_expense", "list_expenses", "copy_plan", "get_weather", "reset_conversation", "add_day_note", "update_day_note", "suggest_improvements", "remove_place", "add_place", "share_plan", "reorder_days", "clear_day", "duplicate_day", "move_place", "set_day_label", "quick_summary", "swap_places", "find_alternatives", "find_nearby", "set_budget", "plan_checklist", "add_day", "remove_day", "general"
 - Use action "confirm_plan" when the user confirms they want to proceed with creating a travel plan (e.g. "네 세워줘", "좋아 계획해줘", "응 진행해", "yes please", "go ahead", "확인")
 - IMPORTANT: Use action "general" for casual conversation, questions, opinions, or when the user is discussing/exploring options but NOT explicitly requesting to create or modify a plan. Examples: "후쿠오카 4박 5일은 너무 길지 않을까?" → general (asking opinion), "여행지 추천해줘" → general (asking for suggestions), "벌레 싫은데" → general (sharing preference)
 - Use "create_plan" ONLY when the user explicitly asks to CREATE a plan with specific details. Use "refine_plan" ONLY when the user explicitly asks to CHANGE an existing plan (e.g. "일정 수정해줘", "3일차 바꿔줘")
@@ -211,6 +211,7 @@ Return a JSON object with these fields:
 - Use action "copy_plan" when user wants to duplicate/copy a saved travel plan (e.g. "이 계획 복사해줘", "3번 계획 복제", "도쿄 여행 계획 복사", "계획 복사")
 - Use action "get_weather" when user wants to know the weather forecast for a destination or trip dates (e.g. "도쿄 날씨 어때?", "여행 기간 날씨 알려줘", "파리 날씨 예보", "weather forecast for Tokyo")
 - Use action "add_day_note" when user wants to append a note or memo to a specific day of the itinerary (e.g. "1일차에 메모 추가해줘", "Day 2에 '우산 챙기기' 노트 달아줘", "3일차 노트: 환전 필요", "add note to day 1"); set day_number to the referenced day number and query to the note text
+- Use action "update_day_note" when user wants to overwrite (replace) or clear/delete the entire note for a specific day (e.g. "1일차 노트를 '환전 필요'로 바꿔줘", "Day 2 메모를 '우산 챙기기'로 수정해줘", "3일차 노트 지워줘", "clear day 1 note", "replace day 2 note with 'bring sunscreen'", "Day 3 메모 삭제", "1일차 노트 초기화"); set day_number to the referenced day, query to the new note text (or empty string / null to clear)
 - Use action "suggest_improvements" when user asks for suggestions, improvements, or feedback on their current travel plan (e.g. "개선할 점 있어?", "추천 사항 있어?", "어떻게 더 좋게 할 수 있을까?", "any suggestions?", "how to improve?", "what would you recommend changing?", "더 좋은 방법 있어?", "계획 피드백 줘")
 - Use action "remove_place" when user wants to remove/delete a specific place from a day's itinerary (e.g. "1일차 첫 번째 장소 삭제", "Day 2에서 센소지 빼줘", "3일차에서 루브르 박물관 제거", "remove Senso-ji from day 2", "day 1 first place delete"); set day_number to the referenced day, query to the place name if mentioned, and place_index to the 1-based position if an ordinal is mentioned (e.g. "첫 번째" → 1, "두 번째" → 2, "마지막" → -1)
 - Use action "add_place" when user wants to add/append a custom place to a specific day (e.g. "1일차에 서울숲 추가해줘", "Day 2에 경복궁 넣어줘", "3일차에 맛집 추가", "add Gyeongbokgung to day 1", "Day 3에 카페 추가"); set day_number to the referenced day, query to the place name, and place_category to the category if mentioned (e.g. "맛집" → "food", "카페" → "cafe", "관광지" → "sightseeing"), else null
@@ -407,6 +408,9 @@ Return a JSON object with these fields:
                 yield _track_and_collect(event)
         elif intent.action == "add_day_note":
             async for event in self._handle_add_day_note(intent, session, db):
+                yield _track_and_collect(event)
+        elif intent.action == "update_day_note":
+            async for event in self._handle_update_day_note(intent, session, db):
                 yield _track_and_collect(event)
         elif intent.action == "suggest_improvements":
             async for event in self._handle_suggest_improvements(intent, session):
@@ -3919,6 +3923,152 @@ Return a JSON object with these fields:
             yield {
                 "type": "chat_chunk",
                 "data": {"text": "노트를 추가하려면 먼저 여행 계획을 만들거나 저장해주세요."},
+            }
+
+    async def _handle_update_day_note(
+        self,
+        intent: Intent,
+        session: "ChatSession",
+        db: Optional["Session"] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """Overwrite or clear a specific day's note.
+
+        - If intent.query is a non-empty string → replace the day's note with that text
+        - If intent.query is empty/None → clear the note (set to empty string)
+        - Emits: planner thinking→working→done, day_update, chat_chunk
+        - Fallback: helpful message when no plan exists
+        """
+        day_number = intent.day_number or 1
+        new_note = intent.query or ""  # empty string means "clear"
+
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "thinking", "message": f"Day {day_number} 노트 수정 준비 중..."},
+        }
+        await asyncio.sleep(0)
+        yield {
+            "type": "agent_status",
+            "data": {"agent": "planner", "status": "working", "message": f"Day {day_number} 노트 수정 중..."},
+        }
+
+        plan_id: Optional[int] = intent.plan_id or session.last_saved_plan_id
+
+        if db is not None and plan_id is not None:
+            try:
+                from app.models import (
+                    DayItinerary as DayItineraryModel,
+                    TravelPlan as TravelPlanModel,
+                )
+
+                plan = db.get(TravelPlanModel, plan_id)
+                if plan is None:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"계획 #{plan_id}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획 #{plan_id}을 찾을 수 없습니다."},
+                    }
+                    return
+
+                days = (
+                    db.query(DayItineraryModel)
+                    .filter(DayItineraryModel.travel_plan_id == plan_id)
+                    .order_by(DayItineraryModel.date)
+                    .all()
+                )
+
+                day_index = day_number - 1
+                if not days or day_index >= len(days) or day_index < 0:
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "error", "message": f"Day {day_number}을 찾을 수 없습니다"},
+                    }
+                    yield {
+                        "type": "chat_chunk",
+                        "data": {"text": f"계획에 Day {day_number}이 없습니다."},
+                    }
+                    return
+
+                day = days[day_index]
+                day.notes = new_note
+                db.commit()
+                db.refresh(day)
+
+                places_data = [
+                    {
+                        "name": p.name,
+                        "category": p.category,
+                        "address": p.address,
+                        "estimated_cost": p.estimated_cost,
+                        "ai_reason": p.ai_reason,
+                        "order": p.order,
+                    }
+                    for p in sorted(day.places, key=lambda x: x.order)
+                ]
+                day_data = {
+                    "day_number": day_number,
+                    "date": day.date.isoformat(),
+                    "notes": day.notes,
+                    "transport": day.transport,
+                    "places": places_data,
+                }
+
+                yield {"type": "day_update", "data": day_data}
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 노트 수정 완료!"},
+                }
+                if new_note:
+                    confirm_text = f"Day {day_number} 노트를 '{new_note}'(으)로 변경했습니다."
+                else:
+                    confirm_text = f"Day {day_number} 노트를 삭제했습니다."
+                yield {"type": "chat_chunk", "data": {"text": confirm_text}}
+
+            except Exception as exc:
+                logger.error(
+                    "_handle_update_day_note: DB update failed — %s: %s",
+                    type(exc).__name__,
+                    exc,
+                    exc_info=True,
+                )
+                yield {
+                    "type": "agent_status",
+                    "data": {"agent": "planner", "status": "error", "message": "노트 수정 실패"},
+                }
+                yield {
+                    "type": "chat_chunk",
+                    "data": {"text": f"노트 수정 중 오류가 발생했습니다: {exc}"},
+                }
+        else:
+            # No saved plan in DB — update in-memory last_plan if available
+            last_plan = session.last_plan
+            if last_plan:
+                days = last_plan.get("days", [])
+                day_index = day_number - 1
+                if 0 <= day_index < len(days):
+                    day = days[day_index]
+                    day["notes"] = new_note
+                    yield {"type": "day_update", "data": day}
+                    yield {
+                        "type": "agent_status",
+                        "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 노트 수정 완료!"},
+                    }
+                    if new_note:
+                        confirm_text = f"Day {day_number} 노트를 '{new_note}'(으)로 변경했습니다 (미저장 — 저장 후 영구 보관됩니다)."
+                    else:
+                        confirm_text = f"Day {day_number} 노트를 삭제했습니다 (미저장 — 저장 후 영구 보관됩니다)."
+                    yield {"type": "chat_chunk", "data": {"text": confirm_text}}
+                    return
+
+            yield {
+                "type": "agent_status",
+                "data": {"agent": "planner", "status": "done", "message": f"Day {day_number} 노트 수정 완료!"},
+            }
+            yield {
+                "type": "chat_chunk",
+                "data": {"text": "노트를 수정하려면 먼저 여행 계획을 만들거나 저장해주세요."},
             }
 
     async def _handle_remove_place(
