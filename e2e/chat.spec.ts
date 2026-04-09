@@ -4847,3 +4847,378 @@ test.describe("add_day E2E (Task #115)", () => {
     await expect(page.locator(".day-card")).toHaveCount(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// swap_places E2E scenarios (Task #116 / Issue #194)
+// ---------------------------------------------------------------------------
+
+test.describe("swap_places E2E (Task #116)", () => {
+  /**
+   * Helper: build a two-call session mock.
+   * - First call  → plan_update with 2 days (each has distinct places)
+   * - Second call → the provided sseEvents (swap_places response)
+   *
+   * Plan layout:
+   *   Day 1 (2026-05-01, 아사쿠사): 센소지 (order 1), 아메요코 시장 (order 2)
+   *   Day 2 (2026-05-02, 시부야):   스크램블 교차로 (order 1)
+   */
+  async function mockPlanThenSwapPlaces(
+    page: Page,
+    sessionId: string,
+    swapEvents: object[]
+  ): Promise<void> {
+    // Session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: sessionId,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(
+      `**/chat/sessions/${sessionId}/messages`,
+      async (route) => {
+        callCount++;
+        if (callCount === 1) {
+          // First message: create a 2-day plan with distinct places per day
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+              },
+              {
+                type: "plan_update",
+                data: {
+                  destination: "도쿄",
+                  start_date: "2026-05-01",
+                  end_date: "2026-05-02",
+                  budget: 1_500_000,
+                  total_estimated_cost: 300_000,
+                  days: [
+                    {
+                      day: 1,
+                      date: "2026-05-01",
+                      theme: "아사쿠사",
+                      places: [
+                        {
+                          name: "센소지",
+                          category: "문화",
+                          address: "도쿄 아사쿠사",
+                          estimated_cost: 0,
+                          ai_reason: "유명 사원",
+                          order: 1,
+                        },
+                        {
+                          name: "아메요코 시장",
+                          category: "food",
+                          address: "도쿄 우에노",
+                          estimated_cost: 3_000,
+                          ai_reason: "시장 먹거리",
+                          order: 2,
+                        },
+                      ],
+                      notes: "",
+                    },
+                    {
+                      day: 2,
+                      date: "2026-05-02",
+                      theme: "시부야",
+                      places: [
+                        {
+                          name: "스크램블 교차로",
+                          category: "관광",
+                          address: "도쿄 시부야",
+                          estimated_cost: 0,
+                          ai_reason: "유명 교차로",
+                          order: 1,
+                        },
+                      ],
+                      notes: "",
+                    },
+                  ],
+                },
+              },
+              { type: "chat_chunk", data: { text: "도쿄 2일 여행 계획을 생성했습니다." } },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        } else {
+          // Second message: swap_places response
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(...swapEvents),
+          });
+        }
+      }
+    );
+  }
+
+  /**
+   * Scenario A (happy path — swap Day 1 place 1 with Day 2 place 1):
+   * 1. Create a 2-day plan:
+   *    - Day 1: 센소지 (place 1), 아메요코 시장 (place 2)
+   *    - Day 2: 스크램블 교차로 (place 1)
+   * 2. Send "1일차 첫 번째 장소와 2일차 첫 번째 장소 바꿔줘".
+   * 3. SSE emits:
+   *    - coordinator done ("swap_places 파악")
+   *    - planner working ("장소 교환 중...")
+   *    - day_update for Day 1: now has 스크램블 교차로 at order 1, 아메요코 시장 at order 2
+   *    - day_update for Day 2: now has 센소지 at order 1
+   *    - planner done ("Day 1 ↔ Day 2 장소 교환 완료!")
+   *    - chat_chunk confirming the swap
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - planner done message mentions "교환 완료"
+   *   - Day 1 card (#day-2026-05-01) now shows "스크램블 교차로" (formerly Day 2)
+   *   - Day 1 card still shows "아메요코 시장" (place 2, unchanged)
+   *   - Day 2 card (#day-2026-05-02) now shows "센소지" (formerly Day 1 place 1)
+   *   - chat confirms the swap text
+   */
+  test("swap_places happy path: two day_update events arrive, both day cards reflect swapped places", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-swap-places-happy";
+
+    await mockPlanThenSwapPlaces(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "swap_places 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "working", message: "장소 교환 중..." },
+      },
+      // day_update for Day 1 — 스크램블 교차로 swapped in at order 1; 아메요코 시장 stays at order 2
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-05-01",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "스크램블 교차로",
+              category: "관광",
+              address: "도쿄 시부야",
+              estimated_cost: 0,
+              ai_reason: "유명 교차로",
+              order: 1,
+            },
+            {
+              name: "아메요코 시장",
+              category: "food",
+              address: "도쿄 우에노",
+              estimated_cost: 3_000,
+              ai_reason: "시장 먹거리",
+              order: 2,
+            },
+          ],
+        },
+      },
+      // day_update for Day 2 — 센소지 swapped in at order 1
+      {
+        type: "day_update",
+        data: {
+          day_number: 2,
+          date: "2026-05-02",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "센소지",
+              category: "문화",
+              address: "도쿄 아사쿠사",
+              estimated_cost: 0,
+              ai_reason: "유명 사원",
+              order: 1,
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "done", message: "Day 1 ↔ Day 2 장소 교환 완료!" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1의 '센소지'와 Day 2의 '스크램블 교차로'을 교환했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render with 2 day cards
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Verify original state before the swap
+    await expect(page.locator("#day-2026-05-01")).toContainText("센소지");
+    await expect(page.locator("#day-2026-05-01")).toContainText("아메요코 시장");
+    await expect(page.locator("#day-2026-05-02")).toContainText("스크램블 교차로");
+
+    // Wait for input to re-enable before second message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: swap Day 1 place 1 with Day 2 place 1 ---
+    await page.fill("#chat-input", "1일차 첫 번째 장소와 2일차 첫 번째 장소 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Planner done message must mention "교환 완료"
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("교환 완료");
+
+    // Day 1 card must now show 스크램블 교차로 (swapped in from Day 2)
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "스크램블 교차로"
+    );
+
+    // Day 1 place 2 (아메요코 시장) must be unchanged
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "아메요코 시장"
+    );
+
+    // Day 2 card must now show 센소지 (swapped in from Day 1)
+    await expect(page.locator("#day-2026-05-02 .day-places")).toContainText(
+      "센소지"
+    );
+
+    // Chat must confirm the swap
+    await expect(page.locator("#chat-messages")).toContainText(
+      "교환했습니다",
+      { timeout: 10_000 }
+    );
+  });
+
+  /**
+   * Scenario B (out-of-range error — Day 5 does not exist):
+   * 1. Create a 2-day plan.
+   * 2. Send "1일차 첫 번째 장소와 5일차 첫 번째 장소 바꿔줘" — Day 5 does not exist.
+   * 3. SSE emits:
+   *    - coordinator done ("swap_places 파악")
+   *    - planner working ("장소 교환 중...")
+   *    - planner error ("Day 5이 범위를 벗어났습니다")
+   *    - chat_chunk ("Day 5은 이 계획에 없습니다 (총 2일).")
+   *    → No day_update events fired.
+   *
+   * Done criteria:
+   *   - coordinator done ("swap_places 파악")
+   *   - planner reaches agent-error state
+   *   - planner error message contains "범위"
+   *   - chat shows "없습니다" error guidance
+   *   - Day 1 card content is UNCHANGED (no day_update fired)
+   *   - Day 2 card content is UNCHANGED
+   */
+  test("swap_places out-of-range error: chat bubble shows error guidance, no day_update emitted", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-swap-places-out-of-range";
+
+    await mockPlanThenSwapPlaces(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "swap_places 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "working", message: "장소 교환 중..." },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "error",
+          message: "Day 5이 범위를 벗어났습니다",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 5은 이 계획에 없습니다 (총 2일)." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Record original day card content before the failed swap
+    await expect(page.locator("#day-2026-05-01")).toContainText("센소지");
+    await expect(page.locator("#day-2026-05-02")).toContainText("스크램블 교차로");
+
+    // Wait for input to re-enable before second message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: request out-of-range swap ---
+    await page.fill("#chat-input", "1일차 첫 번째 장소와 5일차 첫 번째 장소 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Planner must reach error state (Day 5 does not exist)
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Planner error message must mention "범위" (out-of-range)
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("범위");
+
+    // Chat must show the out-of-range guidance
+    await expect(page.locator("#chat-messages")).toContainText("없습니다", {
+      timeout: 10_000,
+    });
+
+    // Day 1 card must be UNCHANGED (no day_update was fired)
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "센소지"
+    );
+
+    // Day 2 card must also be UNCHANGED
+    await expect(page.locator("#day-2026-05-02 .day-places")).toContainText(
+      "스크램블 교차로"
+    );
+  });
+});
