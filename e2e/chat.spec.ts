@@ -6512,3 +6512,523 @@ test.describe("add_day_note + update_day_note E2E (Task #201)", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// remove_place + add_place E2E scenarios (Task #202 / Issue #202)
+// ---------------------------------------------------------------------------
+
+test.describe("remove_place + add_place E2E (Task #202)", () => {
+  /**
+   * Helper: build a two-call session mock.
+   * - First call  → plan_update with 1 day (도쿄, 2026-05-01)
+   *   Day 1 has TWO places: 센소지 (order 1) + 아메요코 시장 (order 2)
+   * - Second call → the provided sseEvents (remove_place / add_place response)
+   */
+  async function mockPlanThenPlace(
+    page: Page,
+    sessionId: string,
+    placeEvents: object[]
+  ): Promise<void> {
+    // Session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: sessionId,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(
+      `**/chat/sessions/${sessionId}/messages`,
+      async (route) => {
+        callCount++;
+        if (callCount === 1) {
+          // First message: create a 1-day plan with 2 places on Day 1
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "create_plan 파악",
+                },
+              },
+              {
+                type: "plan_update",
+                data: {
+                  destination: "도쿄",
+                  start_date: "2026-05-01",
+                  end_date: "2026-05-01",
+                  budget: 1_500_000,
+                  total_estimated_cost: 5_000,
+                  days: [
+                    {
+                      day: 1,
+                      date: "2026-05-01",
+                      theme: "아사쿠사",
+                      places: [
+                        {
+                          name: "센소지",
+                          category: "문화",
+                          address: "도쿄 아사쿠사",
+                          estimated_cost: 0,
+                          ai_reason: "유명 사원",
+                          order: 1,
+                        },
+                        {
+                          name: "아메요코 시장",
+                          category: "맛집",
+                          address: "도쿄 우에노",
+                          estimated_cost: 5_000,
+                          ai_reason: "시장 먹거리",
+                          order: 2,
+                        },
+                      ],
+                      notes: "",
+                    },
+                  ],
+                },
+              },
+              {
+                type: "chat_chunk",
+                data: { text: "도쿄 1일 여행 계획을 생성했습니다." },
+              },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        } else {
+          // Second message: place action response
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(...placeEvents),
+          });
+        }
+      }
+    );
+  }
+
+  /**
+   * Scenario A (remove_place happy path):
+   * 1. Create a 1-day plan (Day 1: 센소지 + 아메요코 시장).
+   * 2. Send "1일차 센소지 제거해줘".
+   * 3. SSE emits:
+   *    - coordinator done ("remove_place 파악")
+   *    - planner working ("장소 제거 중...")
+   *    - day_update for Day 1 with only 아메요코 시장 remaining (센소지 gone)
+   *    - planner done ("센소지 제거 완료!")
+   *    - chat_chunk confirming the removal
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - #day-2026-05-01 .day-places no longer contains "센소지"
+   *   - #day-2026-05-01 .day-places still contains "아메요코 시장"
+   *   - chat message confirms the removal
+   */
+  test("remove_place happy path: day_update fires and removed place card disappears", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-remove-place-happy";
+
+    await mockPlanThenPlace(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "remove_place 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "working",
+          message: "장소 제거 중...",
+        },
+      },
+      // day_update: Day 1 now has only 아메요코 시장 (센소지 removed)
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-05-01",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "아메요코 시장",
+              category: "맛집",
+              address: "도쿄 우에노",
+              estimated_cost: 5_000,
+              ai_reason: "시장 먹거리",
+              order: 1,
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "done",
+          message: "센소지 제거 완료!",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1에서 '센소지'를 제거했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 1-day plan with 2 places ---
+    await page.fill("#chat-input", "도쿄 1일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+    await expect(page.locator(".day-card")).toHaveCount(1);
+
+    // Both places must be present before removal
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "센소지"
+    );
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "아메요코 시장"
+    );
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({
+      timeout: 5_000,
+    });
+
+    // --- Second message: remove 센소지 from Day 1 ---
+    await page.fill("#chat-input", "1일차 센소지 제거해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("제거 완료");
+
+    // 센소지 must no longer appear in Day 1's places list
+    await expect(
+      page.locator("#day-2026-05-01 .day-places")
+    ).not.toContainText("센소지", { timeout: 10_000 });
+
+    // 아메요코 시장 must still be visible (not accidentally removed)
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "아메요코 시장"
+    );
+
+    // Chat must confirm the removal
+    await expect(page.locator("#chat-messages")).toContainText("센소지", {
+      timeout: 10_000,
+    });
+    await expect(page.locator("#chat-messages")).toContainText("제거");
+  });
+
+  /**
+   * Scenario B (remove_place out-of-range error):
+   * 1. Create a 1-day plan (Day 1: 센소지 + 아메요코 시장 — 2 places total).
+   * 2. Send "1일차 5번째 장소 제거해줘" — place index 5 does not exist.
+   * 3. SSE emits:
+   *    - coordinator done ("remove_place 파악")
+   *    - planner working ("장소 제거 중...")
+   *    - planner error ("5번째 장소가 범위를 벗어났습니다")
+   *    - chat_chunk: error guidance ("없습니다")
+   *    - chat_done
+   *    → No day_update events fired; day card remains unchanged.
+   *
+   * Done criteria:
+   *   - planner reaches agent-error state
+   *   - planner error message contains "범위"
+   *   - chat shows error guidance containing "없습니다"
+   *   - #day-2026-05-01 .day-places unchanged (센소지 + 아메요코 시장 both present)
+   */
+  test("remove_place out-of-range error: error bubble shown, no day_update fired", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-remove-place-out-of-range";
+
+    await mockPlanThenPlace(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "remove_place 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "working",
+          message: "장소 제거 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "error",
+          message: "5번째 장소가 범위를 벗어났습니다",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: {
+          text: "Day 1에 5번째 장소는 없습니다 (총 2개). 유효한 번호를 입력해주세요.",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 1-day plan ---
+    await page.fill("#chat-input", "도쿄 1일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+    await expect(page.locator(".day-card")).toHaveCount(1);
+
+    // Both places present before the failed removal
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "센소지"
+    );
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "아메요코 시장"
+    );
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({
+      timeout: 5_000,
+    });
+
+    // --- Second message: request out-of-range place removal ---
+    await page.fill("#chat-input", "1일차 5번째 장소 제거해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach error state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Planner error message must mention "범위" (out-of-range)
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("범위");
+
+    // Chat must show the out-of-range error guidance
+    await expect(page.locator("#chat-messages")).toContainText("없습니다", {
+      timeout: 10_000,
+    });
+
+    // Day card must be UNCHANGED — no day_update was fired
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "센소지"
+    );
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "아메요코 시장"
+    );
+  });
+
+  /**
+   * Scenario C (add_place happy path):
+   * 1. Create a 1-day plan (Day 1: 센소지 + 아메요코 시장 — 2 places).
+   * 2. Send "1일차에 스카이트리 추가해줘".
+   * 3. SSE emits:
+   *    - coordinator done ("add_place 파악")
+   *    - place_scout working ("장소 검색 중...")
+   *    - place_scout done ("스카이트리 찾음", result_count: 1)
+   *    - day_update for Day 1 with 3 places: 센소지 + 아메요코 시장 + 스카이트리 (new)
+   *    - planner done ("스카이트리 추가 완료!")
+   *    - chat_chunk confirming the addition
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - place_scout reaches agent-done state
+   *   - #day-2026-05-01 .day-places now contains "스카이트리" (newly added)
+   *   - #day-2026-05-01 .day-places still contains "센소지" and "아메요코 시장" (unchanged)
+   *   - chat message confirms the addition
+   */
+  test("add_place happy path: day_update fires and new place card appears in day", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-add-place-happy";
+
+    await mockPlanThenPlace(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "add_place 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "place_scout",
+          status: "working",
+          message: "스카이트리 검색 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "place_scout",
+          status: "done",
+          message: "스카이트리 찾음",
+          result_count: 1,
+        },
+      },
+      // day_update: Day 1 now has 3 places (센소지 + 아메요코 시장 + 스카이트리)
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-05-01",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "센소지",
+              category: "문화",
+              address: "도쿄 아사쿠사",
+              estimated_cost: 0,
+              ai_reason: "유명 사원",
+              order: 1,
+            },
+            {
+              name: "아메요코 시장",
+              category: "맛집",
+              address: "도쿄 우에노",
+              estimated_cost: 5_000,
+              ai_reason: "시장 먹거리",
+              order: 2,
+            },
+            {
+              name: "스카이트리",
+              category: "관광",
+              address: "도쿄 스미다구",
+              estimated_cost: 2_100,
+              ai_reason: "도쿄 전망대",
+              order: 3,
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "done",
+          message: "스카이트리 추가 완료!",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1에 '스카이트리'를 추가했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 1-day plan (센소지 + 아메요코 시장) ---
+    await page.fill("#chat-input", "도쿄 1일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+    await expect(page.locator(".day-card")).toHaveCount(1);
+
+    // Only 2 places before add_place
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "센소지"
+    );
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "아메요코 시장"
+    );
+    await expect(
+      page.locator("#day-2026-05-01 .day-places")
+    ).not.toContainText("스카이트리");
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({
+      timeout: 5_000,
+    });
+
+    // --- Second message: add 스카이트리 to Day 1 ---
+    await page.fill("#chat-input", "1일차에 스카이트리 추가해줘");
+    await page.click('button:has-text("전송")');
+
+    // Place scout must reach done state
+    await expect(page.locator('[data-agent="place_scout"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("추가 완료");
+
+    // New place 스카이트리 must now appear in Day 1's places list
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "스카이트리",
+      { timeout: 10_000 }
+    );
+
+    // Original places must still be present (not accidentally replaced)
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "센소지"
+    );
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "아메요코 시장"
+    );
+
+    // Chat must confirm the addition
+    await expect(page.locator("#chat-messages")).toContainText("스카이트리", {
+      timeout: 10_000,
+    });
+    await expect(page.locator("#chat-messages")).toContainText("추가");
+  });
+});
