@@ -5222,3 +5222,338 @@ test.describe("swap_places E2E (Task #116)", () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// plan_checklist E2E scenarios (Task #117 / Issue #195)
+// ---------------------------------------------------------------------------
+
+test.describe("plan_checklist E2E (Task #117)", () => {
+  /**
+   * Helper: build a two-call session mock.
+   * - First call  → plan_update with 2 days (도쿄)
+   * - Second call → the provided sseEvents (plan_checklist response)
+   *
+   * Plan layout:
+   *   Day 1 (2026-05-01, 아사쿠사): 센소지
+   *   Day 2 (2026-05-02, 시부야):   스크램블 교차로
+   */
+  async function mockPlanThenChecklist(
+    page: Page,
+    sessionId: string,
+    checklistEvents: object[]
+  ): Promise<void> {
+    // Session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: sessionId,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(
+      `**/chat/sessions/${sessionId}/messages`,
+      async (route) => {
+        callCount++;
+        if (callCount === 1) {
+          // First message: create a 2-day plan
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "create_plan 파악",
+                },
+              },
+              {
+                type: "plan_update",
+                data: {
+                  destination: "도쿄",
+                  start_date: "2026-05-01",
+                  end_date: "2026-05-02",
+                  budget: 1_500_000,
+                  total_estimated_cost: 300_000,
+                  days: [
+                    {
+                      day: 1,
+                      date: "2026-05-01",
+                      theme: "아사쿠사",
+                      places: [
+                        {
+                          name: "센소지",
+                          category: "문화",
+                          address: "도쿄 아사쿠사",
+                          estimated_cost: 0,
+                          ai_reason: "유명 사원",
+                          order: 1,
+                        },
+                      ],
+                      notes: "",
+                    },
+                    {
+                      day: 2,
+                      date: "2026-05-02",
+                      theme: "시부야",
+                      places: [
+                        {
+                          name: "스크램블 교차로",
+                          category: "관광",
+                          address: "도쿄 시부야",
+                          estimated_cost: 0,
+                          ai_reason: "유명 교차로",
+                          order: 1,
+                        },
+                      ],
+                      notes: "",
+                    },
+                  ],
+                },
+              },
+              {
+                type: "chat_chunk",
+                data: { text: "도쿄 2일 여행 계획을 생성했습니다." },
+              },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        } else {
+          // Second message: plan_checklist response
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(...checklistEvents),
+          });
+        }
+      }
+    );
+  }
+
+  /**
+   * Scenario A (happy path — plan_checklist with active plan):
+   * 1. Create a 2-day Tokyo plan.
+   * 2. Send "여행 준비 체크리스트 만들어줘".
+   * 3. SSE emits:
+   *    - coordinator done ("plan_checklist 파악")
+   *    - secretary working ("여행 준비 체크리스트 생성 중...")
+   *    - chat_chunk: "- 여권 확인\n"
+   *    - chat_chunk: "- 숙소 예약 확인\n"
+   *    - chat_chunk: "- 환전\n"
+   *    - checklist_update: { checklist: "- 여권 확인\n- 숙소 예약 확인\n- 환전\n" }
+   *    - secretary done ("체크리스트 생성 완료")
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - secretary reaches agent-done state
+   *   - secretary done message contains "체크리스트 생성 완료"
+   *   - chat bubble streams checklist items (contains "여권")
+   */
+  test("plan_checklist happy path: secretary reaches done, checklist items stream in chat bubble", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-plan-checklist-happy";
+
+    await mockPlanThenChecklist(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "plan_checklist 파악" },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "여행 준비 체크리스트 생성 중...",
+        },
+      },
+      { type: "chat_chunk", data: { text: "- 여권 확인\n" } },
+      { type: "chat_chunk", data: { text: "- 숙소 예약 확인\n" } },
+      { type: "chat_chunk", data: { text: "- 환전\n" } },
+      {
+        type: "checklist_update",
+        data: { checklist: "- 여권 확인\n- 숙소 예약 확인\n- 환전\n" },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "done",
+          message: "체크리스트 생성 완료",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Wait for input to re-enable before second message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: request plan_checklist ---
+    await page.fill("#chat-input", "여행 준비 체크리스트 만들어줘");
+    await page.click('button:has-text("전송")');
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Secretary must reach working state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-working/,
+      { timeout: 10_000 }
+    );
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Secretary done message must contain "체크리스트 생성 완료"
+    await expect(
+      page.locator('[data-agent="secretary"] .agent-message')
+    ).toContainText("체크리스트 생성 완료");
+
+    // Chat bubble must show checklist items streamed via chat_chunk
+    await expect(page.locator("#chat-messages")).toContainText("여권", {
+      timeout: 10_000,
+    });
+  });
+
+  /**
+   * Scenario B (no-plan fallback — plan_checklist with no active plan):
+   * 1. Send "체크리스트 보여줘" without creating a plan first.
+   * 2. SSE emits:
+   *    - coordinator done ("plan_checklist 파악")
+   *    - secretary working ("여행 준비 체크리스트 생성 중...")
+   *    - secretary error ("여행 계획이 없습니다")
+   *    - chat_chunk: "체크리스트를 만들려면 먼저 여행 계획이 필요해요. 여행 계획을 먼저 만들어보세요!"
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - secretary reaches agent-error state
+   *   - secretary error message contains "여행 계획이 없습니다"
+   *   - chat bubble shows fallback guidance (contains "여행 계획")
+   *   - No checklist_update event is emitted (plan panel unchanged)
+   */
+  test("plan_checklist no-plan fallback: secretary reaches error state, fallback message shown in chat", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-plan-checklist-no-plan";
+
+    // Single-call mock: no plan creation, just the no-plan fallback response
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.route(
+      `**/chat/sessions/${SESSION_ID}/messages`,
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+          body: buildSse(
+            {
+              type: "agent_status",
+              data: { agent: "coordinator", status: "done", message: "plan_checklist 파악" },
+            },
+            {
+              type: "agent_status",
+              data: {
+                agent: "secretary",
+                status: "working",
+                message: "여행 준비 체크리스트 생성 중...",
+              },
+            },
+            {
+              type: "agent_status",
+              data: {
+                agent: "secretary",
+                status: "error",
+                message: "여행 계획이 없습니다",
+              },
+            },
+            {
+              type: "chat_chunk",
+              data: {
+                text: "체크리스트를 만들려면 먼저 여행 계획이 필요해요. 여행 계획을 먼저 만들어보세요!",
+              },
+            },
+            { type: "chat_done", data: {} }
+          ),
+        });
+      }
+    );
+
+    await goToChat(page);
+
+    // Send checklist request without any prior plan
+    await page.fill("#chat-input", "체크리스트 보여줘");
+    await page.click('button:has-text("전송")');
+
+    // Coordinator must reach done state
+    await expect(page.locator('[data-agent="coordinator"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Secretary must reach error state (no plan available)
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Secretary error message must mention "여행 계획이 없습니다"
+    await expect(
+      page.locator('[data-agent="secretary"] .agent-message')
+    ).toContainText("여행 계획이 없습니다");
+
+    // Chat must show the no-plan fallback guidance
+    await expect(page.locator("#chat-messages")).toContainText("여행 계획", {
+      timeout: 10_000,
+    });
+
+    // Plan panel must remain empty (no plan was created)
+    await expect(page.locator("#plan-panel")).not.toContainText("Day 1");
+  });
+});
