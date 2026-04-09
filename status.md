@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-09T23:00:00Z (Evolve Run #151)
-Run count: 197
+Last run: 2026-04-09T23:30:00Z (Evolve Run #152)
+Run count: 198
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 129 (#208 E2E: agent_reasoning event Playwright scenarios; 1691/1691 tests passing)
+Tasks completed: 130 (#209 E2E: list_plans + view_plan + delete_plan Playwright scenarios; 1691/1691 tests passing)
 Current focus: next ready task
-Next planned: next ready issues (#209, #210)
+Next planned: next ready issue (#210)
 
 ## LTES Snapshot
 
-- Latency: 61000ms (monitor run, test_duration=41910ms)
+- Latency: 781000ms (pipeline_duration_s=781)
 - Traffic: 28 commits/day
 - Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
-- Saturation: 2 tasks remaining (Ready: #209, #210)
+- Saturation: 1 task remaining (Ready: #210, #215, #216, #217, #218)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: next ready issues (#209, #210)
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #152 — 2026-04-09T23:30:00Z
+- **Task**: #209 - E2E: `list_plans` + `view_plan` + `delete_plan` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1691 passed, 12 skipped; 5 new Playwright E2E scenarios added (+412/-0 lines)
+- **Files changed**: e2e/chat.spec.ts (+412)
+- **Builder note**: Added 5 Playwright E2E scenarios for list_plans + view_plan + delete_plan: (1) list_plans happy — 2 .plan-saved-card elements rendered with destination/budget; (2) list_plans empty — plan panel shows empty state, no cards; (3) view_plan happy — plan_update renders .plan-context-card with destination; (4) delete_plan happy — plan_deleted clears panel, secretary reaches done; (5) delete_plan non-existent — secretary reaches error state, chat shows not-found message.
+- **LTES**: L=781000ms T=1 commit E=0 test failures S=1 task remaining (#210)
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #151 — 2026-04-09T23:00:00Z
 - **Task**: #208 - E2E: `agent_reasoning` event Playwright scenarios [test]

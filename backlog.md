@@ -13,8 +13,11 @@ _(없음)_
 
 ## Ready
 
-- [ ] #209 - #124 - E2E: `list_plans` + `view_plan` + `delete_plan` Playwright scenarios [test]
 - [ ] #210 - #125 - E2E: `modify_day` Playwright scenarios [test]
+- [ ] #215 - #126 - E2E: `search_hotels` + `search_flights` Playwright scenarios [test]
+- [ ] #216 - #127 - E2E: `save_plan` Playwright scenarios [test]
+- [ ] #217 - #128 - E2E: `refine_plan` Playwright scenarios [test]
+- [ ] #218 - #129 - E2E: `update_expense` + `delete_expense` Playwright scenarios [test]
 
 ## Blocked
 
@@ -24,6 +27,7 @@ _(없음)_
 
 ## Recently Completed (last 20)
 
+- [x] #209 - #124 - E2E: `list_plans` + `view_plan` + `delete_plan` Playwright scenarios — 2026-04-09
 - [x] #208 - #123 - E2E: `agent_reasoning` event Playwright scenarios — 2026-04-09
 - [x] #207 - #122 - E2E: `clear_day` + `move_place` Playwright scenarios — 2026-04-09
 - [x] #203 - #121 - E2E: UX events (`progress` + `confirm_plan`) Playwright scenarios — 2026-04-09
@@ -43,12 +47,11 @@ _(없음)_
 - [x] #170 - #107 - Chat: swap_places intent — swap places between two days — 2026-04-07
 - [x] #169 - #106 - E2E: quick_summary Playwright scenarios — 2026-04-07
 - [x] #168 - #105 - Frontend: day label badge on day cards — 2026-04-07
-- [x] #166 - #109 - E2E: export_calendar + set_budget + find_nearby Playwright scenarios — 2026-04-08
 
 ---
 
 ## Metrics
 
-- Total open: 2
-- Ready: 2 | In Progress: 0 | Blocked: 0
+- Total open: 5
+- Ready: 5 | In Progress: 0 | Blocked: 0
 - Phase: Phase 10: Chat + Multi-Agent Dashboard
