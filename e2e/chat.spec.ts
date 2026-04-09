@@ -7964,3 +7964,415 @@ test.describe("agent_reasoning event E2E (Task #208)", () => {
     await expect(reasoningEl).toContainText("숙박 + 식비 + 교통비");
   });
 });
+
+// ---------------------------------------------------------------------------
+// list_plans + view_plan + delete_plan E2E scenarios (Task #209 / Issue #209)
+// ---------------------------------------------------------------------------
+
+test.describe("list_plans + view_plan + delete_plan E2E (Task #209)", () => {
+  /**
+   * Scenario 1 (list_plans happy path):
+   * 1. Send "내 여행 계획 목록 보여줘".
+   * 2. SSE emits:
+   *    - secretary working ("저장된 여행 계획 조회 중...")
+   *    - secretary done ("2개 계획 조회됨", result_count: 2)
+   *    - plans_list with 2 plans (도쿄, 오사카)
+   *    - chat_chunk confirming count
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - secretary reaches agent-done state
+   *   - plan panel shows 2 .plan-saved-card elements
+   *   - first card contains "도쿄" and dates "2026-05-01 → 2026-05-04"
+   *   - second card contains "오사카" and budget "1,200,000원"
+   *   - chat bubble contains "2개"
+   */
+  test("list_plans happy path: plan panel shows plan-saved-card for each saved plan", async ({
+    page,
+  }) => {
+    const SSE_EVENTS = [
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "저장된 여행 계획 조회 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "done",
+          message: "2개 계획 조회됨",
+          result_count: 2,
+        },
+      },
+      {
+        type: "plans_list",
+        data: {
+          plans: [
+            {
+              id: 1,
+              destination: "도쿄",
+              start_date: "2026-05-01",
+              end_date: "2026-05-04",
+              budget: 2_000_000,
+              status: "confirmed",
+            },
+            {
+              id: 2,
+              destination: "오사카",
+              start_date: "2026-06-10",
+              end_date: "2026-06-13",
+              budget: 1_200_000,
+              status: "draft",
+            },
+          ],
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: {
+          text: "저장된 여행 계획 2개:\n1. 도쿄 (2026-05-01 ~ 2026-05-04)\n2. 오사카 (2026-06-10 ~ 2026-06-13)",
+        },
+      },
+      { type: "chat_done", data: {} },
+    ];
+
+    await mockChatSession(page, SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "내 여행 계획 목록 보여줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Plan panel must contain 2 .plan-saved-card elements
+    await expect(page.locator("#plan-panel .plan-saved-card")).toHaveCount(2, {
+      timeout: 10_000,
+    });
+
+    // First card: 도쿄 with correct dates
+    const firstCard = page.locator(
+      "#plan-panel .plan-saved-card[data-plan-id='1']"
+    );
+    await expect(firstCard).toBeVisible();
+    await expect(firstCard).toContainText("도쿄");
+    await expect(firstCard).toContainText("2026-05-01");
+
+    // Second card: 오사카 with budget
+    const secondCard = page.locator(
+      "#plan-panel .plan-saved-card[data-plan-id='2']"
+    );
+    await expect(secondCard).toBeVisible();
+    await expect(secondCard).toContainText("오사카");
+    await expect(secondCard).toContainText("1,200,000원");
+
+    // Chat bubble confirms the count
+    await expect(page.locator("#chat-messages")).toContainText("2개");
+  });
+
+  /**
+   * Scenario 2 (list_plans empty):
+   * 1. Send "내 여행 계획 목록 보여줘" when there are no saved plans.
+   * 2. SSE emits:
+   *    - secretary working
+   *    - secretary done ("0개 계획 조회됨", result_count: 0)
+   *    - plans_list with empty array
+   *    - chat_chunk "저장된 여행 계획이 없습니다."
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - secretary reaches agent-done state
+   *   - plan panel shows empty state text (저장된 여행 계획이 없습니다.)
+   *   - no .plan-saved-card elements are present
+   *   - chat bubble contains the "없습니다" message
+   */
+  test("list_plans empty: plan panel shows empty state, no plan cards", async ({
+    page,
+  }) => {
+    const SSE_EVENTS = [
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "저장된 여행 계획 조회 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "done",
+          message: "0개 계획 조회됨",
+          result_count: 0,
+        },
+      },
+      {
+        type: "plans_list",
+        data: { plans: [] },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "저장된 여행 계획이 없습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ];
+
+    await mockChatSession(page, SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "내 여행 계획 목록 보여줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Plan panel must show the empty state message
+    await expect(page.locator("#plan-panel")).toContainText(
+      "저장된 여행 계획이 없습니다.",
+      { timeout: 10_000 }
+    );
+
+    // No plan cards should be present
+    await expect(page.locator("#plan-panel .plan-saved-card")).toHaveCount(0);
+
+    // Chat bubble also confirms empty state
+    await expect(page.locator("#chat-messages")).toContainText("없습니다");
+  });
+
+  /**
+   * Scenario 3 (view_plan happy path):
+   * 1. Send "도쿄 여행 계획 보여줘".
+   * 2. SSE emits:
+   *    - secretary working ("여행 계획 불러오는 중...")
+   *    - plan_update with the plan data (id:5, destination:"도쿄")
+   *    - secretary done ("'도쿄' 계획 불러오기 완료")
+   *    - chat_chunk confirming load
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - secretary reaches agent-done state
+   *   - plan panel shows .plan-context-card (or contains 도쿄 destination info)
+   *   - plan panel contains "도쿄" and the date range
+   *   - chat bubble contains "불러왔습니다"
+   */
+  test("view_plan happy path: plan panel shows loaded plan via plan_update", async ({
+    page,
+  }) => {
+    const SSE_EVENTS = [
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "여행 계획 불러오는 중...",
+        },
+      },
+      {
+        type: "plan_update",
+        data: {
+          id: 5,
+          destination: "도쿄",
+          start_date: "2026-05-01",
+          end_date: "2026-05-04",
+          budget: 2_000_000,
+          interests: "맛집, 문화",
+          status: "confirmed",
+          days: [
+            {
+              day: 1,
+              date: "2026-05-01",
+              theme: "아사쿠사",
+              places: [
+                {
+                  name: "센소지",
+                  category: "문화",
+                  address: "도쿄 아사쿠사",
+                  estimated_cost: 0,
+                  ai_reason: "유명 사원",
+                  order: 1,
+                },
+              ],
+              notes: "",
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "done",
+          message: "'도쿄' 계획 불러오기 완료",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "'도쿄' 여행 계획(#5)을 불러왔습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ];
+
+    await mockChatSession(page, SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "도쿄 여행 계획 보여줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Plan panel must show the loaded plan (via plan_update → .plan-context-card)
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+    await expect(page.locator("#plan-panel")).toContainText("2026-05-01");
+
+    // Chat bubble confirms the load
+    await expect(page.locator("#chat-messages")).toContainText("불러왔습니다");
+  });
+
+  /**
+   * Scenario 4 (delete_plan happy path):
+   * 1. Send "도쿄 여행 계획 삭제해줘".
+   * 2. SSE emits:
+   *    - secretary working ("여행 계획 삭제 중...")
+   *    - secretary done ("삭제 완료!")
+   *    - plan_deleted {plan_id: 5, destination: "도쿄"}
+   *    - chat_chunk confirming deletion
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - secretary reaches agent-done state
+   *   - plan panel shows deletion confirmation text ("삭제되었습니다")
+   *   - chat bubble contains "'도쿄'" and "삭제"
+   */
+  test("delete_plan happy path: plan panel shows deletion message, secretary done", async ({
+    page,
+  }) => {
+    const SSE_EVENTS = [
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "여행 계획 삭제 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "done",
+          message: "삭제 완료!",
+        },
+      },
+      {
+        type: "plan_deleted",
+        data: { plan_id: 5, destination: "도쿄" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "'도쿄' 여행 계획(#5)이 삭제되었습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ];
+
+    await mockChatSession(page, SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "도쿄 여행 계획 삭제해줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach done state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Plan panel must show deletion confirmation
+    await expect(page.locator("#plan-panel")).toContainText("삭제되었습니다", {
+      timeout: 10_000,
+    });
+
+    // Chat bubble confirms the deletion with destination name
+    await expect(page.locator("#chat-messages")).toContainText("도쿄");
+    await expect(page.locator("#chat-messages")).toContainText("삭제");
+  });
+
+  /**
+   * Scenario 5 (delete_plan non-existent plan — error path):
+   * 1. Send "99번 계획 삭제해줘" — plan ID 99 does not exist.
+   * 2. SSE emits:
+   *    - secretary working ("여행 계획 삭제 중...")
+   *    - secretary error ("계획 #99을 찾을 수 없습니다")
+   *    - chat_chunk with error message
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - secretary reaches agent-error state
+   *   - plan panel is NOT updated with deletion message (no "삭제되었습니다")
+   *   - chat bubble contains the "찾을 수 없습니다" error message
+   */
+  test("delete_plan non-existent plan: secretary error, chat shows not-found message", async ({
+    page,
+  }) => {
+    const SSE_EVENTS = [
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "working",
+          message: "여행 계획 삭제 중...",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "secretary",
+          status: "error",
+          message: "계획 #99을 찾을 수 없습니다",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "계획 #99을 찾을 수 없습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ];
+
+    await mockChatSession(page, SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "99번 계획 삭제해줘");
+    await page.click('button:has-text("전송")');
+
+    // Secretary must reach error state
+    await expect(page.locator('[data-agent="secretary"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Chat bubble shows the not-found error message
+    await expect(page.locator("#chat-messages")).toContainText(
+      "찾을 수 없습니다",
+      { timeout: 10_000 }
+    );
+
+    // Plan panel must NOT show "삭제되었습니다" — no deletion occurred
+    await expect(page.locator("#plan-panel")).not.toContainText("삭제되었습니다");
+  });
+});
