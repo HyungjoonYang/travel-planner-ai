@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-09T17:00:00Z (Monitor Run #150)
-Run count: 188
+Last run: 2026-04-09T18:00:00Z (Evolve Run #146)
+Run count: 189
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 123 (#195 E2E: plan_checklist Playwright scenarios; #194 E2E: swap_places Playwright scenarios; #193 E2E: add_day Playwright scenarios; 1691/1691 tests passing)
+Tasks completed: 124 (#200 E2E: remove_day Playwright scenarios; #195 E2E: plan_checklist Playwright scenarios; #194 E2E: swap_places Playwright scenarios; 1691/1691 tests passing)
 Current focus: next ready task
-Next planned: next ready issue (#200 or other)
+Next planned: next ready issue (#201 or other)
 
 ## LTES Snapshot
 
-- Latency: ~42410ms (monitor run #150, test_duration=42.41s)
-- Traffic: 30 commits/day (last 24h)
+- Latency: ~713000ms (evolve run #146, pipeline_duration=713s)
+- Traffic: 31 commits/day (last 24h)
 - Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
-- Saturation: 4 tasks remaining (Ready: #200, #201, #202, #203)
+- Saturation: 3 tasks remaining (Ready: #201, #202, #203)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: next ready issue (#200 or other)
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #146 — 2026-04-09T18:00:00Z
+- **Task**: #200 - E2E: `remove_day` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1691 passed, 12 skipped; 2 new Playwright E2E scenarios added (+283 lines)
+- **Files changed**: e2e/chat.spec.ts (+283/-0)
+- **Builder note**: Added 'remove_day E2E (Task #200)' test.describe block. Scenario A (happy path): builds 3-day Tokyo plan, removes Day 2 — verifies day_update events for remaining days (센소지 Day1, 아키하바라 Day2), removed day card (시부야 스크램블 교차로) disappears, plan_update end_date='2026-05-02', planner reaches agent-done. Scenario B (out-of-range): requests Day 5 removal from 3-day plan — planner reaches agent-error with '범위' message, chat shows error guidance, all 3 day cards remain unchanged. Both scenarios use route mock for SSE.
+- **LTES**: L=713000ms T=1 commit E=0 test failures S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor Run #150 — 2026-04-09T17:00:00Z
 - **Task**: monitor
