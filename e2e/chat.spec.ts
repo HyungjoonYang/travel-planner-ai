@@ -7032,3 +7032,296 @@ test.describe("remove_place + add_place E2E (Task #202)", () => {
     await expect(page.locator("#chat-messages")).toContainText("추가");
   });
 });
+
+// ---------------------------------------------------------------------------
+// progress + confirm_plan UX events E2E (Task #203)
+// ---------------------------------------------------------------------------
+
+test.describe("progress + confirm_plan UX events E2E (Task #203)", () => {
+  /**
+   * Shared SSE event fixtures
+   */
+  const PROGRESS_SSE_EVENTS = [
+    {
+      type: "agent_status",
+      data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+    },
+    {
+      type: "agent_status",
+      data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+    },
+    { type: "chat_chunk", data: { text: "네, 알겠습니다! 확인해볼게요 ✨\n" } },
+    {
+      type: "progress",
+      data: { step: "search", message: "📍 도쿄 장소 검색 중..." },
+    },
+    {
+      type: "progress",
+      data: { step: "places_done", message: "✅ 12개 장소 발견" },
+    },
+    { type: "chat_chunk", data: { text: "도쿄 3일 여행 계획을 생성했습니다." } },
+    { type: "chat_done", data: {} },
+  ];
+
+  const CONFIRM_PLAN_SSE_EVENTS = [
+    {
+      type: "agent_status",
+      data: { agent: "coordinator", status: "thinking", message: "요청 분석 중..." },
+    },
+    {
+      type: "agent_status",
+      data: { agent: "coordinator", status: "done", message: "general 파악" },
+    },
+    {
+      type: "chat_chunk",
+      data: { text: "좋아요! 다음 조건으로 계획을 세울까요?\n" },
+    },
+    {
+      type: "confirm_plan",
+      data: {
+        destination: "도쿄",
+        start_date: "2026-05-01",
+        end_date: "2026-05-03",
+        budget: 2_000_000,
+        interests: "음식, 문화",
+      },
+    },
+    { type: "chat_done", data: {} },
+  ];
+
+  /**
+   * Scenario 1: progress events render inline in the current AI bubble.
+   *
+   * The SSE stream contains two progress events between the fast response
+   * chat_chunk and the final chat_chunk.  All three chunks + progress
+   * messages should appear inside the same .chat-bubble.chat-ai element.
+   */
+  test("progress events appear inline in the AI bubble", async ({ page }) => {
+    await mockChatSession(page, PROGRESS_SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "도쿄 3일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for the streaming to complete
+    await expect(page.locator(".chat-bubble.chat-ai")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.waitForTimeout(500);
+
+    const lastAiBubble = page.locator(".chat-bubble.chat-ai").last();
+    const bubbleText = await lastAiBubble.textContent();
+
+    // All content must be in ONE bubble
+    expect(bubbleText).toContain("네, 알겠습니다!");
+    expect(bubbleText).toContain("📍 도쿄 장소 검색 중...");
+    expect(bubbleText).toContain("✅ 12개 장소 발견");
+    expect(bubbleText).toContain("도쿄 3일 여행 계획을 생성했습니다.");
+
+    // Only one AI bubble should exist for this one message
+    await expect(page.locator(".chat-bubble.chat-ai")).toHaveCount(1);
+  });
+
+  /**
+   * Scenario 2: progress events appear in the correct order within the bubble.
+   *
+   * Fast-response chunk → progress search → progress places_done → final chunk
+   */
+  test("progress text is sequentially ordered inside the AI bubble", async ({
+    page,
+  }) => {
+    await mockChatSession(page, PROGRESS_SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "도쿄 3일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator(".chat-bubble.chat-ai")).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.waitForTimeout(500);
+
+    const text =
+      (await page.locator(".chat-bubble.chat-ai").last().textContent()) ?? "";
+
+    const fastIdx = text.indexOf("확인해볼게요");
+    const searchIdx = text.indexOf("장소 검색 중");
+    const placesDoneIdx = text.indexOf("12개 장소 발견");
+    const finalIdx = text.indexOf("생성했습니다");
+
+    // Verify sequential ordering
+    expect(fastIdx).toBeGreaterThanOrEqual(0);
+    expect(searchIdx).toBeGreaterThan(fastIdx);
+    expect(placesDoneIdx).toBeGreaterThan(searchIdx);
+    expect(finalIdx).toBeGreaterThan(placesDoneIdx);
+  });
+
+  /**
+   * Scenario 3: confirm_plan event renders a visible confirmation card with
+   * destination, date range, and budget inside the AI bubble.
+   */
+  test("confirm_plan event shows .confirm-plan-card with trip details", async ({
+    page,
+  }) => {
+    await mockChatSession(page, CONFIRM_PLAN_SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "5월에 도쿄 3일 여행 200만원으로");
+    await page.click('button:has-text("전송")');
+
+    // Card must become visible
+    const card = page.locator(".confirm-plan-card");
+    await expect(card).toBeVisible({ timeout: 5_000 });
+
+    // Card contains the trip details supplied in the SSE event
+    await expect(card).toContainText("도쿄");
+    await expect(card).toContainText("2026-05-01");
+    await expect(card).toContainText("2026-05-03");
+    // budget: 2,000,000원
+    await expect(card).toContainText("2,000,000");
+    await expect(card).toContainText("음식, 문화");
+
+    // Card must be inside a .chat-ai bubble (not a standalone element)
+    const cardInBubble = page.locator(".chat-bubble.chat-ai .confirm-plan-card");
+    await expect(cardInBubble).toHaveCount(1);
+  });
+
+  /**
+   * Scenario 4: confirm_plan card has "계획 세우기" and "수정하기" action buttons.
+   */
+  test("confirm_plan card shows action buttons", async ({ page }) => {
+    await mockChatSession(page, CONFIRM_PLAN_SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "5월에 도쿄 3일 여행 200만원으로");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator(".confirm-plan-card")).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await expect(page.locator(".confirm-yes")).toBeVisible();
+    await expect(page.locator(".confirm-edit")).toBeVisible();
+    await expect(page.locator(".confirm-yes")).toContainText("계획 세우기");
+    await expect(page.locator(".confirm-edit")).toContainText("수정하기");
+  });
+
+  /**
+   * Scenario 5: clicking "계획 세우기" fills the input with the confirmation
+   * phrase and sends it, triggering a new SSE stream.
+   *
+   * Done criteria #3: "clicking plan button → triggers new SSE with confirm_plan intent"
+   * Verified by: a new user bubble with "네, 계획 세워줘" appears after the click.
+   */
+  test("계획 세우기 button sends confirmation message (triggers new SSE)", async ({
+    page,
+  }) => {
+    // Second SSE response after clicking the button (confirm intent processed)
+    const confirmResponseEvents = [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "confirm_plan 파악",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "네! 도쿄 여행 계획을 시작합니다." },
+      },
+      { type: "chat_done", data: {} },
+    ];
+
+    let callCount = 0;
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: MOCK_SESSION_ID,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+    await page.route("**/chat/sessions/*/messages", async (route) => {
+      callCount++;
+      const events =
+        callCount === 1 ? CONFIRM_PLAN_SSE_EVENTS : confirmResponseEvents;
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+        body: buildSse(...events),
+      });
+    });
+
+    await goToChat(page);
+
+    // First message: collect trip conditions → confirm_plan card
+    await page.fill("#chat-input", "5월에 도쿄 3일 여행 200만원으로");
+    await page.click('button:has-text("전송")');
+    await expect(page.locator(".confirm-plan-card")).toBeVisible({
+      timeout: 5_000,
+    });
+
+    // Wait for the input to be re-enabled before clicking the card button
+    await expect(page.locator("#chat-input")).not.toBeDisabled({
+      timeout: 5_000,
+    });
+
+    // Click "계획 세우기" — this fills "네, 계획 세워줘" and calls sendChatMessage()
+    await page.locator(".confirm-yes").click();
+    await page.waitForTimeout(500);
+
+    // A new user bubble with the confirmation phrase must appear
+    const userBubbles = page.locator(".chat-bubble.chat-user");
+    const lastUserBubble = userBubbles.last();
+    await expect(lastUserBubble).toContainText("네, 계획 세워줘");
+
+    // The second SSE call must complete (new AI response visible)
+    await expect(page.locator(".chat-bubble.chat-ai")).toHaveCount(2, {
+      timeout: 10_000,
+    });
+    await expect(page.locator(".chat-bubble.chat-ai").last()).toContainText(
+      "도쿄 여행 계획"
+    );
+  });
+
+  /**
+   * Scenario 6: clicking "수정하기" focuses the chat input and changes its
+   * placeholder to guide the user.
+   */
+  test("수정하기 button focuses the chat input and updates placeholder", async ({
+    page,
+  }) => {
+    await mockChatSession(page, CONFIRM_PLAN_SSE_EVENTS);
+    await goToChat(page);
+
+    await page.fill("#chat-input", "5월에 도쿄 3일 여행 200만원으로");
+    await page.click('button:has-text("전송")');
+    await expect(page.locator(".confirm-plan-card")).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.locator("#chat-input")).not.toBeDisabled({
+      timeout: 5_000,
+    });
+
+    await page.locator(".confirm-edit").click();
+    await page.waitForTimeout(200);
+
+    // Input must be focused and placeholder updated
+    await expect(page.locator("#chat-input")).toBeFocused();
+    const placeholder = await page
+      .locator("#chat-input")
+      .getAttribute("placeholder");
+    expect(placeholder).toContain("변경하고 싶은 조건");
+  });
+});
