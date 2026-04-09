@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-09T13:53:43Z (Monitor Run #147)
-Run count: 183
+Last run: 2026-04-09T14:00:00Z (Evolve Run #144)
+Run count: 184
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 121 (#193 E2E: add_day Playwright scenarios; #182 Chat: update_day_note intent; #181 E2E: place_preview card display; 1691/1703 tests passing)
+Tasks completed: 122 (#194 E2E: swap_places Playwright scenarios; #193 E2E: add_day Playwright scenarios; #182 Chat: update_day_note intent; 1691/1691 tests passing)
 Current focus: next ready task
-Next planned: #194 or #195 (next ready issue)
+Next planned: #195 or #200 (next ready issue)
 
 ## LTES Snapshot
 
-- Latency: ~60500ms (monitor run #147, test_duration=60.5s)
-- Traffic: 28 commits/day (latest: add_day E2E scenarios +404/-0 lines)
+- Latency: ~639000ms (evolve run #144, pipeline_duration=639s)
+- Traffic: 28 commits/day (latest: swap_places E2E scenarios +270/-0 lines)
 - Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
-- Saturation: 2 tasks remaining (Ready: #194, #195)
+- Saturation: 5 tasks remaining (Ready: #195, #200, #201, #202, #203)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #194 or #195 (next ready issue)
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #144 — 2026-04-09T14:00:00Z
+- **Task**: #194 - E2E: `swap_places` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1691 passed, 12 skipped; 2 new Playwright E2E scenarios added (+270 lines)
+- **Files changed**: e2e/chat.spec.ts (+270/-0)
+- **Builder note**: Added 'swap_places E2E (Task #116)' test.describe block. Scenario A (happy path): builds 2-day plan, swap_places exchanges Day 1 place 1 ('센소지') with Day 2 place 1 ('스크램블 교차로') via route-mocked SSE — two day_update events arrive, both day cards validated. Scenario B (out-of-range): requests swap with Day 5 (non-existent in 2-day plan) — planner reaches agent-error, chat shows '없습니다' guidance, day cards verified unchanged.
+- **LTES**: L=639000ms T=1 commit E=0 test failures S=5 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor Run #147 — 2026-04-09T13:53:43Z
 - **Task**: monitor
