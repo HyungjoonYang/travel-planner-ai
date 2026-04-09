@@ -7818,3 +7818,149 @@ test.describe("clear_day + move_place E2E (Task #207)", () => {
     await expect(page.locator("#chat-messages")).toContainText("이동");
   });
 });
+
+// ---------------------------------------------------------------------------
+// agent_reasoning event E2E scenarios (Task #208 / Issue #208)
+// ---------------------------------------------------------------------------
+
+test.describe("agent_reasoning event E2E (Task #208)", () => {
+  /**
+   * Scenario 1: agent_reasoning event → .agent-reasoning element visible in
+   * agent card after clicking the card.
+   *
+   * The SSE stream contains one agent_reasoning event for "planner" followed
+   * by an agent_status done event.  After the stream completes:
+   *   1. The [data-agent="planner"] card must contain a .agent-reasoning element.
+   *   2. Clicking the card must reveal the .agent-reasoning panel.
+   *   3. The panel must contain the reasoning text from the event.
+   */
+  test("agent_reasoning event creates .agent-reasoning element visible on card click", async ({
+    page,
+  }) => {
+    const REASONING_TEXT =
+      "도쿄 3일 일정: 음식과 문화 위주로 장소를 선정합니다. 예산 2,000,000원 기준.";
+
+    const SSE_EVENTS = [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "thinking", message: "일정 생성 중..." },
+      },
+      {
+        type: "agent_reasoning",
+        data: { agent: "planner", reasoning: REASONING_TEXT },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "done", message: "일정 생성 완료" },
+      },
+      { type: "chat_chunk", data: { text: "도쿄 3일 여행 계획을 생성했습니다." } },
+      { type: "chat_done", data: {} },
+    ];
+
+    await mockChatSession(page, SSE_EVENTS);
+    await goToChat(page);
+    await expandAgentPanel(page);
+
+    await page.fill("#chat-input", "도쿄 3일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for the planner card to reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // .agent-reasoning element must exist inside the planner card
+    const reasoningEl = page.locator('[data-agent="planner"] .agent-reasoning');
+    await expect(reasoningEl).toHaveCount(1);
+
+    // Click the agent card to reveal the reasoning panel
+    await page.locator('[data-agent="planner"]').click();
+    await page.waitForTimeout(200);
+
+    // Reasoning panel must now be visible
+    await expect(reasoningEl).toBeVisible();
+
+    // Panel must contain the reasoning text from the SSE event
+    await expect(reasoningEl).toContainText("도쿄 3일 일정");
+    await expect(reasoningEl).toContainText("음식과 문화");
+    await expect(reasoningEl).toContainText("2,000,000원");
+  });
+
+  /**
+   * Scenario 2: Multiple agent_reasoning events accumulate in the panel
+   * (entries are appended, not replaced).
+   *
+   * Two agent_reasoning events for "planner" are sent in sequence.
+   * After the stream:
+   *   1. .agent-reasoning must contain exactly 2 .reasoning-entry elements.
+   *   2. Both reasoning texts must be present (not replaced by the second one).
+   */
+  test("multiple agent_reasoning events accumulate in the panel (not replaced)", async ({
+    page,
+  }) => {
+    const REASONING_1 = "목적지: 도쿄. 기간: 3일. 관심사: 음식, 문화.";
+    const REASONING_2 = "예산 2,000,000원 기준으로 숙박 + 식비 + 교통비 배분.";
+
+    const SSE_EVENTS = [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "create_plan 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "thinking", message: "일정 분석 중..." },
+      },
+      {
+        type: "agent_reasoning",
+        data: { agent: "planner", reasoning: REASONING_1 },
+      },
+      {
+        type: "agent_reasoning",
+        data: { agent: "planner", reasoning: REASONING_2 },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "done", message: "일정 생성 완료" },
+      },
+      { type: "chat_chunk", data: { text: "도쿄 여행 계획을 생성했습니다." } },
+      { type: "chat_done", data: {} },
+    ];
+
+    await mockChatSession(page, SSE_EVENTS);
+    await goToChat(page);
+    await expandAgentPanel(page);
+
+    await page.fill("#chat-input", "도쿄 3일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for the planner card to reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+
+    // Click the card to reveal reasoning panel
+    await page.locator('[data-agent="planner"]').click();
+    await page.waitForTimeout(200);
+
+    const reasoningEl = page.locator('[data-agent="planner"] .agent-reasoning');
+    await expect(reasoningEl).toBeVisible();
+
+    // Both reasoning entries must be present (accumulated, not replaced)
+    const entries = reasoningEl.locator(".reasoning-entry");
+    await expect(entries).toHaveCount(2);
+
+    // First entry text must still be present (not overwritten by second)
+    await expect(reasoningEl).toContainText("목적지: 도쿄");
+    await expect(reasoningEl).toContainText("관심사: 음식, 문화");
+
+    // Second entry text must also be present
+    await expect(reasoningEl).toContainText("2,000,000원");
+    await expect(reasoningEl).toContainText("숙박 + 식비 + 교통비");
+  });
+});
