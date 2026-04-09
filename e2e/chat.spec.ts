@@ -5902,7 +5902,7 @@ test.describe("remove_day E2E (Task #200)", () => {
   /**
    * Scenario B (remove_day out-of-range error):
    * 1. Build a 3-day Tokyo plan.
-   * 2. Send "5일차 삭제해줘" — Day 5 does not exist in a 3-day plan.
+   * 2. Send "5일차 삭제해줘" — Day 5 does not exist in a 3-day plan (unchanged).
    * 3. SSE emits:
    *    - coordinator done ("remove_day 파악")
    *    - planner working ("일정 조정 중...")
@@ -6021,5 +6021,494 @@ test.describe("remove_day E2E (Task #200)", () => {
     await expect(page.locator("#day-2026-05-03 .day-places")).toContainText(
       "아키하바라 전자상가"
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// add_day_note + update_day_note E2E scenarios (Task #201 / Issue #201)
+// ---------------------------------------------------------------------------
+
+test.describe("add_day_note + update_day_note E2E (Task #201)", () => {
+  /**
+   * Helper: build a two-call session mock.
+   * - First call  → plan_update with 2 days (도쿄)
+   *   Day 1 (2026-05-01, 아사쿠사): 센소지 — initial notes = day1InitNotes (default "")
+   *   Day 2 (2026-05-02, 시부야):   스크램블 교차로 — no notes
+   * - Second call → the provided sseEvents (add/update/clear note response)
+   */
+  async function mockPlanThenNote(
+    page: Page,
+    sessionId: string,
+    noteEvents: object[],
+    day1InitNotes: string = ""
+  ): Promise<void> {
+    // Session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: sessionId,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(
+      `**/chat/sessions/${sessionId}/messages`,
+      async (route) => {
+        callCount++;
+        if (callCount === 1) {
+          // First message: create a 2-day plan
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "create_plan 파악",
+                },
+              },
+              {
+                type: "plan_update",
+                data: {
+                  destination: "도쿄",
+                  start_date: "2026-05-01",
+                  end_date: "2026-05-02",
+                  budget: 1_500_000,
+                  total_estimated_cost: 300_000,
+                  days: [
+                    {
+                      day: 1,
+                      date: "2026-05-01",
+                      theme: "아사쿠사",
+                      places: [
+                        {
+                          name: "센소지",
+                          category: "문화",
+                          address: "도쿄 아사쿠사",
+                          estimated_cost: 0,
+                          ai_reason: "유명 사원",
+                          order: 1,
+                        },
+                      ],
+                      notes: day1InitNotes,
+                    },
+                    {
+                      day: 2,
+                      date: "2026-05-02",
+                      theme: "시부야",
+                      places: [
+                        {
+                          name: "스크램블 교차로",
+                          category: "관광",
+                          address: "도쿄 시부야",
+                          estimated_cost: 0,
+                          ai_reason: "유명 교차로",
+                          order: 1,
+                        },
+                      ],
+                      notes: "",
+                    },
+                  ],
+                },
+              },
+              {
+                type: "chat_chunk",
+                data: { text: "도쿄 2일 여행 계획을 생성했습니다." },
+              },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        } else {
+          // Second message: note add/update/clear response
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(...noteEvents),
+          });
+        }
+      }
+    );
+  }
+
+  /**
+   * Scenario 1 (add_day_note happy path):
+   * 1. Create a 2-day Tokyo plan — Day 1 has no notes.
+   * 2. Send "1일차에 메모 추가해줘: 우산 챙기기".
+   * 3. SSE emits:
+   *    - coordinator done ("add_day_note 파악")
+   *    - planner working ("Day 1 메모 추가 중...")
+   *    - day_update for Day 1 with notes="우산 챙기기"
+   *    - planner done ("Day 1 메모 추가 완료!")
+   *    - chat_chunk confirming the addition
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - day card #day-2026-05-01 has a .day-note element containing "우산 챙기기"
+   *   - day card #day-2026-05-02 has no .day-note (only Day 1 was updated)
+   *   - chat confirms the note was added
+   */
+  test("add_day_note: day_update with note arrives, day card shows note text", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-add-day-note-happy";
+
+    await mockPlanThenNote(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: {
+          agent: "coordinator",
+          status: "done",
+          message: "add_day_note 파악",
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "working",
+          message: "Day 1 메모 추가 중...",
+        },
+      },
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-05-01",
+          notes: "우산 챙기기",
+          transport: null,
+          places: [
+            {
+              name: "센소지",
+              category: "문화",
+              address: "도쿄 아사쿠사",
+              estimated_cost: 0,
+              ai_reason: "유명 사원",
+              order: 1,
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "done",
+          message: "Day 1 메모 추가 완료!",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1에 메모 '우산 챙기기'를 추가했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan (no notes) ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render with 2 day cards
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // No notes initially
+    await expect(page.locator("#day-2026-05-01 .day-note")).toHaveCount(0);
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: add note to Day 1 ---
+    await page.fill("#chat-input", "1일차에 메모 추가해줘: 우산 챙기기");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("메모 추가 완료");
+
+    // Day 1 card must now have a .day-note element with the note text
+    const day1NoteEl = page.locator("#day-2026-05-01 .day-note");
+    await expect(day1NoteEl).toBeVisible({ timeout: 10_000 });
+    await expect(day1NoteEl).toContainText("우산 챙기기");
+
+    // Day 2 card must NOT have a note (only Day 1 was updated)
+    await expect(page.locator("#day-2026-05-02 .day-note")).toHaveCount(0);
+
+    // Chat must confirm the note was added
+    await expect(page.locator("#chat-messages")).toContainText("우산 챙기기", {
+      timeout: 10_000,
+    });
+  });
+
+  /**
+   * Scenario 2 (update_day_note overwrite):
+   * 1. Create a 2-day Tokyo plan — Day 1 has notes="기존 메모".
+   * 2. Send "1일차 메모를 '새로운 메모'로 바꿔줘".
+   * 3. SSE emits:
+   *    - coordinator done ("update_day_note 파악")
+   *    - planner working ("Day 1 메모 업데이트 중...")
+   *    - day_update for Day 1 with notes="새로운 메모로 교체됨"
+   *    - planner done ("Day 1 메모 업데이트 완료!")
+   *    - chat_chunk confirming the update
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - day card #day-2026-05-01 .day-note shows "새로운 메모로 교체됨" (new text)
+   *   - day card #day-2026-05-01 .day-note does NOT contain "기존 메모" (old text replaced)
+   *   - chat confirms the note was updated
+   */
+  test("update_day_note overwrite: day_update with new note replaces old note in day card", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-update-day-note-overwrite";
+
+    // Initial plan has day1InitNotes="기존 메모"
+    await mockPlanThenNote(
+      page,
+      SESSION_ID,
+      [
+        {
+          type: "agent_status",
+          data: {
+            agent: "coordinator",
+            status: "done",
+            message: "update_day_note 파악",
+          },
+        },
+        {
+          type: "agent_status",
+          data: {
+            agent: "planner",
+            status: "working",
+            message: "Day 1 메모 업데이트 중...",
+          },
+        },
+        {
+          type: "day_update",
+          data: {
+            day_number: 1,
+            date: "2026-05-01",
+            notes: "새로운 메모로 교체됨",
+            transport: null,
+            places: [
+              {
+                name: "센소지",
+                category: "문화",
+                address: "도쿄 아사쿠사",
+                estimated_cost: 0,
+                ai_reason: "유명 사원",
+                order: 1,
+              },
+            ],
+          },
+        },
+        {
+          type: "agent_status",
+          data: {
+            agent: "planner",
+            status: "done",
+            message: "Day 1 메모 업데이트 완료!",
+          },
+        },
+        {
+          type: "chat_chunk",
+          data: { text: "Day 1의 메모를 '새로운 메모로 교체됨'으로 업데이트했습니다." },
+        },
+        { type: "chat_done", data: {} },
+      ],
+      "기존 메모"
+    );
+
+    await goToChat(page);
+
+    // --- First message: build the plan with existing note "기존 메모" on Day 1 ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Verify initial note "기존 메모" is shown on Day 1
+    const day1NoteInitial = page.locator("#day-2026-05-01 .day-note");
+    await expect(day1NoteInitial).toBeVisible({ timeout: 5_000 });
+    await expect(day1NoteInitial).toContainText("기존 메모");
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: overwrite the note ---
+    await page.fill("#chat-input", "1일차 메모를 '새로운 메모'로 바꿔줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("업데이트 완료");
+
+    // Day 1 .day-note must now contain the NEW note text
+    const day1NoteUpdated = page.locator("#day-2026-05-01 .day-note");
+    await expect(day1NoteUpdated).toBeVisible({ timeout: 10_000 });
+    await expect(day1NoteUpdated).toContainText("새로운 메모로 교체됨");
+
+    // Old note text must NOT be present
+    await expect(day1NoteUpdated).not.toContainText("기존 메모");
+
+    // Chat must confirm the update
+    await expect(page.locator("#chat-messages")).toContainText("새로운 메모로 교체됨", {
+      timeout: 10_000,
+    });
+  });
+
+  /**
+   * Scenario 3 (update_day_note clear):
+   * 1. Create a 2-day Tokyo plan — Day 1 has notes="삭제될 메모".
+   * 2. Send "1일차 메모 삭제해줘".
+   * 3. SSE emits:
+   *    - coordinator done ("update_day_note 파악")
+   *    - planner working ("Day 1 메모 삭제 중...")
+   *    - day_update for Day 1 with notes="" (empty → clears the note)
+   *    - planner done ("Day 1 메모 삭제 완료!")
+   *    - chat_chunk confirming the deletion
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - day card #day-2026-05-01 no longer has a .day-note element (cleared)
+   *   - day card still shows the place (places list intact)
+   *   - chat confirms the note was removed
+   */
+  test("update_day_note clear: day_update with empty notes removes note from day card", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-update-day-note-clear";
+
+    // Initial plan has day1InitNotes="삭제될 메모"
+    await mockPlanThenNote(
+      page,
+      SESSION_ID,
+      [
+        {
+          type: "agent_status",
+          data: {
+            agent: "coordinator",
+            status: "done",
+            message: "update_day_note 파악",
+          },
+        },
+        {
+          type: "agent_status",
+          data: {
+            agent: "planner",
+            status: "working",
+            message: "Day 1 메모 삭제 중...",
+          },
+        },
+        {
+          type: "day_update",
+          data: {
+            day_number: 1,
+            date: "2026-05-01",
+            notes: "",
+            transport: null,
+            places: [
+              {
+                name: "센소지",
+                category: "문화",
+                address: "도쿄 아사쿠사",
+                estimated_cost: 0,
+                ai_reason: "유명 사원",
+                order: 1,
+              },
+            ],
+          },
+        },
+        {
+          type: "agent_status",
+          data: {
+            agent: "planner",
+            status: "done",
+            message: "Day 1 메모 삭제 완료!",
+          },
+        },
+        {
+          type: "chat_chunk",
+          data: { text: "Day 1의 메모를 삭제했습니다." },
+        },
+        { type: "chat_done", data: {} },
+      ],
+      "삭제될 메모"
+    );
+
+    await goToChat(page);
+
+    // --- First message: build the plan with note "삭제될 메모" on Day 1 ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    // Wait for plan to render
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", { timeout: 10_000 });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Verify initial note "삭제될 메모" is shown on Day 1
+    const day1NoteInitial = page.locator("#day-2026-05-01 .day-note");
+    await expect(day1NoteInitial).toBeVisible({ timeout: 5_000 });
+    await expect(day1NoteInitial).toContainText("삭제될 메모");
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: clear the note ---
+    await page.fill("#chat-input", "1일차 메모 삭제해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("메모 삭제 완료");
+
+    // Day 1 card must have NO .day-note element after clearing
+    await expect(page.locator("#day-2026-05-01 .day-note")).toHaveCount(0, {
+      timeout: 10_000,
+    });
+
+    // Day 1 card must still show the place (places list intact)
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("센소지");
+
+    // Chat must confirm the note was deleted
+    await expect(page.locator("#chat-messages")).toContainText("메모를 삭제", {
+      timeout: 10_000,
+    });
   });
 });
