@@ -13,11 +13,10 @@ _(없음)_
 
 ## Ready
 
-- [ ] #203 - #121 - E2E: UX events (`progress` + `confirm_plan`) Playwright scenarios [test]
-- [ ] #202 - #120 - E2E: `remove_place` + `add_place` Playwright scenarios [test]
-- [ ] #201 - #119 - E2E: `add_day_note` + `update_day_note` Playwright scenarios [test]
 - [ ] #200 - #118 - E2E: `remove_day` Playwright scenarios [test]
-- [ ] #195 - #117 - E2E: `plan_checklist` Playwright scenarios [test]
+- [ ] #201 - #119 - E2E: `add_day_note` + `update_day_note` Playwright scenarios [test]
+- [ ] #202 - #120 - E2E: `remove_place` + `add_place` Playwright scenarios [test]
+- [ ] #203 - #121 - E2E: UX events (`progress` + `confirm_plan`) Playwright scenarios [test]
 
 ## Blocked
 
@@ -27,6 +26,7 @@ _(없음)_
 
 ## Recently Completed (last 20)
 
+- [x] #195 - #117 - E2E: `plan_checklist` Playwright scenarios — 2026-04-09
 - [x] #194 - #116 - E2E: `swap_places` Playwright scenarios — 2026-04-09
 - [x] #193 - #115 - E2E: `add_day` Playwright scenarios — 2026-04-08
 - [x] #182 - #114 - Chat: `update_day_note` intent — overwrite or clear a day's note — 2026-04-08
@@ -46,12 +46,11 @@ _(없음)_
 - [x] #162 - #105 - fix: export_calendar missing from intent extraction prompt — 2026-04-08
 - [x] #142 - #104 - Chat: quick_summary intent — concise plan overview in chat — 2026-04-07
 - [x] #141 - #103 - E2E: message timestamp Playwright scenarios — 2026-04-07
-- [x] #140 - #102 - Chat: set_day_label intent — set a custom title/label for a day — 2026-04-07
 
 ---
 
 ## Metrics
 
-- Total open: 5
-- Ready: 5 | In Progress: 0 | Blocked: 0
+- Total open: 4
+- Ready: 4 | In Progress: 0 | Blocked: 0
 - Phase: Phase 10: Chat + Multi-Agent Dashboard

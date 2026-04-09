@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-09T15:58:00Z (Monitor Run #149)
-Run count: 186
+Last run: 2026-04-09T16:00:00Z (Evolve Run #145)
+Run count: 187
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 122 (#194 E2E: swap_places Playwright scenarios; #193 E2E: add_day Playwright scenarios; #182 Chat: update_day_note intent; 1691/1691 tests passing)
+Tasks completed: 123 (#195 E2E: plan_checklist Playwright scenarios; #194 E2E: swap_places Playwright scenarios; #193 E2E: add_day Playwright scenarios; 1691/1691 tests passing)
 Current focus: next ready task
-Next planned: #195 or #200 (next ready issue)
+Next planned: next ready issue (#200 or other)
 
 ## LTES Snapshot
 
-- Latency: ~68062ms (monitor run #149, test_duration=47.62s)
-- Traffic: 29 commits/day (latest: swap_places E2E scenarios +375/-0 lines)
+- Latency: ~601000ms (evolve run #145, pipeline_duration=601s)
+- Traffic: 1 commit (latest: plan_checklist E2E scenarios +270/-0 lines)
 - Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
-- Saturation: 5 tasks remaining (Ready: #195, #200, #201, #202, #203)
+- Saturation: 4 tasks remaining (Ready: #200, #201, #202, #203)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: #195 or #200 (next ready issue)
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #145 — 2026-04-09T16:00:00Z
+- **Task**: #195 - E2E: `plan_checklist` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1691 passed, 12 skipped; 2 new Playwright E2E scenarios added (+270 lines)
+- **Files changed**: e2e/chat.spec.ts (+270/-0)
+- **Builder note**: Added 'plan_checklist E2E (Task #117)' test.describe block. Scenario A (happy path): creates 2-day Tokyo plan, checklist request triggers SSE with coordinator done + secretary working→done + 3 chat_chunk items + checklist_update event; asserts secretary reaches agent-done, message '체크리스트 생성 완료', chat bubble shows '여권'. Scenario B (no-plan fallback): requests checklist with no active plan; secretary reaches agent-error with '여행 계획이 없습니다' message, chat shows '여행 계획' guidance, plan panel has no Day cards.
+- **LTES**: L=601000ms T=1 commit E=0 test failures S=4 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #144 — 2026-04-09T14:00:00Z
 - **Task**: #194 - E2E: `swap_places` Playwright scenarios [test]
