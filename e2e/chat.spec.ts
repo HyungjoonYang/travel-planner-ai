@@ -7325,3 +7325,496 @@ test.describe("progress + confirm_plan UX events E2E (Task #203)", () => {
     expect(placeholder).toContain("변경하고 싶은 조건");
   });
 });
+
+// ---------------------------------------------------------------------------
+// clear_day + move_place E2E scenarios (Task #207 / Issue #207)
+// ---------------------------------------------------------------------------
+
+test.describe("clear_day + move_place E2E (Task #207)", () => {
+  /**
+   * Helper: build a two-call session mock.
+   * - First call  → plan_update with 2 days (도쿄)
+   *   Day 1 (2026-05-01, 아사쿠사): 센소지 (order 1), 아메요코 시장 (order 2)
+   *   Day 2 (2026-05-02, 시부야):   스크램블 교차로 (order 1)
+   * - Second call → the provided sseEvents (clear_day / move_place response)
+   */
+  async function mockPlanThenClearOrMove(
+    page: Page,
+    sessionId: string,
+    actionEvents: object[]
+  ): Promise<void> {
+    // Session creation
+    await page.route("**/chat/sessions", async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            session_id: sessionId,
+            created_at: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+            agent_states: {},
+            last_plan: null,
+          }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    let callCount = 0;
+    await page.route(
+      `**/chat/sessions/${sessionId}/messages`,
+      async (route) => {
+        callCount++;
+        if (callCount === 1) {
+          // First message: create a 2-day plan with distinct places per day
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(
+              {
+                type: "agent_status",
+                data: {
+                  agent: "coordinator",
+                  status: "done",
+                  message: "create_plan 파악",
+                },
+              },
+              {
+                type: "plan_update",
+                data: {
+                  destination: "도쿄",
+                  start_date: "2026-05-01",
+                  end_date: "2026-05-02",
+                  budget: 1_500_000,
+                  total_estimated_cost: 8_000,
+                  days: [
+                    {
+                      day: 1,
+                      date: "2026-05-01",
+                      theme: "아사쿠사",
+                      places: [
+                        {
+                          name: "센소지",
+                          category: "문화",
+                          address: "도쿄 아사쿠사",
+                          estimated_cost: 0,
+                          ai_reason: "유명 사원",
+                          order: 1,
+                        },
+                        {
+                          name: "아메요코 시장",
+                          category: "맛집",
+                          address: "도쿄 우에노",
+                          estimated_cost: 5_000,
+                          ai_reason: "시장 먹거리",
+                          order: 2,
+                        },
+                      ],
+                      notes: "",
+                    },
+                    {
+                      day: 2,
+                      date: "2026-05-02",
+                      theme: "시부야",
+                      places: [
+                        {
+                          name: "스크램블 교차로",
+                          category: "관광",
+                          address: "도쿄 시부야",
+                          estimated_cost: 0,
+                          ai_reason: "유명 교차로",
+                          order: 1,
+                        },
+                      ],
+                      notes: "",
+                    },
+                  ],
+                },
+              },
+              {
+                type: "chat_chunk",
+                data: { text: "도쿄 2일 여행 계획을 생성했습니다." },
+              },
+              { type: "chat_done", data: {} }
+            ),
+          });
+        } else {
+          // Second message: clear_day / move_place response
+          await route.fulfill({
+            status: 200,
+            contentType: "text/event-stream",
+            headers: { "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+            body: buildSse(...actionEvents),
+          });
+        }
+      }
+    );
+  }
+
+  /**
+   * Scenario 1 (clear_day happy path):
+   * 1. Create a 2-day plan.
+   *    - Day 1: 센소지 + 아메요코 시장
+   *    - Day 2: 스크램블 교차로
+   * 2. Send "1일차 모든 장소 삭제해줘".
+   * 3. SSE emits:
+   *    - coordinator done ("clear_day 파악")
+   *    - planner working ("Day 1 초기화 중...")
+   *    - day_update for Day 1 with places=[] (empty)
+   *    - planner done ("Day 1 초기화 완료!")
+   *    - chat_chunk confirming the clear
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - planner done message contains "초기화 완료"
+   *   - #day-2026-05-01 .day-places no longer contains "센소지" or "아메요코 시장"
+   *   - Day 2 card (#day-2026-05-02) is UNCHANGED — still shows "스크램블 교차로"
+   *   - chat confirms the clear
+   */
+  test("clear_day happy path: day_update with empty places clears Day 1 card", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-clear-day-happy";
+
+    await mockPlanThenClearOrMove(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "clear_day 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "working", message: "Day 1 초기화 중..." },
+      },
+      // day_update with empty places list → Day 1 card must show no places
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-05-01",
+          notes: "",
+          transport: null,
+          places: [],
+        },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "done", message: "Day 1 초기화 완료!" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1의 모든 장소를 삭제했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Verify Day 1 has both places before the clear
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("센소지");
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("아메요코 시장");
+
+    // Wait for input to re-enable before second message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: clear Day 1 ---
+    await page.fill("#chat-input", "1일차 모든 장소 삭제해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("초기화 완료");
+
+    // Day 1 must no longer contain 센소지
+    await expect(
+      page.locator("#day-2026-05-01 .day-places")
+    ).not.toContainText("센소지", { timeout: 10_000 });
+
+    // Day 1 must no longer contain 아메요코 시장
+    await expect(
+      page.locator("#day-2026-05-01 .day-places")
+    ).not.toContainText("아메요코 시장");
+
+    // Day 2 must be UNCHANGED (스크램블 교차로 still present)
+    await expect(page.locator("#day-2026-05-02 .day-places")).toContainText(
+      "스크램블 교차로"
+    );
+
+    // Chat must confirm the clear
+    await expect(page.locator("#chat-messages")).toContainText("Day 1", {
+      timeout: 10_000,
+    });
+    await expect(page.locator("#chat-messages")).toContainText("삭제");
+  });
+
+  /**
+   * Scenario 2 (clear_day non-existent day error):
+   * 1. Create a 2-day plan (Day 1 + Day 2 only).
+   * 2. Send "5일차 모든 장소 삭제해줘" — Day 5 does not exist.
+   * 3. SSE emits:
+   *    - coordinator done ("clear_day 파악")
+   *    - planner working → planner error ("Day 5이 범위를 벗어났습니다")
+   *    - chat_chunk: error guidance
+   *    - chat_done
+   *    → No day_update events fired; both day cards remain unchanged.
+   *
+   * Done criteria:
+   *   - planner reaches agent-error state
+   *   - planner error message contains "범위"
+   *   - chat shows error guidance (contains "없습니다")
+   *   - No day_update emitted → Day 1 still has 센소지 + 아메요코 시장
+   *   - Day 2 still has 스크램블 교차로
+   */
+  test("clear_day non-existent day error: planner error, no day_update fired", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-clear-day-out-of-range";
+
+    await mockPlanThenClearOrMove(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "clear_day 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "working", message: "Day 5 초기화 중..." },
+      },
+      {
+        type: "agent_status",
+        data: {
+          agent: "planner",
+          status: "error",
+          message: "Day 5이 범위를 벗어났습니다",
+        },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 5은 이 계획에 없습니다 (총 2일). 유효한 날짜를 입력해주세요." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Confirm initial state before the failed clear
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("센소지");
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("아메요코 시장");
+    await expect(page.locator("#day-2026-05-02 .day-places")).toContainText("스크램블 교차로");
+
+    // Wait for input to re-enable
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: attempt to clear a non-existent day ---
+    await page.fill("#chat-input", "5일차 모든 장소 삭제해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach error state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-error/,
+      { timeout: 10_000 }
+    );
+
+    // Planner error message must mention "범위" (out-of-range)
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("범위");
+
+    // Chat must show the error guidance
+    await expect(page.locator("#chat-messages")).toContainText("없습니다", {
+      timeout: 10_000,
+    });
+
+    // Day 1 must be UNCHANGED — no day_update was fired
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("센소지");
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("아메요코 시장");
+
+    // Day 2 must also be UNCHANGED
+    await expect(page.locator("#day-2026-05-02 .day-places")).toContainText("스크램블 교차로");
+  });
+
+  /**
+   * Scenario 3 (move_place happy path — move 센소지 from Day 1 to Day 2):
+   * 1. Create a 2-day plan:
+   *    - Day 1 (2026-05-01): 센소지 (order 1), 아메요코 시장 (order 2)
+   *    - Day 2 (2026-05-02): 스크램블 교차로 (order 1)
+   * 2. Send "1일차 센소지를 2일차로 이동해줘".
+   * 3. SSE emits:
+   *    - coordinator done ("move_place 파악")
+   *    - planner working ("장소 이동 중...")
+   *    - day_update for Day 1: only 아메요코 시장 remains (센소지 removed)
+   *    - day_update for Day 2: 스크램블 교차로 + 센소지 (센소지 added at end)
+   *    - planner done ("센소지 이동 완료!")
+   *    - chat_chunk confirming the move
+   *    - chat_done
+   *
+   * Done criteria:
+   *   - planner reaches agent-done state
+   *   - planner done message contains "이동 완료"
+   *   - Day 1 (.day-places) no longer contains "센소지"
+   *   - Day 1 (.day-places) still contains "아메요코 시장" (unchanged)
+   *   - Day 2 (.day-places) now contains "센소지" (moved in)
+   *   - Day 2 (.day-places) still contains "스크램블 교차로" (unchanged)
+   *   - chat confirms the move
+   */
+  test("move_place happy path: two day_update events move place between day cards", async ({
+    page,
+  }) => {
+    const SESSION_ID = "e2e-move-place-happy";
+
+    await mockPlanThenClearOrMove(page, SESSION_ID, [
+      {
+        type: "agent_status",
+        data: { agent: "coordinator", status: "done", message: "move_place 파악" },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "working", message: "장소 이동 중..." },
+      },
+      // day_update for Day 1: 센소지 removed, only 아메요코 시장 remains
+      {
+        type: "day_update",
+        data: {
+          day_number: 1,
+          date: "2026-05-01",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "아메요코 시장",
+              category: "맛집",
+              address: "도쿄 우에노",
+              estimated_cost: 5_000,
+              ai_reason: "시장 먹거리",
+              order: 1,
+            },
+          ],
+        },
+      },
+      // day_update for Day 2: 스크램블 교차로 stays + 센소지 added
+      {
+        type: "day_update",
+        data: {
+          day_number: 2,
+          date: "2026-05-02",
+          notes: "",
+          transport: null,
+          places: [
+            {
+              name: "스크램블 교차로",
+              category: "관광",
+              address: "도쿄 시부야",
+              estimated_cost: 0,
+              ai_reason: "유명 교차로",
+              order: 1,
+            },
+            {
+              name: "센소지",
+              category: "문화",
+              address: "도쿄 아사쿠사",
+              estimated_cost: 0,
+              ai_reason: "유명 사원",
+              order: 2,
+            },
+          ],
+        },
+      },
+      {
+        type: "agent_status",
+        data: { agent: "planner", status: "done", message: "센소지 이동 완료!" },
+      },
+      {
+        type: "chat_chunk",
+        data: { text: "Day 1의 '센소지'를 Day 2로 이동했습니다." },
+      },
+      { type: "chat_done", data: {} },
+    ]);
+
+    await goToChat(page);
+
+    // --- First message: build the 2-day plan ---
+    await page.fill("#chat-input", "도쿄 2일 여행 계획 세워줘");
+    await page.click('button:has-text("전송")');
+
+    await expect(page.locator("#plan-panel")).toContainText("도쿄", {
+      timeout: 10_000,
+    });
+    await expect(page.locator(".day-card")).toHaveCount(2);
+
+    // Verify initial state before the move
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("센소지");
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText("아메요코 시장");
+    await expect(page.locator("#day-2026-05-02 .day-places")).toContainText("스크램블 교차로");
+    await expect(
+      page.locator("#day-2026-05-02 .day-places")
+    ).not.toContainText("센소지");
+
+    // Wait for input to re-enable before second message
+    await expect(page.locator("#chat-input")).not.toBeDisabled({ timeout: 5_000 });
+
+    // --- Second message: move 센소지 from Day 1 to Day 2 ---
+    await page.fill("#chat-input", "1일차 센소지를 2일차로 이동해줘");
+    await page.click('button:has-text("전송")');
+
+    // Planner must reach done state
+    await expect(page.locator('[data-agent="planner"]')).toHaveClass(
+      /agent-done/,
+      { timeout: 10_000 }
+    );
+    await expect(
+      page.locator('[data-agent="planner"] .agent-message')
+    ).toContainText("이동 완료");
+
+    // Day 1 must no longer contain 센소지 (it was moved away)
+    await expect(
+      page.locator("#day-2026-05-01 .day-places")
+    ).not.toContainText("센소지", { timeout: 10_000 });
+
+    // Day 1 must still contain 아메요코 시장 (only 센소지 was moved)
+    await expect(page.locator("#day-2026-05-01 .day-places")).toContainText(
+      "아메요코 시장"
+    );
+
+    // Day 2 must now contain 센소지 (moved in from Day 1)
+    await expect(page.locator("#day-2026-05-02 .day-places")).toContainText(
+      "센소지",
+      { timeout: 10_000 }
+    );
+
+    // Day 2 must still contain 스크램블 교차로 (unchanged)
+    await expect(page.locator("#day-2026-05-02 .day-places")).toContainText(
+      "스크램블 교차로"
+    );
+
+    // Chat must confirm the move
+    await expect(page.locator("#chat-messages")).toContainText("센소지", {
+      timeout: 10_000,
+    });
+    await expect(page.locator("#chat-messages")).toContainText("이동");
+  });
+});
