@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-09T21:00:00Z (Evolve Run #149)
-Run count: 194
+Last run: 2026-04-09T22:00:00Z (Evolve Run #150)
+Run count: 195
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 127 (#203 E2E: progress+confirm_plan UX events; 1691/1691 tests passing)
+Tasks completed: 128 (#207 E2E: clear_day+move_place Playwright scenarios; 1691/1691 tests passing)
 Current focus: next ready task
-Next planned: next ready issue (#207, #208, #209, #210)
+Next planned: next ready issue (#208, #209, #210)
 
 ## LTES Snapshot
 
-- Latency: 720000ms (evolve run #149, pipeline_duration=720s)
+- Latency: 707000ms (evolve run #150, pipeline_duration=707s)
 - Traffic: 1 commit (this run); ~20 commits/day (last 24h)
 - Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
-- Saturation: 4 tasks remaining (Ready: #207, #208, #209, #210)
+- Saturation: 3 tasks remaining (Ready: #208, #209, #210)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: next ready issue (#207, #208, #209, #210)
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #150 — 2026-04-09T22:00:00Z
+- **Task**: #207 - E2E: `clear_day` + `move_place` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1691 passed, 12 skipped; 3 new Playwright E2E scenarios added (+295/-0 lines)
+- **Files changed**: e2e/chat.spec.ts (+295)
+- **Builder note**: Added 3 Playwright scenarios in 'clear_day + move_place E2E (Task #207)' describe block. (1) clear_day happy path — day_update with places=[] clears Day 1 card while Day 2 stays unchanged; (2) clear_day non-existent day error — planner reaches agent-error, no day_update, both cards unchanged; (3) move_place happy path — two day_update events move 센소지 from Day 1 to Day 2 (Day 1 loses the place, Day 2 gains it). All use route mock for SSE (mockPlanThenClearOrMove helper).
+- **LTES**: L=707000ms T=1 commit E=0 test failures S=3 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #149 — 2026-04-09T21:00:00Z
 - **Task**: #203 - E2E: UX events (`progress` + `confirm_plan`) Playwright scenarios [test]

@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-09",
-    "total_runs": 194,
-    "successful_runs": 194,
+    "total_runs": 195,
+    "successful_runs": 195,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 0.95,
@@ -653,6 +653,13 @@
   ],
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
+  "history_tail_run150": {
+    "run_id": "2026-04-09-2200",
+    "task": "#207 - E2E: clear_day + move_place Playwright scenarios",
+    "result": "success",
+    "tests_passed": 1691,
+    "tests_total": 1691
+  },
   "history_tail_run149": {
     "run_id": "2026-04-09-2100",
     "task": "#203 - E2E: UX events (progress + confirm_plan) Playwright scenarios",
