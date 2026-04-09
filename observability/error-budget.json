@@ -7,8 +7,8 @@
   "current_period": {
     "start": "2026-04-01",
     "end": "2026-04-09",
-    "total_runs": 189,
-    "successful_runs": 189,
+    "total_runs": 190,
+    "successful_runs": 190,
     "failed_runs": 0,
     "success_rate": 1.0,
     "budget_remaining": 0.95,
@@ -653,6 +653,13 @@
   ],
   "consecutive_qa_failures": 0,
   "issue_failure_history": {},
+  "history_tail_run147": {
+    "run_id": "2026-04-09-1900",
+    "task": "#201 - E2E: add_day_note + update_day_note Playwright scenarios",
+    "result": "success",
+    "tests_passed": 1691,
+    "tests_total": 1691
+  },
   "history_tail_run146": {
     "run_id": "2026-04-09-1800",
     "task": "#200 - E2E: remove_day Playwright scenarios",

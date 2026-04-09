@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-09T18:00:00Z (Evolve Run #146)
-Run count: 189
+Last run: 2026-04-09T19:00:00Z (Evolve Run #147)
+Run count: 190
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 124 (#200 E2E: remove_day Playwright scenarios; #195 E2E: plan_checklist Playwright scenarios; #194 E2E: swap_places Playwright scenarios; 1691/1691 tests passing)
+Tasks completed: 125 (#201 E2E: add_day_note + update_day_note Playwright scenarios; #200 E2E: remove_day Playwright scenarios; #195 E2E: plan_checklist Playwright scenarios; 1691/1691 tests passing)
 Current focus: next ready task
-Next planned: next ready issue (#201 or other)
+Next planned: next ready issue (#202 or other)
 
 ## LTES Snapshot
 
-- Latency: ~713000ms (evolve run #146, pipeline_duration=713s)
-- Traffic: 31 commits/day (last 24h)
+- Latency: ~668000ms (evolve run #147, pipeline_duration=668s)
+- Traffic: 32 commits/day (last 24h)
 - Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
-- Saturation: 3 tasks remaining (Ready: #201, #202, #203)
+- Saturation: 2 tasks remaining (Ready: #202, #203)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: next ready issue (#201 or other)
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #147 — 2026-04-09T19:00:00Z
+- **Task**: #201 - E2E: `add_day_note` + `update_day_note` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1691 passed, 12 skipped; 3 new Playwright E2E scenarios added (+508/-2 lines)
+- **Files changed**: e2e/chat.spec.ts (+506), src/app/static/chat.js (+2/-2)
+- **Builder note**: Added 3 Playwright E2E scenarios for add_day_note + update_day_note. Fixed handleDayUpdate() in chat.js to update notes on existing day cards (previously only places/labels were updated). Added .day-note class to _dayCardHtml template. Scenario 1: add_day_note happy path — day card .day-note shows note text; Scenario 2: update_day_note overwrite — .day-note contains new text, old text absent; Scenario 3: update_day_note clear — .day-note element removed (count=0). All use route mock for SSE.
+- **LTES**: L=668000ms T=1 commit E=0 test failures S=2 tasks remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Evolve Run #146 — 2026-04-09T18:00:00Z
 - **Task**: #200 - E2E: `remove_day` Playwright scenarios [test]
