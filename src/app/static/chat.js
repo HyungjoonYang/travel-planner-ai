@@ -967,7 +967,7 @@ function _dayCardHtml(day) {
       ${dayCost > 0 ? `<span class="price-tag">${dayCost.toLocaleString()}원</span>` : ''}
     </div>
     ${day.label ? `<span class="day-label-badge">${escHtml(day.label)}</span>` : ''}
-    ${day.notes ? `<div class="meta">${escHtml(day.notes)}</div>` : ''}
+    ${day.notes ? `<div class="day-note meta">${escHtml(day.notes)}</div>` : ''}
     <div class="day-places">${places || '<div class="meta">장소 없음</div>'}</div>
   </div>`;
 }
@@ -1012,6 +1012,23 @@ function handleDayUpdate(data) {
     }
   } else if (labelEl) {
     labelEl.remove();
+  }
+  // Update day note (add_day_note / update_day_note)
+  if (data.notes !== undefined) {
+    let noteEl = dayEl.querySelector('.day-note');
+    if (data.notes) {
+      if (noteEl) {
+        noteEl.textContent = data.notes;
+      } else {
+        noteEl = document.createElement('div');
+        noteEl.className = 'day-note meta';
+        noteEl.textContent = data.notes;
+        const placesDiv = dayEl.querySelector('.day-places');
+        if (placesDiv) placesDiv.insertAdjacentElement('beforebegin', noteEl);
+      }
+    } else if (noteEl) {
+      noteEl.remove();
+    }
   }
   // Update day cost
   const dayCost = (data.places || []).reduce((s, p) => s + (p.estimated_cost || 0), 0);
