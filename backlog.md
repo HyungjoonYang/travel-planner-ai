@@ -14,7 +14,10 @@ _(없음)_
 ## Ready
 
 - [ ] #203 - #121 - E2E: UX events (`progress` + `confirm_plan`) Playwright scenarios [test]
-- [ ] #202 - #120 - E2E: `remove_place` + `add_place` Playwright scenarios [test]
+- [ ] #207 - #122 - E2E: `clear_day` + `move_place` Playwright scenarios [test]
+- [ ] #208 - #123 - E2E: `agent_reasoning` event Playwright scenarios [test]
+- [ ] #209 - #124 - E2E: `list_plans` + `view_plan` + `delete_plan` Playwright scenarios [test]
+- [ ] #210 - #125 - E2E: `modify_day` Playwright scenarios [test]
 
 ## Blocked
 
@@ -24,6 +27,7 @@ _(없음)_
 
 ## Recently Completed (last 20)
 
+- [x] #202 - #120 - E2E: `remove_place` + `add_place` Playwright scenarios — 2026-04-09
 - [x] #201 - #119 - E2E: `add_day_note` + `update_day_note` Playwright scenarios — 2026-04-09
 - [x] #200 - #118 - E2E: `remove_day` Playwright scenarios — 2026-04-09
 - [x] #195 - #117 - E2E: `plan_checklist` Playwright scenarios — 2026-04-09
@@ -43,12 +47,11 @@ _(없음)_
 - [x] #165 - #108 - Chat: plan_checklist intent — AI-generated pre-trip checklist — 2026-04-08
 - [x] #164 - #107 - Chat: set_budget intent — update plan budget directly via chat — 2026-04-08
 - [x] #163 - #106 - Chat: find_nearby intent — search places near a plan location — 2026-04-08
-- [x] #162 - #105 - fix: export_calendar missing from intent extraction prompt — 2026-04-08
 
 ---
 
 ## Metrics
 
-- Total open: 2
-- Ready: 2 | In Progress: 0 | Blocked: 0
+- Total open: 5
+- Ready: 5 | In Progress: 0 | Blocked: 0
 - Phase: Phase 10: Chat + Multi-Agent Dashboard

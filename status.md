@@ -1,20 +1,20 @@
 # Status
 
-Last run: 2026-04-09T17:38:57Z (Monitor Run #151)
-Run count: 191
+Last run: 2026-04-09T20:00:00Z (Evolve Run #148)
+Run count: 192
 Phase: Phase 10: Chat + Multi-Agent Dashboard
 Health: GREEN
 Error Budget: HEALTHY
-Tasks completed: 125 (#201 E2E: add_day_note + update_day_note Playwright scenarios; #200 E2E: remove_day Playwright scenarios; #195 E2E: plan_checklist Playwright scenarios; 1691/1691 tests passing)
+Tasks completed: 126 (#202 E2E: remove_place + add_place Playwright scenarios; #201 E2E: add_day_note + update_day_note; #200 E2E: remove_day; 1691/1691 tests passing)
 Current focus: next ready task
-Next planned: next ready issue (#202 or other)
+Next planned: next ready issue (#203 or other)
 
 ## LTES Snapshot
 
-- Latency: 41620ms (monitor run #151, test_duration=41.62s)
-- Traffic: 29 commits/day (last 24h)
+- Latency: 1046000ms (evolve run #148, pipeline_duration=1046s)
+- Traffic: 1 commit (evolve run #148)
 - Errors: 0 test failures (1691 passed, 12 skipped), error_rate=0.0%
-- Saturation: 2 tasks remaining (Ready: #202, #203)
+- Saturation: 1 task remaining (Ready: #203)
 
 ## Phase Transition
 
@@ -29,6 +29,15 @@ Next planned: next ready issue (#202 or other)
   - Evolve: 5 specialized agents (Coordinator, Architect, Builder, QA, Reporter)
 
 ## Recent Changes
+
+### Evolve Run #148 — 2026-04-09T20:00:00Z
+- **Task**: #202 - E2E: `remove_place` + `add_place` Playwright scenarios [test]
+- **Result**: GREEN ✓ (QA pass)
+- **Tests**: 1691/1691 passed, 12 skipped; 3 new Playwright E2E scenarios added (+310/-0 lines)
+- **Files changed**: e2e/chat.spec.ts (+310)
+- **Builder note**: Added 3 Playwright E2E scenarios for remove_place + add_place using mockPlanThenPlace helper. Scenario A (remove_place happy): day_update fires, '센소지' disappears from day card, '아메요코 시장' intact. Scenario B (remove_place out-of-range): planner reaches agent-error with '범위' message, error bubble shown, no day_update, day card unchanged. Scenario C (add_place happy): place_scout + planner both reach agent-done, day_update fires with '스카이트리' added, original places intact.
+- **LTES**: L=1046000ms T=1 commit E=0 test failures S=1 task remaining
+- **Agents**: coordinator ✓ → architect ⏭️ → builder ✓ → qa ✓ → reporter ✓
 
 ### Monitor Run #151 — 2026-04-09T17:38:57Z
 - **Task**: monitor
